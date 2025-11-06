@@ -1,0 +1,13 @@
+{
+  "msg.ccus.unregistered": "CCUS技能者IDが未登録です。入場できません。",
+  "msg.ccus.unregistered.warn": "CCUS技能者IDが未登録です。",
+  "msg.socialInsurance.none": "社会保険未加入です。",
+  "msg.residency.invalid": "在留資格が無効です。",
+  "msg.residency.expired": "在留期限が切れています。入場できません。",
+  "msg.residency.workPermitInvalid": "就労が認められていません。入場できません。",
+  "msg.age.minor": "年少者（18歳未満）です。",
+  "msg.age.senior": "高齢者（65歳以上）です。",
+  "msg.age.notice": "年齢に関する注意があります。",
+  "msg.health.notice": "健康に関する注意があります。",
+  "msg.soleProprietor": "一人親方です。"
+}

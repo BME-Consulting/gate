@@ -1,22 +1,24 @@
 {
-  "name": "mc-gate",
+  "name": "mc-gate-monorepo",
   "version": "1.0.0",
-  "main": "index.ts",
+  "private": true,
   "scripts": {
-    "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
-    "web": "expo start --web"
-  },
-  "dependencies": {
-    "expo": "~54.0.20",
-    "expo-status-bar": "~3.0.8",
-    "react": "19.1.0",
-    "react-native": "0.81.5"
+    "mobile": "pnpm --filter @mc-gate/mobile start",
+    "mobile:android": "pnpm --filter @mc-gate/mobile android",
+    "mobile:ios": "pnpm --filter @mc-gate/mobile ios",
+    "mobile:web": "pnpm --filter @mc-gate/mobile web",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint",
+    "type-check": "pnpm -r type-check",
+    "clean": "pnpm -r clean && rm -rf node_modules"
   },
   "devDependencies": {
-    "@types/react": "~19.1.0",
+    "@types/node": "^22.10.5",
     "typescript": "~5.9.2"
   },
-  "private": true
+  "packageManager": "pnpm@9.15.4",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=9.0.0"
+  }
 }

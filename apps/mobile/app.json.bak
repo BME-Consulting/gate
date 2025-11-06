@@ -1,0 +1,66 @@
+{
+  "expo": {
+    "name": "mc-gate",
+    "slug": "mc-gate",
+    "owner": "bme_llc",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "scheme": "mcgate",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.bmeconsulting.mcgate",
+      "infoPlist": {
+        "NSCameraUsageDescription": "QRコードの読み取りにカメラを使用します。",
+        "NSBluetoothAlwaysUsageDescription": "CCUSカードリーダーとの通信にBluetoothを使用します。"
+      }
+    },
+    "android": {
+      "package": "com.bmeconsulting.mcgate",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "extra": {
+      "apiBaseGs": "http://localhost:7070",
+      "apiBaseCcus": "http://localhost:7071",
+      "auth": {
+        "issuer": "http://localhost:8080/auth/realms/mcd3",
+        "audience": "mc-gate",
+        "clientId": "mc-gate-mobile"
+      },
+      "eas": {
+        "projectId": "0f0feec5-4f4b-4252-ad34-c1594238b4b8"
+      }
+    },
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "newArchEnabled": true
+          },
+          "android": {
+            "newArchEnabled": true
+          }
+        }
+      ]
+    ]
+  }
+}
