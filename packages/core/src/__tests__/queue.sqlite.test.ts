@@ -36,7 +36,7 @@ describe("OfflineQueue", () => {
     projectId: "PRJ001",
     personId: "P001",
     method: "QR",
-    gateMode: "AUTO",
+    gateMode: "IN",
     decidedMode: "IN",
     occurredAt: "2025-11-06T10:00:00.000Z",
     ruleResult: {
@@ -61,7 +61,7 @@ describe("OfflineQueue", () => {
     project_id: "PRJ001",
     person_id: "P001",
     method: "QR",
-    gate_mode: "AUTO",
+    gate_mode: "IN",
     decided_mode: "IN",
     occurred_at: "2025-11-06T10:00:00.000Z",
     rule_result: JSON.stringify({
@@ -131,7 +131,7 @@ describe("OfflineQueue", () => {
           "PRJ001",
           "P001",
           "QR",
-          "AUTO",
+          "IN",
           "IN",
           "2025-11-06T10:00:00.000Z",
           JSON.stringify({
@@ -250,7 +250,7 @@ describe("OfflineQueue", () => {
         projectId: "PRJ001",
         personId: "P001",
         method: "QR",
-        gateMode: "AUTO",
+        gateMode: "IN",
         decidedMode: "IN",
         occurredAt: "2025-11-06T10:00:00.000Z",
         ruleResult: {

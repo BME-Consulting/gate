@@ -93,7 +93,7 @@ function generateScanEvent(index: number): ScanEvent {
     projectId: PROJECT_ID,
     personId,
     method: method as "QR" | "CARD",
-    gateMode: "AUTO",
+    gateMode: "IN",
     decidedMode: decidedMode as "IN" | "OUT",
     occurredAt: occurredAt.toISOString(),
     ruleResult: {

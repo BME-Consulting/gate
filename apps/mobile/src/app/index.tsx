@@ -37,7 +37,7 @@ export default function LoginScreen() {
       setCurrentProject({
         projectId: DEFAULT_PROJECT_ID,
         name: "東京建設現場A",
-        gateMode: "AUTO",
+        gateMode: "IN",
         checkConfig: {
           ccusIdCheck: true,
           socialInsuranceCheck: true,

@@ -1056,5 +1056,157 @@ grep -r "mock-token" apps/mobile/src/
 
 ---
 
-**最終更新**: 2025-11-06
+## 🚨 EAS Build & Update トラブルシューティング（2025-11-07）
+
+### 問題: EAS Update後にログイン画面が表示されない
+
+**症状**:
+- EAS Updateを配信後、QRコードをスキャンしてもログイン画面が表示されない
+- アプリが白い画面のまま固まる、またはクラッシュする
+
+**根本原因**:
+EAS Updateは**コミット済みのコード**をビルドに配信するが、**未コミットの変更**を含むUpdateを配信すると、ビルドとUpdateの間でモジュール解決エラーが発生する。
+
+具体的には:
+1. **ビルド** (Build ID: c376a756) はコミット `a20fbc88` から作成
+2. **EAS Update** (Update ID: 6018fce1) は**未コミットの変更**を含む状態で配信
+3. Updateには新しいモジュール（例: `@mc-gate/core`から`DEFAULT_PROJECT_ID`をimport）が含まれる
+4. ビルドにはそのモジュールが存在しない → **モジュール解決エラー**で起動失敗
+
+### 🎯 再発防止策（必須手順）
+
+#### ステップ1: コード変更をコミット
+
+**重要**: EAS Updateを配信する前に、**必ず変更をgitにコミット**する
+
+```bash
+# 変更をステージング
+git add -A
+
+# コミット
+git commit -m "変更内容の説明"
+
+# コミットハッシュを確認
+git log --oneline -1
+```
+
+#### ステップ2: 新しいコミットからビルドを作成
+
+```bash
+export EXPO_TOKEN="r3kIBuCA-RDE1_KYFJKcsEIaMi-t2TThCKIOPgBu"
+
+# 新しいビルドを作成（10〜15分かかる）
+npx eas-cli build --platform android --profile preview --non-interactive
+
+# ビルド完了を待つ
+```
+
+**ポイント**:
+- ビルドは新しいコミットから作成される
+- ビルドIDとコミットハッシュをメモしておく
+
+#### ステップ3: ビルド完了後にEAS Updateを配信
+
+```bash
+# ビルドが完了してからUpdateを配信
+npx eas-cli update --branch preview --message "変更内容の説明"
+```
+
+**確認事項**:
+- Updateのコミットハッシュがビルドのコミットハッシュと一致していること
+- Update配信時に表示される `Commit` が最新コミットであること
+
+#### ステップ4: ビルドとUpdateの整合性を確認
+
+```bash
+# 最新ビルドのコミットハッシュを確認
+npx eas-cli build:list --platform android --limit 1
+
+# 最新Updateのコミットハッシュを確認
+npx eas-cli update:list --branch preview --limit 1
+```
+
+**期待される結果**: 両方のコミットハッシュが一致している
+
+---
+
+### ❌ NG例: 失敗するパターン
+
+```bash
+# 1. コード変更
+vim packages/core/src/index.ts
+
+# 2. コミットせずにEAS Updateを配信 ❌ これがNG！
+npx eas-cli update --branch preview --message "変更"
+
+# 結果: ビルドには変更が含まれていないため、モジュール解決エラーが発生
+```
+
+### ✅ OK例: 正しい手順
+
+```bash
+# 1. コード変更
+vim packages/core/src/index.ts
+
+# 2. コミット ✅
+git add -A
+git commit -m "Add new exports to core package"
+
+# 3. 新しいビルドを作成 ✅
+npx eas-cli build --platform android --profile preview --non-interactive
+
+# 4. ビルド完了を待つ（10〜15分）
+
+# 5. EAS Updateを配信 ✅
+npx eas-cli update --branch preview --message "Add new exports to core package"
+```
+
+---
+
+### 📋 チェックリスト: EAS Update配信前
+
+- [ ] すべての変更がgitにコミット済み
+- [ ] `git status` で未コミットの変更がないことを確認
+- [ ] 新しいコミットからビルドを作成済み
+- [ ] ビルドが完了している（Status: finished）
+- [ ] ビルドとUpdateのコミットハッシュが一致している
+
+---
+
+### 🔧 トラブル時の復旧手順
+
+もし誤って未コミットの変更でUpdateを配信してしまった場合:
+
+1. **変更をコミット**
+   ```bash
+   git add -A
+   git commit -m "Fix: commit missing changes"
+   ```
+
+2. **新しいビルドを作成**
+   ```bash
+   npx eas-cli build --platform android --profile preview --non-interactive
+   ```
+
+3. **ビルド完了後、Updateを再配信**
+   ```bash
+   npx eas-cli update --branch preview --message "Fix: rebuild with all changes"
+   ```
+
+4. **QRコードをスキャンして確認**
+   - 新しいビルドのQRコードをスキャン
+   - ログイン画面が正しく表示されることを確認
+
+---
+
+### 💡 ベストプラクティス
+
+1. **開発フロー**: コミット → ビルド → Update配信
+2. **未コミット変更のチェック**: `git status` を配信前に必ず実行
+3. **ビルドとUpdateの同期**: 同じコミットハッシュから作成する
+4. **テスト**: 新しいビルド+Updateで必ず動作確認する
+
+---
+
+**最終更新**: 2025-11-07
 **作成者**: Claude (with user collaboration)

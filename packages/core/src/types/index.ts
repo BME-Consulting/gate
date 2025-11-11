@@ -9,12 +9,13 @@ export type UUID = string;
 // ==========================================
 // 読取方式
 // ==========================================
-export type ScanMethod = "QR" | "CARD";
+export type ScanMethod = "QR" | "CARD" | "FACE";
 
 // ==========================================
 // 入退場モード
 // ==========================================
-export type GateMode = "IN" | "OUT" | "AUTO";
+// NOTE: AUTOモードはスコープアウト（アンチパスバック不要のため）
+export type GateMode = "IN" | "OUT";
 export type DecidedMode = "IN" | "OUT";
 
 // ==========================================

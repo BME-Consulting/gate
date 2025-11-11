@@ -3,7 +3,7 @@
 // ==========================================
 
 import React, { useState, useMemo } from "react";
-import { View, Text, StyleSheet, Alert } from "react-native";
+import { View, Text, StyleSheet, Alert, TouchableOpacity } from "react-native";
 import { Button, Dialog, Banner, tokens } from "@mc-gate/ui-kit";
 import { QRScanner, parseQRCode } from "@mc-gate/qr";
 import {
@@ -14,7 +14,9 @@ import {
   type WorkerInfo,
   type RuleResult,
   type DecidedMode,
+  type ScanMethod,
 } from "@mc-gate/core";
+import { MockCardReader, type CardData } from "@mc-gate/reader-bridge";
 import { useAppStore } from "../../store/appStore";
 import { useQueue } from "../../hooks/useQueue";
 import { useNetworkStatus } from "../../hooks/useNetworkStatus";
@@ -24,6 +26,7 @@ export default function ScanScreen() {
   const { isReady, addToQueue } = useQueue();
   const { isOffline } = useNetworkStatus();
 
+  const [selectedMethod, setSelectedMethod] = useState<ScanMethod>("QR");
   const [scanning, setScanning] = useState(false);
   const [showResult, setShowResult] = useState(false);
   const [resultData, setResultData] = useState<{
@@ -42,15 +45,39 @@ export default function ScanScreen() {
     setScanning(true);
   };
 
-  const handleQRScan = (data: string) => {
+  const handleScan = (data: unknown) => {
     // スキャン直後に状態を更新してカメラを停止
     setScanning(false);
 
     try {
-      console.log("QR Scanned:", data);
+      let workerInfo: WorkerInfo;
 
-      // QRデータをパース
-      const workerInfo = parseQRCode(data);
+      // 選択された方式に応じてデータをパース
+      switch (selectedMethod) {
+        case "QR":
+          console.log("QR Scanned:", data);
+          workerInfo = parseQRCode(data as string);
+          break;
+
+        case "CARD":
+          console.log("Card Scanned:", data);
+          const cardData = data as CardData;
+          // TODO: CCUSカードAPIから技能者情報を取得
+          // 現在はモックデータとして扱う
+          workerInfo = {
+            personId: cardData.personId || cardData.ccusId,
+            name: "カード読取者",
+            company: "不明",
+            ccusId: cardData.ccusId,
+            ccusRegistered: true,
+            socialInsurance: true,
+            isSoleProprietor: false,
+          };
+          break;
+
+        default:
+          throw new Error(`未対応の読取方式: ${selectedMethod}`);
+      }
 
       // ルールを適用
       if (!ruleEngine) {
@@ -58,20 +85,17 @@ export default function ScanScreen() {
       }
       const ruleResult = ruleEngine.evaluate(workerInfo);
 
-      // 入退モードを決定（TODO: AUTO時はロジック実装）
-      const decidedMode: DecidedMode =
-        currentProject?.gateMode === "IN" || currentProject?.gateMode === "OUT"
-          ? (currentProject.gateMode as DecidedMode)
-          : "IN"; // AUTOの場合は暫定的にIN
+      // 入退モードを決定（プロジェクト設定のgateModeをそのまま使用）
+      const decidedMode: DecidedMode = currentProject?.gateMode || "IN";
 
       // 結果を保存して表示
       setResultData({ worker: workerInfo, result: ruleResult, decidedMode });
       setShowResult(true);
     } catch (error) {
-      console.error("QR Scan Error:", error);
+      console.error("Scan Error:", error);
       Alert.alert(
         "エラー",
-        error instanceof Error ? error.message : "QRコードの読み取りに失敗しました"
+        error instanceof Error ? error.message : "読み取りに失敗しました"
       );
     }
   };
@@ -100,8 +124,8 @@ export default function ScanScreen() {
         id: generateUUID(),
         projectId: currentProject.projectId,
         personId: worker.personId,
-        method: "QR" as const,
-        gateMode: currentProject.gateMode || "AUTO",
+        method: selectedMethod,
+        gateMode: currentProject.gateMode,
         decidedMode,
         occurredAt,
         ruleResult: result,
@@ -221,20 +245,80 @@ export default function ScanScreen() {
           <Text style={styles.projectName}>{currentProject.name}</Text>
         </View>
 
+        {/* 読取方式切替 */}
+        <View style={styles.methodSwitcher}>
+          <TouchableOpacity
+            style={[
+              styles.methodButton,
+              selectedMethod === "QR" && styles.methodButtonActive,
+            ]}
+            onPress={() => {
+              setSelectedMethod("QR");
+              setScanning(false);
+            }}
+            disabled={scanning}
+          >
+            <Text
+              style={[
+                styles.methodButtonText,
+                selectedMethod === "QR" && styles.methodButtonTextActive,
+              ]}
+            >
+              QRコード
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.methodButton,
+              selectedMethod === "CARD" && styles.methodButtonActive,
+            ]}
+            onPress={() => {
+              setSelectedMethod("CARD");
+              setScanning(false);
+            }}
+            disabled={scanning}
+          >
+            <Text
+              style={[
+                styles.methodButtonText,
+                selectedMethod === "CARD" && styles.methodButtonTextActive,
+              ]}
+            >
+              カード
+            </Text>
+          </TouchableOpacity>
+        </View>
+
         {/* スキャンエリア */}
         <View style={styles.scanArea}>
-          <QRScanner
-            onScan={handleQRScan}
-            onError={(error) => {
-              setScanning(false);
-              Alert.alert("エラー", error.message);
-            }}
-            enabled={scanning}
-          />
-          {!scanning && (
+          {selectedMethod === "QR" && (
+            <>
+              <QRScanner
+                onScan={handleScan}
+                onError={(error) => {
+                  setScanning(false);
+                  Alert.alert("エラー", error.message);
+                }}
+                enabled={scanning}
+              />
+              {!scanning && (
+                <View style={styles.scanOverlay}>
+                  <Text style={styles.placeholderText}>
+                    QRコードをカメラで読み取ります
+                  </Text>
+                </View>
+              )}
+            </>
+          )}
+
+          {selectedMethod === "CARD" && (
             <View style={styles.scanOverlay}>
               <Text style={styles.placeholderText}>
-                QRコードをカメラで読み取ります
+                カード読取準備中
+              </Text>
+              <Text style={styles.placeholderSubtext}>
+                この機能は近日公開予定です
               </Text>
             </View>
           )}
@@ -252,10 +336,17 @@ export default function ScanScreen() {
             />
           ) : (
             <Button
-              title="QRコード読取"
+              title={
+                selectedMethod === "QR"
+                  ? "QRコード読取"
+                  : selectedMethod === "CARD"
+                    ? "カード読取"
+                    : "読取開始"
+              }
               onPress={handleStartScan}
               fullWidth
               size="lg"
+              disabled={selectedMethod === "CARD"}
             />
           )}
         </View>
@@ -336,6 +427,40 @@ const styles = StyleSheet.create({
     color: tokens.color.text.primary,
   },
 
+  methodSwitcher: {
+    flexDirection: "row",
+    gap: tokens.spacing.sm,
+    padding: tokens.spacing.xs,
+    backgroundColor: tokens.color.background.default,
+    borderRadius: tokens.radius.md,
+    ...tokens.shadow.sm,
+  },
+
+  methodButton: {
+    flex: 1,
+    paddingVertical: tokens.spacing.md,
+    paddingHorizontal: tokens.spacing.lg,
+    borderRadius: tokens.radius.sm,
+    backgroundColor: "transparent",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  methodButtonActive: {
+    backgroundColor: tokens.color.primary,
+  },
+
+  methodButtonText: {
+    fontSize: tokens.font.size.base,
+    fontWeight: tokens.font.weight.medium,
+    color: tokens.color.text.secondary,
+  },
+
+  methodButtonTextActive: {
+    color: tokens.color.background.paper,
+    fontWeight: tokens.font.weight.semibold,
+  },
+
   scanArea: {
     flex: 1,
     backgroundColor: tokens.color.background.default,
@@ -367,6 +492,13 @@ const styles = StyleSheet.create({
     fontSize: tokens.font.size.base,
     color: tokens.color.text.secondary,
     textAlign: "center",
+  },
+
+  placeholderSubtext: {
+    fontSize: tokens.font.size.sm,
+    color: tokens.color.text.disabled,
+    textAlign: "center",
+    marginTop: tokens.spacing.sm,
   },
 
   scanningIndicator: {
