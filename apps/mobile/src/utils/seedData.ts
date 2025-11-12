@@ -4,9 +4,11 @@
 
 import { openDatabaseAsync } from "expo-sqlite";
 import type { ScanEvent, SQLiteDatabase } from "@mc-gate/core";
-import { DB_NAME, DEFAULT_PROJECT_ID } from "@mc-gate/core";
+import { DB_NAME } from "@mc-gate/core";
 
-const PROJECT_ID = DEFAULT_PROJECT_ID;
+// WORKAROUND: Hardcode PROJECT_ID to avoid build-update mismatch
+// This ensures the value is always a string, even if DEFAULT_PROJECT_ID export fails
+const PROJECT_ID = "PRJ001";
 const PERSON_IDS = [
   "P001", "P002", "P003", "P004", "P005",
   "P006", "P007", "P008", "P009", "P010",
