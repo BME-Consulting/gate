@@ -288,7 +288,7 @@ export async function seedDummyData(count: number = 50) {
           `[8] ruleResult: ${typeof JSON.stringify(event.ruleResult)}`,
           `[9] status: ${typeof event.transport.status}`,
           `[10] attempts: ${typeof event.transport.attempts}`,
-          `[11] lastError: ${typeof (event.transport.lastError || null)}`,
+          `[11] lastError: ${typeof (event.transport.lastError ?? null)}`,
           `[12] idempotencyKey: ${typeof event.transport.idempotencyKey}`,
           `[13] created_at: ${typeof now}`,
           `[14] updated_at: ${typeof now}`,
