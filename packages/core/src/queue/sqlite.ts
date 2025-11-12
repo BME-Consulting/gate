@@ -304,7 +304,7 @@ export class OfflineQueue {
       transport: {
         status: row.transport_status,
         attempts: row.transport_attempts,
-        lastError: row.transport_last_error || undefined,
+        lastError: row.transport_last_error ?? undefined,
         idempotencyKey: row.transport_idempotency_key,
       },
     };
