@@ -61,29 +61,56 @@ export class OfflineQueue {
   async add(event: ScanEvent): Promise<void> {
     const now = new Date().toISOString();
 
-    await this.db.runAsync(
-      `INSERT INTO scan_events (
-        id, project_id, person_id, method, gate_mode, decided_mode,
-        occurred_at, rule_result, transport_status, transport_attempts,
-        transport_last_error, transport_idempotency_key, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        event.id,
-        event.projectId,
-        event.personId,
-        event.method,
-        event.gateMode,
-        event.decidedMode,
-        event.occurredAt,
-        JSON.stringify(event.ruleResult),
-        event.transport.status,
-        event.transport.attempts,
-        event.transport.lastError || null,
-        event.transport.idempotencyKey,
-        now,
-        now,
-      ]
-    );
+    const params = [
+      event.id,
+      event.projectId,
+      event.personId,
+      event.method,
+      event.gateMode,
+      event.decidedMode,
+      event.occurredAt,
+      JSON.stringify(event.ruleResult),
+      event.transport.status,
+      event.transport.attempts,
+      event.transport.lastError ?? null,
+      event.transport.idempotencyKey,
+      now,
+      now,
+    ];
+
+    // パラメータ検証（開発モードのみ）
+    if (__DEV__) {
+      params.forEach((param, index) => {
+        const paramType = typeof param;
+        if (paramType === "object" && param !== null) {
+          console.error(`[OfflineQueue.add] Invalid parameter at index ${index}:`, {
+            type: paramType,
+            value: param,
+          });
+        }
+      });
+    }
+
+    try {
+      await this.db.runAsync(
+        `INSERT INTO scan_events (
+          id, project_id, person_id, method, gate_mode, decided_mode,
+          occurred_at, rule_result, transport_status, transport_attempts,
+          transport_last_error, transport_idempotency_key, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        params
+      );
+    } catch (error: any) {
+      // エラー時に詳細なデバッグ情報を出力
+      console.error("[OfflineQueue.add] Failed to insert event:", {
+        errorMessage: error?.message,
+        eventId: event.id,
+        projectId: event.projectId,
+        personId: event.personId,
+        paramTypes: params.map((p, i) => `[${i}] ${typeof p}`),
+      });
+      throw error;
+    }
   }
 
   /**
@@ -112,15 +139,42 @@ export class OfflineQueue {
   ): Promise<void> {
     const now = new Date().toISOString();
 
-    await this.db.runAsync(
-      `UPDATE scan_events
-       SET transport_status = ?,
-           transport_attempts = ?,
-           transport_last_error = ?,
-           updated_at = ?
-       WHERE id = ?`,
-      [status, attempts, lastError || null, now, id]
-    );
+    const params = [status, attempts, lastError ?? null, now, id];
+
+    // パラメータ検証（開発モードのみ）
+    if (__DEV__) {
+      params.forEach((param, index) => {
+        const paramType = typeof param;
+        if (paramType === "object" && param !== null) {
+          console.error(`[OfflineQueue.updateStatus] Invalid parameter at index ${index}:`, {
+            type: paramType,
+            value: param,
+          });
+        }
+      });
+    }
+
+    try {
+      await this.db.runAsync(
+        `UPDATE scan_events
+         SET transport_status = ?,
+             transport_attempts = ?,
+             transport_last_error = ?,
+             updated_at = ?
+         WHERE id = ?`,
+        params
+      );
+    } catch (error: any) {
+      console.error("[OfflineQueue.updateStatus] Failed to update event:", {
+        errorMessage: error?.message,
+        eventId: id,
+        status,
+        attempts,
+        lastError,
+        paramTypes: params.map((p, i) => `[${i}] ${typeof p}`),
+      });
+      throw error;
+    }
   }
 
   /**

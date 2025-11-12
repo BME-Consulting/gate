@@ -93,8 +93,13 @@ export function useQueue() {
         if (mounted) {
           setIsReady(true);
         }
-      } catch (error) {
-        console.error("Queue initialization failed:", error);
+      } catch (error: any) {
+        console.error("Queue initialization failed:", {
+          errorMessage: error?.message,
+          platform: Platform.OS,
+          dbName: DB_NAME,
+          hasUser: !!user,
+        });
       }
     }
 
@@ -109,9 +114,39 @@ export function useQueue() {
 
   const addToQueue = async (event: ScanEvent): Promise<void> => {
     if (!queueInstance) {
-      throw new Error("Queue is not initialized");
+      const error = new Error("Queue is not initialized");
+      console.error("[useQueue.addToQueue] Queue not initialized", {
+        isReady,
+        platform: Platform.OS,
+        hasUser: !!user,
+      });
+      throw error;
     }
-    await queueInstance.add(event);
+
+    try {
+      if (__DEV__) {
+        console.log("[useQueue.addToQueue] Adding event to queue:", {
+          eventId: event.id,
+          projectId: event.projectId,
+          personId: event.personId,
+          decidedMode: event.decidedMode,
+        });
+      }
+
+      await queueInstance.add(event);
+
+      if (__DEV__) {
+        console.log("[useQueue.addToQueue] Event added successfully:", event.id);
+      }
+    } catch (error: any) {
+      console.error("[useQueue.addToQueue] Failed to add event:", {
+        errorMessage: error?.message,
+        eventId: event.id,
+        projectId: event.projectId,
+        personId: event.personId,
+      });
+      throw error;
+    }
   };
 
   const getPendingCount = async (): Promise<number> => {

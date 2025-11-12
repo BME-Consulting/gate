@@ -20,6 +20,7 @@ import { MockCardReader, type CardData } from "@mc-gate/reader-bridge";
 import { useAppStore } from "../../store/appStore";
 import { useQueue } from "../../hooks/useQueue";
 import { useNetworkStatus } from "../../hooks/useNetworkStatus";
+import { showDebugError, logDebugInfo } from "../../utils/debugLogger";
 
 export default function ScanScreen() {
   const { currentProject } = useAppStore();
@@ -141,6 +142,16 @@ export default function ScanScreen() {
         },
       };
 
+      // デバッグ情報をログ出力
+      logDebugInfo("ScanScreen.handleConfirm", {
+        scanEventId: scanEvent.id,
+        projectId: scanEvent.projectId,
+        personId: scanEvent.personId,
+        method: scanEvent.method,
+        decidedMode: scanEvent.decidedMode,
+        transportStatus: scanEvent.transport.status,
+      });
+
       // キューに追加
       await addToQueue(scanEvent);
 
@@ -162,6 +173,20 @@ export default function ScanScreen() {
         ]
       );
     } catch (error) {
+      // デバッグエラー情報を表示
+      showDebugError({
+        operation: "ScanScreen.handleConfirm - キューへの追加",
+        error,
+        context: {
+          projectId: currentProject?.projectId,
+          projectName: currentProject?.name,
+          workerPersonId: worker.personId,
+          workerName: worker.name,
+          decidedMode,
+          method: selectedMethod,
+        },
+      });
+
       Alert.alert(
         "エラー",
         error instanceof Error ? error.message : "登録に失敗しました",
