@@ -2,7 +2,7 @@
 // デバッグログユーティリティ
 // ==========================================
 
-import { Alert } from "react-native";
+import { Alert, Share, Clipboard } from "react-native";
 
 /**
  * エラー情報の型定義
@@ -99,14 +99,40 @@ export function showDebugError(errorInfo: ErrorInfo): void {
     message += `\n\nスタック:\n${stackLines.join("\n")}`;
   }
 
-  // Alertで表示（長押しでコピー可能）
+  // コンソールログに出力
   console.error(`[DEBUG] ${operation}:`, {
     error,
     context,
     params,
   });
 
-  Alert.alert(`❌ デバッグ情報（長押しでコピー）`, message, [{ text: "OK" }]);
+  // Alertで表示（コピー・共有ボタン付き）
+  Alert.alert(
+    `❌ デバッグ情報`,
+    message,
+    [
+      {
+        text: "コピー",
+        onPress: () => {
+          Clipboard.setString(message);
+          Alert.alert("コピー完了", "クリップボードにコピーしました");
+        },
+      },
+      {
+        text: "共有",
+        onPress: async () => {
+          try {
+            await Share.share({
+              message: `[デバッグ情報]\n\n${message}`,
+            });
+          } catch (error) {
+            console.error("Share failed:", error);
+          }
+        },
+      },
+      { text: "閉じる", style: "cancel" },
+    ]
+  );
 }
 
 /**
@@ -137,9 +163,32 @@ export function showParameterValidationError(
 
   console.error(`[VALIDATION ERROR] ${operation}:`, invalidParams);
 
-  Alert.alert(`❌ パラメータ検証エラー（長押しでコピー）`, message, [
-    { text: "OK" },
-  ]);
+  Alert.alert(
+    `❌ パラメータ検証エラー`,
+    message,
+    [
+      {
+        text: "コピー",
+        onPress: () => {
+          Clipboard.setString(message);
+          Alert.alert("コピー完了", "クリップボードにコピーしました");
+        },
+      },
+      {
+        text: "共有",
+        onPress: async () => {
+          try {
+            await Share.share({
+              message: `[パラメータ検証エラー]\n\n${message}`,
+            });
+          } catch (error) {
+            console.error("Share failed:", error);
+          }
+        },
+      },
+      { text: "閉じる", style: "cancel" },
+    ]
+  );
 }
 
 /**
