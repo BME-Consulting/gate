@@ -2,6 +2,7 @@
 // ダミーデータ生成スクリプト
 // ==========================================
 
+import { Alert } from "react-native";
 import { openDatabaseAsync } from "expo-sqlite";
 import type { ScanEvent, SQLiteDatabase } from "@mc-gate/core";
 import { DB_NAME as IMPORTED_DB_NAME } from "@mc-gate/core";
@@ -182,6 +183,7 @@ export async function seedDummyData(count: number = 50) {
           now,
         ];
 
+        // コンソールログ
         console.log("🔍 Debug: First event data:", {
           id: event.id,
           projectId: event.projectId,
@@ -191,11 +193,23 @@ export async function seedDummyData(count: number = 50) {
         });
 
         console.log("🔍 Debug: All parameters to runAsync:");
+        const debugLines: string[] = [];
         params.forEach((param, index) => {
           const paramType = typeof param;
           const isObject = paramType === "object" && param !== null;
-          console.log(`  [${index + 1}] type=${paramType}, value=${isObject ? "[OBJECT]" : param}, ${isObject ? `toString=${param}` : ""}`);
+          const line = `[${index + 1}] type=${paramType}, value=${isObject ? "[OBJECT]" : String(param).substring(0, 50)}`;
+          console.log(`  ${line}`);
+          debugLines.push(line);
         });
+
+        // Alertダイアログに表示（コピー可能）
+        const debugMessage = `DB_NAME: ${DB_NAME} (type: ${typeof DB_NAME})\nPROJECT_ID: ${PROJECT_ID} (type: ${typeof PROJECT_ID})\n\nパラメータ:\n${debugLines.join('\n')}`;
+
+        Alert.alert(
+          "デバッグ情報（長押しでコピー）",
+          debugMessage,
+          [{ text: "OK" }]
+        );
       }
 
       // projectIdがundefinedまたはnullの場合はエラーをスロー
@@ -224,35 +238,72 @@ export async function seedDummyData(count: number = 50) {
       for (const param of paramsToCheck) {
         const paramType = typeof param.value;
         if (paramType === "object" && param.value !== null) {
-          throw new Error(
-            `Parameter "${param.name}" is an object! Type: ${paramType}, Value: ${JSON.stringify(param.value)}`
+          const errorMsg = `Parameter "${param.name}" is an object!\nType: ${paramType}\nValue: ${JSON.stringify(param.value)}`;
+
+          // Alertで表示（コピー可能）
+          Alert.alert(
+            "❌ パラメータエラー（長押しでコピー）",
+            errorMsg,
+            [{ text: "OK" }]
           );
+
+          throw new Error(errorMsg);
         }
       }
 
-      await db.runAsync(
-        `INSERT INTO scan_events (
-          id, project_id, person_id, method, gate_mode, decided_mode,
-          occurred_at, rule_result, transport_status, transport_attempts,
-          transport_last_error, transport_idempotency_key, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          event.id,
-          event.projectId,
-          event.personId,
-          event.method,
-          event.gateMode,
-          event.decidedMode,
-          event.occurredAt,
-          JSON.stringify(event.ruleResult),
-          event.transport.status,
-          event.transport.attempts,
-          event.transport.lastError || null,
-          event.transport.idempotencyKey,
-          now,
-          now,
-        ]
-      );
+      try {
+        await db.runAsync(
+          `INSERT INTO scan_events (
+            id, project_id, person_id, method, gate_mode, decided_mode,
+            occurred_at, rule_result, transport_status, transport_attempts,
+            transport_last_error, transport_idempotency_key, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            event.id,
+            event.projectId,
+            event.personId,
+            event.method,
+            event.gateMode,
+            event.decidedMode,
+            event.occurredAt,
+            JSON.stringify(event.ruleResult),
+            event.transport.status,
+            event.transport.attempts,
+            event.transport.lastError || null,
+            event.transport.idempotencyKey,
+            now,
+            now,
+          ]
+        );
+      } catch (runAsyncError: any) {
+        // runAsyncエラーの詳細をAlertで表示
+        const paramTypes = [
+          `[1] id: ${typeof event.id}`,
+          `[2] projectId: ${typeof event.projectId} = "${event.projectId}"`,
+          `[3] personId: ${typeof event.personId}`,
+          `[4] method: ${typeof event.method}`,
+          `[5] gateMode: ${typeof event.gateMode}`,
+          `[6] decidedMode: ${typeof event.decidedMode}`,
+          `[7] occurredAt: ${typeof event.occurredAt}`,
+          `[8] ruleResult: ${typeof JSON.stringify(event.ruleResult)}`,
+          `[9] status: ${typeof event.transport.status}`,
+          `[10] attempts: ${typeof event.transport.attempts}`,
+          `[11] lastError: ${typeof (event.transport.lastError || null)}`,
+          `[12] idempotencyKey: ${typeof event.transport.idempotencyKey}`,
+          `[13] created_at: ${typeof now}`,
+          `[14] updated_at: ${typeof now}`,
+        ].join('\n');
+
+        const errorMsg = `runAsync エラー！\n\nエラー: ${runAsyncError.message}\n\nDB_NAME: ${DB_NAME} (${typeof DB_NAME})\nPROJECT_ID: ${PROJECT_ID} (${typeof PROJECT_ID})\n\nパラメータ型:\n${paramTypes}`;
+
+        Alert.alert(
+          "❌ runAsync エラー（長押しでコピー）",
+          errorMsg,
+          [{ text: "OK" }]
+        );
+
+        throw runAsyncError;
+      }
 
       if ((i + 1) % 10 === 0) {
         console.log(`Inserted ${i + 1}/${count} events...`);
