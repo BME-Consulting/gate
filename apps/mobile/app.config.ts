@@ -5,7 +5,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   name: "mc-gate",
   slug: "mc-gate",
   owner: "bme_llc",
-  version: "1.0.5",
+  version: "1.0.6",
   orientation: "portrait",
   icon: "./assets/icon.png",
   userInterfaceStyle: "light",
@@ -27,7 +27,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   android: {
     package: "com.bmeconsulting.mcgate",
-    versionCode: 6,
+    versionCode: 7,
     adaptiveIcon: {
       foregroundImage: "./assets/adaptive-icon.png",
       backgroundColor: "#ffffff",
