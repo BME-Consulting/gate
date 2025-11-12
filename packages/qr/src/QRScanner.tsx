@@ -68,7 +68,7 @@ export function QRScanner({ onScan, onError, enabled = true }: QRScannerProps) {
   return (
     <CameraView
       style={styles.camera}
-      facing="back"
+      facing="front"
       barcodeScannerSettings={{
         barcodeTypes: ["qr"],
       }}
