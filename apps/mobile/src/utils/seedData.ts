@@ -4,11 +4,15 @@
 
 import { openDatabaseAsync } from "expo-sqlite";
 import type { ScanEvent, SQLiteDatabase } from "@mc-gate/core";
-import { DB_NAME } from "@mc-gate/core";
+import { DB_NAME as IMPORTED_DB_NAME } from "@mc-gate/core";
 
 // WORKAROUND: Hardcode PROJECT_ID to avoid build-update mismatch
 // This ensures the value is always a string, even if DEFAULT_PROJECT_ID export fails
 const PROJECT_ID = "PRJ001";
+
+// WORKAROUND: Hardcode DB_NAME to avoid module resolution issues in EAS Update
+// If IMPORTED_DB_NAME is somehow an object due to bundling issues, fall back to hardcoded string
+const DB_NAME = typeof IMPORTED_DB_NAME === "string" ? IMPORTED_DB_NAME : "mc-gate.db";
 const PERSON_IDS = [
   "P001", "P002", "P003", "P004", "P005",
   "P006", "P007", "P008", "P009", "P010",
@@ -154,8 +158,30 @@ export async function seedDummyData(count: number = 50) {
       const event = generateScanEvent(i);
       const now = new Date().toISOString();
 
+      // Safety check: Ensure now is actually a string
+      if (typeof now !== "string") {
+        throw new Error(`now is not a string! Type: ${typeof now}, Value: ${now}`);
+      }
+
       // デバッグログ: 最初のイベントの内容を出力
       if (i === 0) {
+        const params = [
+          event.id,
+          event.projectId,
+          event.personId,
+          event.method,
+          event.gateMode,
+          event.decidedMode,
+          event.occurredAt,
+          JSON.stringify(event.ruleResult),
+          event.transport.status,
+          event.transport.attempts,
+          event.transport.lastError || null,
+          event.transport.idempotencyKey,
+          now,
+          now,
+        ];
+
         console.log("🔍 Debug: First event data:", {
           id: event.id,
           projectId: event.projectId,
@@ -163,11 +189,45 @@ export async function seedDummyData(count: number = 50) {
           projectIdValue: JSON.stringify(event.projectId),
           personId: event.personId,
         });
+
+        console.log("🔍 Debug: All parameters to runAsync:");
+        params.forEach((param, index) => {
+          const paramType = typeof param;
+          const isObject = paramType === "object" && param !== null;
+          console.log(`  [${index + 1}] type=${paramType}, value=${isObject ? "[OBJECT]" : param}, ${isObject ? `toString=${param}` : ""}`);
+        });
       }
 
       // projectIdがundefinedまたはnullの場合はエラーをスロー
       if (!event.projectId) {
         throw new Error(`projectId is ${event.projectId} for event ${i}`);
+      }
+
+      // Safety check: Ensure ALL parameters are primitives (not objects)
+      const paramsToCheck = [
+        { name: "id", value: event.id },
+        { name: "projectId", value: event.projectId },
+        { name: "personId", value: event.personId },
+        { name: "method", value: event.method },
+        { name: "gateMode", value: event.gateMode },
+        { name: "decidedMode", value: event.decidedMode },
+        { name: "occurredAt", value: event.occurredAt },
+        { name: "ruleResult (stringified)", value: JSON.stringify(event.ruleResult) },
+        { name: "transport.status", value: event.transport.status },
+        { name: "transport.attempts", value: event.transport.attempts },
+        { name: "transport.lastError", value: event.transport.lastError || null },
+        { name: "transport.idempotencyKey", value: event.transport.idempotencyKey },
+        { name: "created_at (now)", value: now },
+        { name: "updated_at (now)", value: now },
+      ];
+
+      for (const param of paramsToCheck) {
+        const paramType = typeof param.value;
+        if (paramType === "object" && param.value !== null) {
+          throw new Error(
+            `Parameter "${param.name}" is an object! Type: ${paramType}, Value: ${JSON.stringify(param.value)}`
+          );
+        }
       }
 
       await db.runAsync(

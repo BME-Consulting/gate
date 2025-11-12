@@ -6,11 +6,14 @@ import { useEffect, useState } from "react";
 import { Platform } from "react-native";
 import type { ScanEvent, SQLiteDatabase } from "@mc-gate/core";
 import {
-  DB_NAME,
+  DB_NAME as IMPORTED_DB_NAME,
   SYNC_INTERVAL_MS,
   MAX_RETRIES,
 } from "@mc-gate/core";
 import { useAppStore } from "../store/appStore";
+
+// WORKAROUND: Ensure DB_NAME is a string, not a module object
+const DB_NAME = typeof IMPORTED_DB_NAME === "string" ? IMPORTED_DB_NAME : "mc-gate.db";
 
 // Platform-conditional imports
 let openDatabaseAsync: any;
