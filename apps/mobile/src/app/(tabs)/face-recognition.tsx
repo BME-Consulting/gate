@@ -166,7 +166,17 @@ export default function FaceRecognitionScreen() {
       const apiFaceApi = Constants.expoConfig?.extra?.apiFaceApi || "http://localhost:8100";
       const apiFaceApiKey = Constants.expoConfig?.extra?.apiFaceApiKey || "development-api-key-12345";
 
+      // デバッグログ: 接続先URL
+      console.log("==================== FACE RECOGNITION DEBUG ====================");
+      console.log(`[DEBUG] Face API URL: ${apiFaceApi}`);
+      console.log(`[DEBUG] API Key: ${apiFaceApiKey.substring(0, 10)}...`);
+      console.log(`[DEBUG] Full endpoint: ${apiFaceApi}/api/face/recognize`);
+      console.log(`[DEBUG] Image data length: ${imageData.length} bytes`);
+      console.log(`[DEBUG] Timeout: ${TIMEOUT.FACE_RECOGNITION}ms`);
+      console.log("===============================================================");
+
       // Face APIに送信（タイムアウト付き）
+      console.log("[DEBUG] Sending request to Face API...");
       const response = await fetchWithTimeout(`${apiFaceApi}/api/face/recognize`, {
         method: "POST",
         headers: {
@@ -180,11 +190,16 @@ export default function FaceRecognitionScreen() {
         timeoutMs: TIMEOUT.FACE_RECOGNITION, // 30秒
       });
 
+      console.log(`[DEBUG] Response received! Status: ${response.status}`);
+      console.log(`[DEBUG] Response headers:`, Object.fromEntries(response.headers.entries()));
+
       if (!response.ok) {
+        console.error(`[DEBUG] HTTP error! status: ${response.status}`);
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const result: FaceRecognitionResponse = await response.json();
+      console.log("[DEBUG] Response body:", JSON.stringify(result, null, 2));
 
       // 認識結果を保存
       setRecognitionResult(result);
@@ -224,8 +239,14 @@ export default function FaceRecognitionScreen() {
 
       // 結果を表示
       showResultAlert(result);
+      console.log("[DEBUG] Face recognition completed successfully");
     } catch (error) {
-      console.error("Face recognition error:", error);
+      console.error("==================== FACE RECOGNITION ERROR ====================");
+      console.error("[ERROR] Error type:", error?.constructor?.name);
+      console.error("[ERROR] Error message:", error instanceof Error ? error.message : String(error));
+      console.error("[ERROR] Error name:", error instanceof Error ? error.name : "unknown");
+      console.error("[ERROR] Error stack:", error instanceof Error ? error.stack : "no stack");
+      console.error("===============================================================");
 
       let errorMessage = "顔認証に失敗しました";
 

@@ -350,14 +350,28 @@ export default function SettingsScreen() {
       const apiUrl = Constants.expoConfig?.extra?.apiFaceApi || "http://localhost:8100";
       const workersApiUrl = `${apiUrl}/api/workers`;
 
+      // デバッグログ: 接続先URL
+      console.log("==================== WORKER SYNC DEBUG ====================");
+      console.log(`[DEBUG] Face API URL: ${apiUrl}`);
+      console.log(`[DEBUG] Workers API URL: ${workersApiUrl}`);
+      console.log(`[DEBUG] Token: ${user.token.substring(0, 20)}...`);
+      console.log("===========================================================");
+
+      console.log("[DEBUG] Starting worker sync...");
       await syncFromServer(workersApiUrl, user.token);
+      console.log("[DEBUG] Worker sync completed successfully");
 
       // 同期後に作業員数を再取得
       await loadWorkerCount();
 
       showAlert("同期完了", "作業員マスタの同期が完了しました。");
     } catch (error: any) {
-      console.error("Worker sync failed:", error);
+      console.error("==================== WORKER SYNC ERROR ====================");
+      console.error("[ERROR] Error type:", error?.constructor?.name);
+      console.error("[ERROR] Error message:", error?.message);
+      console.error("[ERROR] Error name:", error?.name);
+      console.error("[ERROR] Error stack:", error?.stack);
+      console.error("===========================================================");
 
       let errorMessage = "サーバーとの同期に失敗しました。";
 
