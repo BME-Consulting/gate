@@ -671,6 +671,21 @@ export default function SettingsScreen() {
               <Text style={styles.value}>{updateInfo.currentVersion}</Text>
             </View>
 
+            {/* デバッグ: Extra設定の値を表示 */}
+            <View style={styles.row}>
+              <Text style={styles.label}>Face API URL</Text>
+              <Text style={[styles.value, styles.monospace]} numberOfLines={2}>
+                {Constants.expoConfig?.extra?.apiFaceApi || "未設定"}
+              </Text>
+            </View>
+
+            <View style={styles.row}>
+              <Text style={styles.label}>GS API URL</Text>
+              <Text style={[styles.value, styles.monospace]} numberOfLines={2}>
+                {Constants.expoConfig?.extra?.apiBaseGs || "未設定"}
+              </Text>
+            </View>
+
             {Updates.isEnabled ? (
               <>
                 <View style={styles.row}>
