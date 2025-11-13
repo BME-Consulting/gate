@@ -53,29 +53,21 @@ function generateScanEvent(index: number): ScanEvent {
   const personId = randomElement(PERSON_IDS);
   const method = Math.random() > 0.3 ? "QR" : "CARD";
   const decidedMode = Math.random() > 0.5 ? "IN" : "OUT";
-  const occurredAt = randomDate(24); // 過去24時間以内
 
-  // 送信状態の分布: 70% sent, 20% pending, 10% failed
-  const rand = Math.random();
-  let status: "pending" | "sent" | "failed";
-  let attempts = 1;
-  let lastError: string | undefined;
+  // 今日(00:00:00)から現在時刻までのランダムな時刻を生成
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const now = new Date();
+  const todayMs = today.getTime();
+  const nowMs = now.getTime();
+  const randomMs = todayMs + Math.random() * (nowMs - todayMs);
+  const occurredAt = new Date(randomMs);
 
-  if (rand < 0.7) {
-    status = "sent";
-  } else if (rand < 0.9) {
-    status = "pending";
-    attempts = 0;
-  } else {
-    status = "failed";
-    attempts = Math.floor(Math.random() * 5) + 1;
-    lastError = randomElement([
-      "ネットワークエラー: タイムアウト",
-      "サーバーエラー: 500 Internal Server Error",
-      "認証エラー: トークンが無効です",
-      "データエラー: 不正なリクエストフォーマット",
-    ]);
-  }
+  // すべて送信済み(sent)として生成
+  // これにより統計画面で正しくカウントされる
+  const status: "pending" | "sent" | "failed" = "sent";
+  const attempts = 1;
+  const lastError: string | undefined = undefined;
 
   // ルール結果
   const actionRand = Math.random();
