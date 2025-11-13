@@ -107,8 +107,18 @@ HTTP is only allowed in development mode (ENV !== "production")
     [
       "expo-build-properties",
       {
-        ios: { newArchEnabled: true },
-        android: { newArchEnabled: true },
+        ios: {
+          newArchEnabled: true,
+          infoPlist: {
+            NSAppTransportSecurity: {
+              NSAllowsArbitraryLoads: !isProduction,  // 開発中のみHTTP許可
+            }
+          }
+        },
+        android: {
+          newArchEnabled: true,
+          usesCleartextTraffic: !isProduction,  // 開発中のみHTTP許可
+        },
       },
     ],
   ],

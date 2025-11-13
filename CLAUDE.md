@@ -4,14 +4,31 @@
 
 ### ❌ 絶対禁止事項
 
-#### 1. **勝手にEAS Buildを作成してはいけない**
+#### 1. **Claude Code は EAS Build を実行してはいけない**
 
 **理由**: ビルド回数には上限があり、無駄遣いは厳禁。
 
-**原則**:
-- **ネイティブ変更がない限り、EAS Updateで十分**
-- Buildは消耗品として扱う
-- ネイティブ変更時のみビルドを作成
+**🚫 禁止コマンド（Claude Code は絶対に実行しない）**:
+
+- `eas build ...` - **絶対に実行禁止**
+- `eas submit ...` - **絶対に実行禁止**
+- `eas init ...` - 設定を書き換えるので禁止
+- `expo publish` - Classic Updates は使わない
+
+**✅ 実行してよいコマンド**:
+
+- `npx expo config --json` - 設定確認のみ
+- `npx eas-cli update:list ...` - 履歴確認のみ
+- `npx eas-cli build:list ...` - ビルド履歴確認のみ
+- `npx eas-cli update --branch preview --message "..."` - ユーザーが明示的にOKを出した場合のみ
+
+**重要**: Claude Code は**Markdownのコードブロックで提案するだけ**にし、実行はユーザーが自分で行う。
+
+---
+
+### 📋 Claude Code の行動ルール
+
+#### ネイティブ変更が必要な場合
 
 **ネイティブ変更とは**:
 - `android/` or `ios/` ディレクトリの変更
@@ -20,24 +37,125 @@
 - SDKバージョンアップ
 - AndroidManifest.xml / Info.plist 関連の変更
 
-**正しい運用**:
-```bash
-# デフォルトはEAS Update（JS/TSコード変更のみ）
-export EXPO_TOKEN="r3kIBuCA-RDE1_KYFJKcsEIaMi-t2TThCKIOPgBu"
-npx eas-cli update --branch preview --message "fix: ui" --non-interactive
+**Claude Code の対応**:
 
-# ネイティブ変更時のみビルド
-# ユーザーに確認を取ってから実行
-npx eas-cli build --platform android --profile preview --non-interactive
+1. **ユーザーに通知**:
+   ```
+   ⚠️ この変更はネイティブ設定の変更を含むため、新しいEAS Buildが必要です。
+
+   以下のコマンドを手動で実行してください：
+
+   ```bash
+   export EXPO_TOKEN="..."
+   npx eas-cli build --platform android --profile preview --non-interactive
+   ```
+
+   ビルド完了後、以下を実行してください：
+
+   ```bash
+   npx eas-cli update --branch preview --message "変更内容"
+   ```
+   ```
+
+2. **ビルドコマンドは提案のみ、実行しない**
+
+3. **ユーザーがビルドを完了したことを確認してから次のステップへ**
+
+---
+
+### 🔒 技術的ガード（推奨）
+
+プロジェクトに以下のガードスクリプトを設置することを推奨：
+
+**scripts/eas-guard.mjs**:
+```javascript
+#!/usr/bin/env node
+import { spawnSync } from 'child_process';
+
+const args = process.argv.slice(2);
+
+// build/submit はガード
+if ((args[0] === 'build' || args[0] === 'submit') && process.env.ALLOW_EAS_BUILD !== '1') {
+  console.error('❌ EAS build/submit はガードされています。');
+  console.error('本当に実行する場合は以下を実行してください：');
+  console.error('');
+  console.error('  export ALLOW_EAS_BUILD=1');
+  console.error('  npx eas-cli ' + args.join(' '));
+  console.error('');
+  process.exit(1);
+}
+
+// それ以外のコマンドは通す
+const result = spawnSync('npx', ['eas-cli', ...args], { stdio: 'inherit' });
+process.exit(result.status ?? 1);
 ```
 
-#### 2. **ユーザーの明示的な許可なくビルドを作成してはいけない**
+**package.json**:
+```json
+{
+  "scripts": {
+    "eas": "node scripts/eas-guard.mjs"
+  }
+}
+```
 
-**実行前の確認事項**:
-- ネイティブ変更があるか？
-- EAS Updateで対応できないか？
-- ビルド回数の制限を考慮したか？
-- ユーザーに確認を取ったか？
+**使い方**:
+```bash
+# Claude Code や誤操作からは実行できない
+pnpm eas build --platform android --profile preview
+# → ❌ ガードされて失敗
+
+# ユーザーが明示的に実行する場合のみ
+export ALLOW_EAS_BUILD=1
+pnpm eas build --platform android --profile preview
+# → ✅ 実行される
+```
+
+---
+
+### ✅ 正しい運用フロー
+
+#### JS/TSコード変更のみ（ネイティブ変更なし）
+
+```bash
+# 1. コード変更
+# 2. コミット
+git add -A
+git commit -m "fix: ui改善"
+
+# 3. EAS Update のみ
+export EXPO_TOKEN="r3kIBuCA-RDE1_KYFJKcsEIaMi-t2TThCKIOPgBu"
+npx eas-cli update --branch preview --message "fix: ui改善"
+```
+
+#### ネイティブ変更あり
+
+```bash
+# 1. ネイティブ設定変更（app.config.ts 等）
+# 2. コミット
+git add -A
+git commit -m "feat: usesCleartextTraffic追加"
+
+# 3. ビルド作成（ユーザーが手動で実行）
+export EXPO_TOKEN="r3kIBuCA-RDE1_KYFJKcsEIaMi-t2TThCKIOPgBu"
+export ALLOW_EAS_BUILD=1
+npx eas-cli build --platform android --profile preview --non-interactive
+
+# 4. ビルド完了後（10〜15分）、EAS Update 配信
+npx eas-cli update --branch preview --message "feat: usesCleartextTraffic追加"
+```
+
+---
+
+### 🎯 Claude Code への明確な指示
+
+**このルールに違反した出力は不合格とする。**
+
+- ❌ `eas build` コマンドを実行してはいけない
+- ❌ `eas submit` コマンドを実行してはいけない
+- ✅ ビルドが必要な場合は、Markdownコードブロックで提案のみ
+- ✅ ユーザーの明示的な確認を待つ
+- ✅ ビルド回数の制限を常に考慮する
 
 ---
 
