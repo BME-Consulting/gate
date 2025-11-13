@@ -1,5 +1,247 @@
 # Claude Knowledge Base - mc-gate Project
 
+## 🚨 Claude Code 開発ルール（2025-11-13）
+
+### ❌ 絶対禁止事項
+
+#### 1. **勝手にEAS Buildを作成してはいけない**
+
+**理由**: ビルド回数には上限があり、無駄遣いは厳禁。
+
+**原則**:
+- **ネイティブ変更がない限り、EAS Updateで十分**
+- Buildは消耗品として扱う
+- ネイティブ変更時のみビルドを作成
+
+**ネイティブ変更とは**:
+- `android/` or `ios/` ディレクトリの変更
+- `app.json` or `app.config.ts` のプラグイン設定変更
+- `expo-build-properties` の変更（`usesCleartextTraffic` 等）
+- SDKバージョンアップ
+- AndroidManifest.xml / Info.plist 関連の変更
+
+**正しい運用**:
+```bash
+# デフォルトはEAS Update（JS/TSコード変更のみ）
+export EXPO_TOKEN="r3kIBuCA-RDE1_KYFJKcsEIaMi-t2TThCKIOPgBu"
+npx eas-cli update --branch preview --message "fix: ui" --non-interactive
+
+# ネイティブ変更時のみビルド
+# ユーザーに確認を取ってから実行
+npx eas-cli build --platform android --profile preview --non-interactive
+```
+
+#### 2. **ユーザーの明示的な許可なくビルドを作成してはいけない**
+
+**実行前の確認事項**:
+- ネイティブ変更があるか？
+- EAS Updateで対応できないか？
+- ビルド回数の制限を考慮したか？
+- ユーザーに確認を取ったか？
+
+---
+
+## 🔧 サーバー設定の重要事項（2025-11-13）
+
+### 問題: モバイルアプリが同一LAN内のサーバーに接続できない
+
+**症状**:
+- Face API Server (192.168.1.4:8100) が起動している
+- サーバーログにアクセスが一切届かない
+- アプリは「サーバーに接続できません」エラー
+
+**根本原因**:
+1. **サーバーが `localhost` でバインドしている**
+2. **Android の平文HTTP制限**
+3. **iOS の ATS (App Transport Security)**
+
+---
+
+### ✅ 解決策
+
+#### 1. サーバーを `0.0.0.0` でバインド
+
+**重要**: `localhost` でバインドすると、外部からアクセスできない。
+
+**Uvicorn/FastAPI の場合**:
+```bash
+uvicorn app:app --host 0.0.0.0 --port 8100
+```
+
+**Node/Express の場合**:
+```javascript
+app.listen(8100, '0.0.0.0', () => {
+  console.log('Server running on http://0.0.0.0:8100');
+});
+```
+
+**確認方法**:
+```bash
+# サーバー起動後、別の端末から疎通確認
+curl http://192.168.1.4:8100/health
+```
+
+#### 2. Android: `usesCleartextTraffic` を有効化
+
+**問題**: Android は HTTP (平文) 通信を既定で拒否
+
+**解決策**: `app.config.ts` に設定追加
+
+```typescript
+// app.config.ts
+import { ExpoConfig, ConfigContext } from 'expo/config';
+
+export default ({ config }: ConfigContext): ExpoConfig => ({
+  ...config,
+  name: 'mc-gate',
+  slug: 'mc-gate',
+  owner: 'bme_llc',
+
+  plugins: [
+    [
+      'expo-build-properties',
+      {
+        android: {
+          usesCleartextTraffic: true,  // ✅ 開発中のみ
+          newArchEnabled: true
+        },
+        ios: {
+          newArchEnabled: true
+        }
+      }
+    ]
+  ],
+
+  extra: {
+    eas: { projectId: '0f0feec5-4f4b-4252-ad34-c1594238b4b8' },
+    apiFaceApi: 'http://192.168.1.4:8100'
+  }
+});
+```
+
+**注意**:
+- `usesCleartextTraffic` は**ネイティブ変更**なので、**新しいビルドが必要**
+- EAS Updateでは反映されない
+- 本番環境では HTTPS 化が必須
+
+#### 3. iOS: ATS (App Transport Security) を緩和
+
+**開発中のみ**: 平文HTTP を許可
+
+```typescript
+// app.config.ts
+plugins: [
+  [
+    'expo-build-properties',
+    {
+      ios: {
+        newArchEnabled: true,
+        infoPlist: {
+          NSAppTransportSecurity: {
+            NSAllowsArbitraryLoads: true,  // 開発中のみ
+          }
+        }
+      }
+    }
+  ]
+]
+```
+
+**本番環境**: ドメインごとに例外を設定
+
+```typescript
+infoPlist: {
+  NSAppTransportSecurity: {
+    NSExceptionDomains: {
+      "192.168.1.4": {
+        NSTemporaryExceptionAllowsInsecureHTTPLoads: true
+      }
+    }
+  }
+}
+```
+
+#### 4. ファイアウォール設定
+
+**NAS/ホストのファイアウォール**: ポート 8100/tcp を開放
+
+```bash
+# ufw の場合
+sudo ufw allow 8100/tcp
+
+# iptables の場合
+sudo iptables -A INPUT -p tcp --dport 8100 -j ACCEPT
+```
+
+---
+
+### 📋 トラブルシューティング手順
+
+#### ステップ1: サーバー待受確認
+
+```bash
+# サーバーが 0.0.0.0 でバインドしているか確認
+netstat -tuln | grep 8100
+
+# 期待される出力:
+# tcp  0  0  0.0.0.0:8100  0.0.0.0:*  LISTEN
+```
+
+#### ステップ2: 端末から疎通確認
+
+```bash
+# 別の端末から HTTP リクエスト
+curl -v http://192.168.1.4:8100/health
+
+# 期待される出力:
+# HTTP/1.1 200 OK
+# Access-Control-Allow-Origin: *
+# {"status":"ok",...}
+```
+
+#### ステップ3: DNS/到達性確認
+
+- **Private DNS (DoT)**: 端末で一時的に OFF
+- **hostname.local**: Android は mDNS 解決に失敗することが多い → IP 直書きが安全
+
+#### ステップ4: CORS確認
+
+```bash
+# CORS ヘッダーを確認
+curl -v http://192.168.1.4:8100/health | grep Access-Control
+
+# 期待される出力:
+# Access-Control-Allow-Origin: *
+```
+
+---
+
+### 🎯 最短チェックリスト
+
+開発環境で接続できない場合、以下を順に確認：
+
+1. [ ] サーバー: `--host 0.0.0.0` で起動
+2. [ ] サーバー: `netstat -tuln | grep 8100` で 0.0.0.0 バインド確認
+3. [ ] 疎通確認: `curl http://192.168.1.4:8100/health` で 200 OK
+4. [ ] Android: `usesCleartextTraffic: true` 設定
+5. [ ] iOS: ATS 緩和設定（開発中のみ）
+6. [ ] **新しいビルド作成**（ネイティブ変更のため）
+7. [ ] EAS Update 配信（ビルド後）
+8. [ ] アプリで接続テスト
+
+---
+
+### 💡 本番環境への移行
+
+開発が完了したら、以下を実施：
+
+1. **HTTPS化**: Let's Encrypt または自己署名証明書
+2. **usesCleartextTraffic 削除**: `false` に戻す
+3. **ATS 厳格化**: 本番ドメインのみ例外設定
+4. **環境変数**: `process.env.ENV === 'production'` で HTTP を拒否
+
+---
+
 ## EAS Update 配信の完全ガイド（2025-11-06 解決済み）
 
 ### 🎯 黄金ルール
