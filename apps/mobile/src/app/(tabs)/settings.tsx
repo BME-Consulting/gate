@@ -11,6 +11,8 @@ import { useAppStore } from "../../store/appStore";
 import type { CheckConfig } from "@mc-gate/core";
 import { PasscodeModal } from "../../components/PasscodeModal";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import * as Updates from "expo-updates";
+import Constants from "expo-constants";
 
 // Web互換のアラート関数
 const showAlert = (title: string, message: string) => {
@@ -57,6 +59,22 @@ export default function SettingsScreen() {
   const [passcodeModalMode, setPasscodeModalMode] = useState<"set" | "verify">("set");
   const [tempPasscode, setTempPasscode] = useState("");
 
+  // EAS Update情報
+  const [updateInfo, setUpdateInfo] = useState<{
+    currentVersion: string;
+    updateId: string | undefined;
+    createdAt: Date | undefined;
+    isEmbeddedLaunch: boolean;
+    channel: string | null;
+  }>({
+    currentVersion: Constants.expoConfig?.version || "不明",
+    updateId: undefined,
+    createdAt: undefined,
+    isEmbeddedLaunch: true,
+    channel: null,
+  });
+  const [isCheckingUpdates, setIsCheckingUpdates] = useState(false);
+
   useEffect(() => {
     // リーダーインスタンスの初期化
     if (!readerInstance) {
@@ -65,7 +83,111 @@ export default function SettingsScreen() {
 
     // 接続状態の確認
     checkBleConnection();
+
+    // Update情報を取得
+    loadUpdateInfo();
   }, []);
+
+  const loadUpdateInfo = async () => {
+    try {
+      if (!Updates.isEnabled) {
+        return; // 開発モードではUpdates無効
+      }
+
+      const update = await Updates.checkForUpdateAsync();
+
+      setUpdateInfo({
+        currentVersion: Constants.expoConfig?.version || "不明",
+        updateId: Updates.updateId,
+        createdAt: Updates.createdAt,
+        isEmbeddedLaunch: Updates.isEmbeddedLaunch,
+        channel: Updates.channel,
+      });
+
+      if (update.isAvailable) {
+        Alert.alert(
+          "アップデート利用可能",
+          "新しいバージョンが利用可能です。今すぐダウンロードしますか？",
+          [
+            { text: "後で", style: "cancel" },
+            {
+              text: "ダウンロード",
+              onPress: async () => {
+                await fetchAndApplyUpdate();
+              },
+            },
+          ]
+        );
+      }
+    } catch (error) {
+      console.error("Update check failed:", error);
+    }
+  };
+
+  const checkForUpdates = async () => {
+    if (!Updates.isEnabled) {
+      showAlert("開発モード", "開発モードではEAS Updateは利用できません");
+      return;
+    }
+
+    setIsCheckingUpdates(true);
+
+    try {
+      const update = await Updates.checkForUpdateAsync();
+
+      if (update.isAvailable) {
+        Alert.alert(
+          "アップデート利用可能",
+          "新しいバージョンが利用可能です。今すぐダウンロードしますか？",
+          [
+            { text: "キャンセル", style: "cancel" },
+            {
+              text: "ダウンロード",
+              onPress: async () => {
+                await fetchAndApplyUpdate();
+              },
+            },
+          ]
+        );
+      } else {
+        showAlert("最新版", "アプリは最新版です");
+      }
+    } catch (error) {
+      showAlert(
+        "エラー",
+        error instanceof Error ? error.message : "アップデート確認に失敗しました"
+      );
+    } finally {
+      setIsCheckingUpdates(false);
+    }
+  };
+
+  const fetchAndApplyUpdate = async () => {
+    try {
+      const result = await Updates.fetchUpdateAsync();
+
+      if (result.isNew) {
+        Alert.alert(
+          "ダウンロード完了",
+          "アップデートをダウンロードしました。アプリを再起動して適用しますか？",
+          [
+            { text: "後で", style: "cancel" },
+            {
+              text: "再起動",
+              onPress: async () => {
+                await Updates.reloadAsync();
+              },
+            },
+          ]
+        );
+      }
+    } catch (error) {
+      showAlert(
+        "エラー",
+        error instanceof Error ? error.message : "アップデートのダウンロードに失敗しました"
+      );
+    }
+  };
 
   const checkBleConnection = async () => {
     if (!readerInstance) return;
@@ -433,6 +555,80 @@ export default function SettingsScreen() {
           </View>
         </View>
 
+        {/* アプリ情報 & EAS Update */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>アプリ情報</Text>
+          <View style={styles.card}>
+            <View style={styles.row}>
+              <Text style={styles.label}>バージョン</Text>
+              <Text style={styles.value}>{updateInfo.currentVersion}</Text>
+            </View>
+
+            {Updates.isEnabled ? (
+              <>
+                <View style={styles.row}>
+                  <Text style={styles.label}>Update ID</Text>
+                  <Text style={[styles.value, styles.monospace]} numberOfLines={1}>
+                    {updateInfo.updateId?.slice(0, 8) || "埋め込みビルド"}
+                  </Text>
+                </View>
+
+                {updateInfo.createdAt && (
+                  <View style={styles.row}>
+                    <Text style={styles.label}>Update日時</Text>
+                    <Text style={styles.value}>
+                      {new Date(updateInfo.createdAt).toLocaleString("ja-JP")}
+                    </Text>
+                  </View>
+                )}
+
+                <View style={styles.row}>
+                  <Text style={styles.label}>配信チャンネル</Text>
+                  <Text style={styles.value}>{updateInfo.channel || "デフォルト"}</Text>
+                </View>
+
+                <View style={styles.row}>
+                  <Text style={styles.label}>起動モード</Text>
+                  <View
+                    style={[
+                      styles.statusBadge,
+                      !updateInfo.isEmbeddedLaunch && styles.statusBadgeConnected,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.statusText,
+                        !updateInfo.isEmbeddedLaunch && styles.statusTextConnected,
+                      ]}
+                    >
+                      {updateInfo.isEmbeddedLaunch ? "埋め込み" : "OTA Update"}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.buttonRow}>
+                  <Button
+                    title="アップデート確認"
+                    variant="secondary"
+                    onPress={checkForUpdates}
+                    loading={isCheckingUpdates}
+                    disabled={isCheckingUpdates}
+                    fullWidth
+                  />
+                </View>
+
+                <Text style={styles.note}>
+                  {updateInfo.isEmbeddedLaunch
+                    ? "APKに埋め込まれたコードで起動しています"
+                    : "EAS Updateで配信されたコードで起動しています"}
+                </Text>
+              </>
+            ) : (
+              <Text style={styles.note}>開発モードで実行中（EAS Update無効）</Text>
+            )}
+          </View>
+        </View>
+
         {/* BLE設定 */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>BLEカードリーダー</Text>
@@ -539,6 +735,10 @@ const styles = StyleSheet.create({
   value: {
     fontSize: tokens.font.size.base,
     color: tokens.color.text.secondary,
+  },
+
+  monospace: {
+    fontFamily: Platform.OS === "ios" ? "Courier New" : "monospace",
   },
 
   note: {
