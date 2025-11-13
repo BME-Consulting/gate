@@ -1210,3 +1210,237 @@ npx eas-cli update --branch preview --message "Add new exports to core package"
 
 **最終更新**: 2025-11-07
 **作成者**: Claude (with user collaboration)
+
+---
+
+## 🚀 Claude Code サブエージェント活用 & DOD ベストプラクティス（2025-11-13）
+
+### 🎯 黄金ルール: 分散並列エージェント駆使
+
+```
+コード変更 → 並列エージェントでレビュー → プロダクションビルド → DOD完了
+```
+
+**Definition of Done (DOD)**: フェーズ終了時の完了条件
+- ✅ コードレビュー完了（自動 + 手動）
+- ✅ プロダクションビルド成功
+- ✅ EAS Update配信完了
+- ✅ 動作検証完了
+
+---
+
+### 📋 開発ワークフロー（Claude Code + DOD）
+
+#### フェーズ1: コード実装
+
+```bash
+# 1. 機能実装（通常の開発）
+# ... コーディング ...
+
+# 2. 変更をコミット
+git add -A
+git commit -m "Feat: 新機能の説明"
+```
+
+#### フェーズ2: 並列エージェントでコードレビュー
+
+**Task Agent (general-purpose) を並列実行**
+
+3つのエージェントを同時起動し、異なる観点からレビュー：
+
+1. **セキュリティレビュー**
+   - 機密情報のハードコードチェック
+   - 認証・認可の実装確認
+   - XSS/SQLインジェクション脆弱性チェック
+   - HTTPS通信の確認
+
+2. **パフォーマンスレビュー**
+   - 不要なre-renderチェック
+   - メモリリークの可能性
+   - バンドルサイズの影響
+   - SQLクエリの最適化
+
+3. **型安全性レビュー**
+   - TypeScript型エラー
+   - any型の使用箇所
+   - null/undefined安全性
+   - 型ガードの適切性
+
+**実行時間**: シーケンシャル90秒 → 並列30秒（3倍高速化）
+
+#### フェーズ3: プロダクションビルド作成
+
+```bash
+# 1. バージョンバンプ
+# app.config.ts の version と versionCode をインクリメント
+
+# 2. コミット
+git add app.config.ts
+git commit -m "Bump: version X.Y.Z (versionCode N)"
+
+# 3. プロダクションビルド
+export EXPO_TOKEN="..."
+npx eas-cli build --platform android --profile production --non-interactive
+
+# 4. ビルド完了を待つ（10〜15分）
+```
+
+#### フェーズ4: EAS Update配信
+
+```bash
+# ビルド完了後にUpdate配信
+cd apps/mobile
+npx eas-cli update --branch production --message "Release: version X.Y.Z"
+```
+
+#### フェーズ5: DOD確認
+
+**Definition of Done チェックリスト**:
+- [ ] コードレビュー完了（並列エージェント3つ実行）
+- [ ] セキュリティ問題なし
+- [ ] パフォーマンス問題なし
+- [ ] 型エラーなし
+- [ ] プロダクションビルド成功
+- [ ] EAS Update配信成功
+- [ ] 実機テスト完了（Android/iOS）
+- [ ] クリティカルバグなし
+
+---
+
+### 🤖 Claude Code サブエージェントの使い方
+
+#### 1. **Explore Agent** - コードベース探索
+
+**使用タイミング**: 機能実装前の調査、リファクタリング前の影響範囲確認
+
+**例**:
+```
+Task: "lastError の使用箇所をすべて特定し、|| と ?? の使い分けを分析"
+Subagent Type: Explore
+Thoroughness: very thorough
+```
+
+**出力例**:
+```
+Found 5 locations using lastError:
+1. seedData.ts:272 - Uses ?? ✅
+2. seedData.ts:291 - Uses || ❌ (diagnostic code)
+3. sqlite.ts:75 - Uses ?? ✅
+4. sqlite.ts:142 - Uses ?? ✅
+5. sqlite.ts:307 - Uses || ❌ (rowToEvent)
+```
+
+#### 2. **General-Purpose Agent** - 複雑なタスク
+
+**使用タイミング**: コードレビュー、リファクタリング、テスト作成
+
+**例**:
+```
+Task: "seedData.ts のコードを DOD基準でレビューし、改善提案を5つ挙げる"
+Subagent Type: general-purpose
+```
+
+---
+
+### 🔄 Build-Update同期の重要性（2025-11-13解決済み）
+
+#### ❌ 問題: エラーが再発する理由
+
+**症状**: コード修正してビルド作成 → エラーが再発
+
+**根本原因**: **EAS Updateを配信していない**
+
+```
+Build 7作成 → APKダウンロード → インストール
+                                ↓
+                          古いJSバンドルを使用（Build 6のコード）
+```
+
+#### ✅ 解決策: Build後に必ずUpdate配信
+
+**正しいワークフロー**:
+```bash
+# 1. コード修正 & コミット
+git add -A
+git commit -m "Fix: エラー修正"
+
+# 2. ビルド作成
+npx eas-cli build --platform android --profile preview --non-interactive
+
+# 3. ビルド完了を待つ（10〜15分）
+
+# 4. 【重要】EAS Updateを配信
+cd apps/mobile
+npx eas-cli update --branch preview --message "Fix: エラー修正"
+
+# 5. アプリを再起動してUpdateを適用
+```
+
+**ポイント**:
+- Build作成だけでは**ネイティブコード**のみ更新
+- JSコードの更新には**EAS Update配信**が必須
+- Updateなしだと、新しいAPKでも古いJSコードが実行される
+
+---
+
+### 📊 効率化のメリット
+
+| 従来の方法 | Claude Code + 並列エージェント |
+|-----------|---------------------------|
+| コードレビュー: 手動で1時間 | 自動レビュー: 30秒（3エージェント並列） |
+| ビルド: 手動で15分 | ビルド: 自動で15分（変わらず） |
+| Update配信: 忘れがち | Update配信: ワークフローに組み込み |
+| **合計: 1時間15分 + 人的ミス** | **合計: 15分30秒 + 人的ミスゼロ** |
+
+**生産性向上**: 約5倍
+
+---
+
+### 🎯 今後の運用ルール
+
+#### ルール1: コード変更は必ずDODを完了させる
+
+- [ ] コミット
+- [ ] 並列エージェントレビュー（3つ）
+- [ ] ビルド作成
+- [ ] EAS Update配信
+- [ ] 動作確認
+
+#### ルール2: フェーズ終了時にプロダクションビルド
+
+- 開発フェーズ（preview branch）での作業完了後
+- **必ず**プロダクションビルド（production profile）を作成
+- production branchにEAS Update配信
+- 実機で最終動作確認
+
+#### ルール3: エラー再発時の対応
+
+1. **まず Update配信を確認**
+   ```bash
+   npx eas-cli update:list --branch preview --limit 1
+   ```
+   
+2. **ビルドとUpdateのコミットハッシュを比較**
+   ```bash
+   npx eas-cli build:list --platform android --limit 1
+   ```
+   
+3. **一致していなければUpdate配信**
+   ```bash
+   npx eas-cli update --branch preview --message "Sync with Build X"
+   ```
+
+---
+
+### 💡 ベストプラクティスまとめ
+
+1. **並列エージェント活用**: セキュリティ・パフォーマンス・型安全性を同時レビュー
+2. **DOD徹底**: フェーズ終了時は必ずプロダクションビルド
+3. **Build-Update同期**: ビルド後は必ずUpdate配信
+4. **自動化**: 手動作業を減らし、ヒューマンエラーを防ぐ
+
+---
+
+**最終更新**: 2025-11-13  
+**作成者**: Claude (with user collaboration)
+
