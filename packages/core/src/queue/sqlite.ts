@@ -56,50 +56,43 @@ export class OfflineQueue {
   }
 
   /**
-   * イベントを追加
+   * イベントを追加（execAsync方式でKotlin型変換エラーを回避）
    */
   async add(event: ScanEvent): Promise<void> {
     const now = new Date().toISOString();
 
-    const params = [
-      event.id,
-      event.projectId,
-      event.personId,
-      event.method,
-      event.gateMode,
-      event.decidedMode,
-      event.occurredAt,
-      JSON.stringify(event.ruleResult),
-      event.transport.status,
-      event.transport.attempts,
-      event.transport.lastError ?? null,
-      event.transport.idempotencyKey,
-      now,
-      now,
-    ];
+    // SQLエスケープ関数
+    const escape = (val: string | number | null | undefined): string => {
+      if (val === null || val === undefined) return "NULL";
+      if (typeof val === "number") return String(val);
+      return `'${String(val).replace(/'/g, "''")}'`;
+    };
 
-    // パラメータ検証（開発モードのみ）
-    if (__DEV__) {
-      params.forEach((param, index) => {
-        const paramType = typeof param;
-        if (paramType === "object" && param !== null) {
-          console.error(`[OfflineQueue.add] Invalid parameter at index ${index}:`, {
-            type: paramType,
-            value: param,
-          });
-        }
-      });
-    }
+    const lastError = event.transport.lastError ?? null;
+
+    const sql = `INSERT INTO scan_events (
+      id, project_id, person_id, method, gate_mode, decided_mode,
+      occurred_at, rule_result, transport_status, transport_attempts,
+      transport_last_error, transport_idempotency_key, created_at, updated_at
+    ) VALUES (
+      ${escape(event.id)},
+      ${escape(event.projectId)},
+      ${escape(event.personId)},
+      ${escape(event.method)},
+      ${escape(event.gateMode)},
+      ${escape(event.decidedMode)},
+      ${escape(event.occurredAt)},
+      ${escape(JSON.stringify(event.ruleResult))},
+      ${escape(event.transport.status)},
+      ${event.transport.attempts},
+      ${lastError === null ? "NULL" : escape(lastError)},
+      ${escape(event.transport.idempotencyKey)},
+      ${escape(now)},
+      ${escape(now)}
+    );`;
 
     try {
-      await this.db.runAsync(
-        `INSERT INTO scan_events (
-          id, project_id, person_id, method, gate_mode, decided_mode,
-          occurred_at, rule_result, transport_status, transport_attempts,
-          transport_last_error, transport_idempotency_key, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        params
-      );
+      await this.db.execAsync(sql);
     } catch (error: any) {
       // エラー時に詳細なデバッグ情報を出力
       console.error("[OfflineQueue.add] Failed to insert event:", {
@@ -107,7 +100,7 @@ export class OfflineQueue {
         eventId: event.id,
         projectId: event.projectId,
         personId: event.personId,
-        paramTypes: params.map((p, i) => `[${i}] ${typeof p}`),
+        sql: sql.substring(0, 200) + "...",
       });
       throw error;
     }
@@ -129,7 +122,7 @@ export class OfflineQueue {
   }
 
   /**
-   * イベントの送信状態を更新
+   * イベントの送信状態を更新（execAsync方式でKotlin型変換エラーを回避）
    */
   async updateStatus(
     id: string,
@@ -139,31 +132,24 @@ export class OfflineQueue {
   ): Promise<void> {
     const now = new Date().toISOString();
 
-    const params = [status, attempts, lastError ?? null, now, id];
+    // SQLエスケープ関数
+    const escape = (val: string | number | null | undefined): string => {
+      if (val === null || val === undefined) return "NULL";
+      if (typeof val === "number") return String(val);
+      return `'${String(val).replace(/'/g, "''")}'`;
+    };
 
-    // パラメータ検証（開発モードのみ）
-    if (__DEV__) {
-      params.forEach((param, index) => {
-        const paramType = typeof param;
-        if (paramType === "object" && param !== null) {
-          console.error(`[OfflineQueue.updateStatus] Invalid parameter at index ${index}:`, {
-            type: paramType,
-            value: param,
-          });
-        }
-      });
-    }
+    const lastErrorValue = lastError ?? null;
+
+    const sql = `UPDATE scan_events
+      SET transport_status = ${escape(status)},
+          transport_attempts = ${attempts},
+          transport_last_error = ${lastErrorValue === null ? "NULL" : escape(lastErrorValue)},
+          updated_at = ${escape(now)}
+      WHERE id = ${escape(id)};`;
 
     try {
-      await this.db.runAsync(
-        `UPDATE scan_events
-         SET transport_status = ?,
-             transport_attempts = ?,
-             transport_last_error = ?,
-             updated_at = ?
-         WHERE id = ?`,
-        params
-      );
+      await this.db.execAsync(sql);
     } catch (error: any) {
       console.error("[OfflineQueue.updateStatus] Failed to update event:", {
         errorMessage: error?.message,
@@ -171,7 +157,7 @@ export class OfflineQueue {
         status,
         attempts,
         lastError,
-        paramTypes: params.map((p, i) => `[${i}] ${typeof p}`),
+        sql: sql.substring(0, 200) + "...",
       });
       throw error;
     }
