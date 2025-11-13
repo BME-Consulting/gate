@@ -1,0 +1,20 @@
+# EAS Build Ignore File
+# Exclude other apps and packages from the build
+
+# Other apps
+apps/face-api/
+
+# E2E tests
+e2e/
+
+# Docs
+docs/
+
+# Scripts
+scripts/
+
+# QR codes
+qr-codes/
+
+# Spec
+spec/
