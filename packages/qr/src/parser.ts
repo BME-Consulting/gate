@@ -42,10 +42,28 @@ export function parseQRCode(data: string): WorkerInfo {
 
     const parts = data.split("|");
 
-    // 最小フィールド数チェック
+    // シンプルフォーマット（personIdのみ）をサポート
+    // 例: "P001" や "WORKER123"
+    if (parts.length === 1 && parts[0].trim().length > 0) {
+      const personId = parts[0].trim();
+      return {
+        personId,
+        name: `作業者 ${personId}`,
+        company: "未登録",
+        ccusId: undefined,
+        ccusRegistered: false,
+        socialInsurance: false,
+        residencyStatus: undefined,
+        age: undefined,
+        healthFlags: undefined,
+        isSoleProprietor: false,
+      };
+    }
+
+    // 最小フィールド数チェック（M1フォーマット）
     if (parts.length < 9) {
       throw new Error(
-        `無効なQRコードフォーマットです（フィールド数不足: ${parts.length}/9）`
+        `無効なQRコードフォーマットです（フィールド数不足: ${parts.length}/9）\n\nサポート形式:\n- シンプル: "P001"\n- M1: "M1|P001|氏名|..."`
       );
     }
 
