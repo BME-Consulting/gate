@@ -1,5 +1,5 @@
 // ==========================================
-// ダミーデータ生成スクリプト
+// ダミーデータ生成スクリプト（execAsync版）
 // ==========================================
 
 import { Alert } from "react-native";
@@ -8,11 +8,9 @@ import type { ScanEvent, SQLiteDatabase } from "@mc-gate/core";
 import { DB_NAME as IMPORTED_DB_NAME } from "@mc-gate/core";
 
 // WORKAROUND: Hardcode PROJECT_ID to avoid build-update mismatch
-// This ensures the value is always a string, even if DEFAULT_PROJECT_ID export fails
 const PROJECT_ID = "PRJ001";
 
 // WORKAROUND: Hardcode DB_NAME to avoid module resolution issues in EAS Update
-// If IMPORTED_DB_NAME is somehow an object due to bundling issues, fall back to hardcoded string
 const DB_NAME = typeof IMPORTED_DB_NAME === "string" ? IMPORTED_DB_NAME : "mc-gate.db";
 const PERSON_IDS = [
   "P001", "P002", "P003", "P004", "P005",
@@ -37,6 +35,18 @@ function randomDate(hoursAgo: number): Date {
   const now = new Date();
   const offset = Math.random() * hoursAgo * 60 * 60 * 1000;
   return new Date(now.getTime() - offset);
+}
+
+/**
+ * SQLエスケープ関数
+ * シングルクォートをエスケープして、SQLインジェクションを防ぐ
+ */
+function escapeSQLString(str: string | null | undefined): string {
+  if (str === null || str === undefined) {
+    return "NULL";
+  }
+  // シングルクォートを2つ重ねてエスケープ
+  return `'${String(str).replace(/'/g, "''")}'`;
 }
 
 function generateScanEvent(index: number): ScanEvent {
@@ -118,8 +128,41 @@ function generateScanEvent(index: number): ScanEvent {
   };
 }
 
+/**
+ * ScanEventからINSERT文を生成（execAsync用）
+ */
+function generateInsertSQL(event: ScanEvent): string {
+  const now = new Date().toISOString();
+
+  // lastErrorがundefinedの場合はNULLを使用
+  const lastErrorValue = event.transport.lastError !== undefined
+    ? escapeSQLString(event.transport.lastError)
+    : "NULL";
+
+  return `INSERT INTO scan_events (
+    id, project_id, person_id, method, gate_mode, decided_mode,
+    occurred_at, rule_result, transport_status, transport_attempts,
+    transport_last_error, transport_idempotency_key, created_at, updated_at
+  ) VALUES (
+    ${escapeSQLString(event.id)},
+    ${escapeSQLString(event.projectId)},
+    ${escapeSQLString(event.personId)},
+    ${escapeSQLString(event.method)},
+    ${escapeSQLString(event.gateMode)},
+    ${escapeSQLString(event.decidedMode)},
+    ${escapeSQLString(event.occurredAt)},
+    ${escapeSQLString(JSON.stringify(event.ruleResult))},
+    ${escapeSQLString(event.transport.status)},
+    ${event.transport.attempts},
+    ${lastErrorValue},
+    ${escapeSQLString(event.transport.idempotencyKey)},
+    ${escapeSQLString(now)},
+    ${escapeSQLString(now)}
+  );`;
+}
+
 export async function seedDummyData(count: number = 50) {
-  console.log(`Seeding ${count} dummy scan events...`);
+  console.log(`Seeding ${count} dummy scan events using execAsync...`);
 
   try {
     const db = (await openDatabaseAsync(DB_NAME)) as unknown as SQLiteDatabase;
@@ -154,159 +197,46 @@ export async function seedDummyData(count: number = 50) {
       ON scan_events(transport_idempotency_key);
     `);
 
-    // ダミーデータを挿入
-    for (let i = 0; i < count; i++) {
-      const event = generateScanEvent(i);
-      const now = new Date().toISOString();
+    // ダミーデータを挿入（バッチ処理）
+    const batchSize = 10;
+    for (let batchStart = 0; batchStart < count; batchStart += batchSize) {
+      const batchEnd = Math.min(batchStart + batchSize, count);
+      const insertStatements: string[] = [];
 
-      // Safety check: Ensure now is actually a string
-      if (typeof now !== "string") {
-        throw new Error(`now is not a string! Type: ${typeof now}, Value: ${now}`);
-      }
+      for (let i = batchStart; i < batchEnd; i++) {
+        const event = generateScanEvent(i);
+        const insertSQL = generateInsertSQL(event);
+        insertStatements.push(insertSQL);
 
-      // デバッグログ: 最初のイベントの内容を出力
-      if (i === 0) {
-        const params = [
-          event.id,
-          event.projectId,
-          event.personId,
-          event.method,
-          event.gateMode,
-          event.decidedMode,
-          event.occurredAt,
-          JSON.stringify(event.ruleResult),
-          event.transport.status,
-          event.transport.attempts,
-          event.transport.lastError ?? null,
-          event.transport.idempotencyKey,
-          now,
-          now,
-        ];
+        // 最初のイベントのSQLを表示（デバッグ用）
+        if (i === 0) {
+          console.log("🔍 Debug: First INSERT SQL:");
+          console.log(insertSQL);
 
-        // コンソールログ
-        console.log("🔍 Debug: First event data:", {
-          id: event.id,
-          projectId: event.projectId,
-          projectIdType: typeof event.projectId,
-          projectIdValue: JSON.stringify(event.projectId),
-          personId: event.personId,
-        });
-
-        console.log("🔍 Debug: All parameters to runAsync:");
-        const debugLines: string[] = [];
-        params.forEach((param, index) => {
-          const paramType = typeof param;
-          const isObject = paramType === "object" && param !== null;
-          const line = `[${index + 1}] type=${paramType}, value=${isObject ? "[OBJECT]" : String(param).substring(0, 50)}`;
-          console.log(`  ${line}`);
-          debugLines.push(line);
-        });
-
-        // Alertダイアログに表示（コピー可能）
-        const debugMessage = `DB_NAME: ${DB_NAME} (type: ${typeof DB_NAME})\nPROJECT_ID: ${PROJECT_ID} (type: ${typeof PROJECT_ID})\n\nパラメータ:\n${debugLines.join('\n')}`;
-
-        Alert.alert(
-          "デバッグ情報（長押しでコピー）",
-          debugMessage,
-          [{ text: "OK" }]
-        );
-      }
-
-      // projectIdがundefinedまたはnullの場合はエラーをスロー
-      if (!event.projectId) {
-        throw new Error(`projectId is ${event.projectId} for event ${i}`);
-      }
-
-      // Safety check: Ensure ALL parameters are primitives (not objects)
-      const paramsToCheck = [
-        { name: "id", value: event.id },
-        { name: "projectId", value: event.projectId },
-        { name: "personId", value: event.personId },
-        { name: "method", value: event.method },
-        { name: "gateMode", value: event.gateMode },
-        { name: "decidedMode", value: event.decidedMode },
-        { name: "occurredAt", value: event.occurredAt },
-        { name: "ruleResult (stringified)", value: JSON.stringify(event.ruleResult) },
-        { name: "transport.status", value: event.transport.status },
-        { name: "transport.attempts", value: event.transport.attempts },
-        { name: "transport.lastError", value: event.transport.lastError ?? null },
-        { name: "transport.idempotencyKey", value: event.transport.idempotencyKey },
-        { name: "created_at (now)", value: now },
-        { name: "updated_at (now)", value: now },
-      ];
-
-      for (const param of paramsToCheck) {
-        const paramType = typeof param.value;
-        if (paramType === "object" && param.value !== null) {
-          const errorMsg = `Parameter "${param.name}" is an object!\nType: ${paramType}\nValue: ${JSON.stringify(param.value)}`;
-
-          // Alertで表示（コピー可能）
           Alert.alert(
-            "❌ パラメータエラー（長押しでコピー）",
-            errorMsg,
+            "デバッグ情報（execAsync版）",
+            `DB_NAME: ${DB_NAME}\nPROJECT_ID: ${PROJECT_ID}\n\n最初のSQL:\n${insertSQL.substring(0, 200)}...`,
             [{ text: "OK" }]
           );
-
-          throw new Error(errorMsg);
         }
       }
 
       try {
-        await db.runAsync(
-          `INSERT INTO scan_events (
-            id, project_id, person_id, method, gate_mode, decided_mode,
-            occurred_at, rule_result, transport_status, transport_attempts,
-            transport_last_error, transport_idempotency_key, created_at, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            event.id,
-            event.projectId,
-            event.personId,
-            event.method,
-            event.gateMode,
-            event.decidedMode,
-            event.occurredAt,
-            JSON.stringify(event.ruleResult),
-            event.transport.status,
-            event.transport.attempts,
-            event.transport.lastError ?? null,
-            event.transport.idempotencyKey,
-            now,
-            now,
-          ]
-        );
-      } catch (runAsyncError: any) {
-        // runAsyncエラーの詳細をAlertで表示
-        const paramTypes = [
-          `[1] id: ${typeof event.id}`,
-          `[2] projectId: ${typeof event.projectId} = "${event.projectId}"`,
-          `[3] personId: ${typeof event.personId}`,
-          `[4] method: ${typeof event.method}`,
-          `[5] gateMode: ${typeof event.gateMode}`,
-          `[6] decidedMode: ${typeof event.decidedMode}`,
-          `[7] occurredAt: ${typeof event.occurredAt}`,
-          `[8] ruleResult: ${typeof JSON.stringify(event.ruleResult)}`,
-          `[9] status: ${typeof event.transport.status}`,
-          `[10] attempts: ${typeof event.transport.attempts}`,
-          `[11] lastError: ${typeof (event.transport.lastError ?? null)}`,
-          `[12] idempotencyKey: ${typeof event.transport.idempotencyKey}`,
-          `[13] created_at: ${typeof now}`,
-          `[14] updated_at: ${typeof now}`,
-        ].join('\n');
+        // バッチ実行（1つのexecAsyncで複数のINSERT文を実行）
+        const batchSQL = insertStatements.join("\n");
+        await db.execAsync(batchSQL);
 
-        const errorMsg = `runAsync エラー！\n\nエラー: ${runAsyncError.message}\n\nDB_NAME: ${DB_NAME} (${typeof DB_NAME})\nPROJECT_ID: ${PROJECT_ID} (${typeof PROJECT_ID})\n\nパラメータ型:\n${paramTypes}`;
+        console.log(`Inserted ${batchEnd}/${count} events...`);
+      } catch (execError: any) {
+        const errorMsg = `execAsync エラー！\n\nエラー: ${execError.message}\n\nDB_NAME: ${DB_NAME}\nPROJECT_ID: ${PROJECT_ID}\n\nバッチ範囲: ${batchStart}-${batchEnd}`;
 
         Alert.alert(
-          "❌ runAsync エラー（長押しでコピー）",
+          "❌ execAsync エラー",
           errorMsg,
           [{ text: "OK" }]
         );
 
-        throw runAsyncError;
-      }
-
-      if ((i + 1) % 10 === 0) {
-        console.log(`Inserted ${i + 1}/${count} events...`);
+        throw execError;
       }
     }
 
@@ -324,6 +254,12 @@ export async function seedDummyData(count: number = 50) {
       console.log(`  ${stat.status}: ${stat.count} events`);
     });
 
+    Alert.alert(
+      "✅ ダミーデータ生成成功",
+      `${count}件のスキャンイベントを登録しました！`,
+      [{ text: "OK" }]
+    );
+
     return { success: true, count };
   } catch (error) {
     console.error("❌ Error seeding data:", error);
@@ -339,6 +275,13 @@ export async function clearDummyData() {
     const db = (await openDatabaseAsync(DB_NAME)) as unknown as SQLiteDatabase;
     await db.execAsync("DELETE FROM scan_events");
     console.log("✅ All scan events cleared!");
+
+    Alert.alert(
+      "✅ データクリア成功",
+      "すべてのスキャンイベントを削除しました",
+      [{ text: "OK" }]
+    );
+
     return { success: true };
   } catch (error) {
     console.error("❌ Error clearing data:", error);
