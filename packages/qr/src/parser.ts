@@ -44,20 +44,19 @@ export function parseQRCode(data: string): WorkerInfo {
 
     // シンプルフォーマット（personIdのみ）をサポート
     // 例: "P001" や "WORKER123"
-    // テスト用途のため、すべてのチェックをパスするデータを生成
     if (parts.length === 1 && parts[0].trim().length > 0) {
       const personId = parts[0].trim();
       return {
         personId,
         name: `作業者 ${personId}`,
-        company: "テスト会社",
-        ccusId: `CCUS-${personId}`,  // テスト用CCUS ID生成
-        ccusRegistered: true,  // ✅ CCUS登録済みとして扱う
-        socialInsurance: true,  // ✅ 社会保険加入済みとして扱う
-        residencyStatus: undefined,  // 在留資格は任意のためundefined
-        age: 30,  // ✅ 年齢制限をパスする値
-        healthFlags: undefined,  // 健康フラグは任意のためundefined
-        isSoleProprietor: false,  // ✅ 一人親方ではない
+        company: "未登録",
+        ccusId: undefined,
+        ccusRegistered: false,
+        socialInsurance: false,
+        residencyStatus: undefined,
+        age: undefined,
+        healthFlags: undefined,
+        isSoleProprietor: false,
       };
     }
 

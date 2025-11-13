@@ -34,17 +34,19 @@ export default function LoginScreen() {
       });
 
       // モックプロジェクト設定
+      // NOTE: テスト用途のため、すべてのチェックをオフにしています
+      // 本番環境では設定画面で個別にオン/オフを切り替えられるようにする予定
       setCurrentProject({
         projectId: DEFAULT_PROJECT_ID,
         name: "東京建設現場A",
         gateMode: "IN",
         checkConfig: {
-          ccusIdCheck: true,
-          socialInsuranceCheck: true,
-          residencyCheck: true,
-          ageCheck: true,
-          healthCheck: true,
-          soleProprietorCheck: true,
+          ccusIdCheck: false,  // テスト用: オフ
+          socialInsuranceCheck: false,  // テスト用: オフ
+          residencyCheck: false,  // テスト用: オフ
+          ageCheck: false,  // テスト用: オフ
+          healthCheck: false,  // テスト用: オフ
+          soleProprietorCheck: false,  // テスト用: オフ
         },
         serverLock: false,
       });
