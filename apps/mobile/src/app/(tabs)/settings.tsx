@@ -346,7 +346,7 @@ export default function SettingsScreen() {
     setIsSyncing(true);
 
     try {
-      const apiUrl = Constants.expoConfig?.extra?.apiBaseCcus || "http://localhost:8100";
+      const apiUrl = Constants.expoConfig?.extra?.apiFaceApi || "http://localhost:8100";
       const workersApiUrl = `${apiUrl}/api/workers`;
 
       await syncFromServer(workersApiUrl, user.token);

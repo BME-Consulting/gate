@@ -2,13 +2,23 @@
 // 顔認証画面
 // ==========================================
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useMemo } from "react";
 import { View, Text, StyleSheet, Alert, TouchableOpacity, ActivityIndicator } from "react-native";
 import { CameraView, CameraType, useCameraPermissions } from "expo-camera";
+import Constants from "expo-constants";
 import { Button, tokens } from "@mc-gate/ui-kit";
 import { Ionicons } from "@expo/vector-icons";
 import { useWorkers } from "../../hooks/useWorkers";
+import { useQueue } from "../../hooks/useQueue";
+import { useAppStore } from "../../store/appStore";
 import { router } from "expo-router";
+import {
+  RuleEngine,
+  generateUUID,
+  makeIdempotencyKey,
+  type WorkerInfo,
+  type ScanEvent,
+} from "@mc-gate/core";
 
 // Face API のレスポンス型定義
 interface FaceRecognitionResponse {
@@ -30,6 +40,14 @@ export default function FaceRecognitionScreen() {
   const [recognitionResult, setRecognitionResult] = useState<FaceRecognitionResponse | null>(null);
   const cameraRef = useRef<CameraView>(null);
   const { getWorkerById } = useWorkers();
+  const { currentProject } = useAppStore();
+  const { isReady: queueReady, addToQueue } = useQueue();
+
+  // ルールエンジンの初期化
+  const ruleEngine = useMemo(() => {
+    if (!currentProject) return null;
+    return new RuleEngine(currentProject.checkConfig);
+  }, [currentProject?.checkConfig]);
 
   // カメラ権限のチェック
   if (!permission) {
@@ -57,6 +75,68 @@ export default function FaceRecognitionScreen() {
     );
   }
 
+  // 入場イベントを記録する関数
+  const recordEntryEvent = async (worker: WorkerInfo) => {
+    if (!currentProject || !queueReady || !ruleEngine) {
+      console.warn("Cannot record entry event: project or queue not ready");
+      return;
+    }
+
+    try {
+      // ルールを適用
+      const ruleResult = ruleEngine.evaluate(worker);
+
+      // blockの場合は登録しない
+      if (ruleResult.action === "block") {
+        return;
+      }
+
+      // 入退モードを決定（プロジェクト設定のgateModeをそのまま使用）
+      const decidedMode = currentProject.gateMode;
+
+      // スキャンイベントを作成
+      const occurredAt = new Date().toISOString();
+      const scanEvent: ScanEvent = {
+        id: generateUUID(),
+        projectId: currentProject.projectId,
+        personId: worker.personId,
+        method: "FACE",
+        gateMode: currentProject.gateMode,
+        decidedMode,
+        occurredAt,
+        ruleResult,
+        transport: {
+          status: "pending",
+          attempts: 0,
+          idempotencyKey: makeIdempotencyKey({
+            projectId: currentProject.projectId,
+            personId: worker.personId,
+            decidedMode,
+            occurredAt,
+          }),
+        },
+      };
+
+      // キューに追加
+      await addToQueue(scanEvent);
+
+      if (__DEV__) {
+        console.log("[FaceRecognition] Entry event recorded:", {
+          eventId: scanEvent.id,
+          personId: worker.personId,
+          decidedMode,
+        });
+      }
+    } catch (error) {
+      console.error("[FaceRecognition] Failed to record entry event:", error);
+      Alert.alert(
+        "警告",
+        "入場イベントの記録に失敗しました。\n認証は成功していますが、履歴に記録されていない可能性があります。",
+        [{ text: "OK" }]
+      );
+    }
+  };
+
   // 写真を撮影してBase64エンコード
   const handleTakePicture = async () => {
     if (!cameraRef.current || !isCameraReady || isProcessing) {
@@ -80,8 +160,11 @@ export default function FaceRecognitionScreen() {
       // Base64データをdata URI形式に変換
       const imageData = `data:image/jpeg;base64,${photo.base64}`;
 
+      // 環境変数からFace API URLを取得
+      const apiFaceApi = Constants.expoConfig?.extra?.apiFaceApi || "http://localhost:8100";
+
       // Face APIに送信
-      const response = await fetch("http://localhost:8100/api/face/recognize", {
+      const response = await fetch(`${apiFaceApi}/api/face/recognize`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -112,6 +195,25 @@ export default function FaceRecognitionScreen() {
             ccusId: workerDetails.ccusId,
           };
           setRecognitionResult({ ...result });
+
+          // WorkerInfo型に変換して入場イベントを記録
+          const workerInfo: WorkerInfo = {
+            personId: workerDetails.personId,
+            name: workerDetails.name,
+            company: workerDetails.company,
+            ccusId: workerDetails.ccusId,
+            ccusRegistered: workerDetails.ccusRegistered,
+            socialInsurance: workerDetails.socialInsurance,
+            residencyStatus: workerDetails.residencyExpiry ? {
+              expiryDate: workerDetails.residencyExpiry,
+              workPermit: true,
+            } : undefined,
+            age: workerDetails.age,
+            isSoleProprietor: workerDetails.isSoleProprietor,
+          };
+
+          // 入場イベントを記録
+          await recordEntryEvent(workerInfo);
         }
       }
 

@@ -1,6 +1,47 @@
 import { ExpoConfig, ConfigContext } from "expo/config";
 
-export default ({ config }: ConfigContext): ExpoConfig => ({
+export default ({ config }: ConfigContext): ExpoConfig => {
+  // Environment detection
+  const isProduction = process.env.ENV === "production";
+
+  // API URLs
+  const apiBaseGs = process.env.API_BASE_GS || "http://localhost:7070";
+  const apiBaseCcus = process.env.API_BASE_CCUS || "http://localhost:7071";
+  const apiFaceApi = process.env.API_FACE_API || "http://localhost:8100";
+  const authIssuer = process.env.AUTH_ISSUER || "http://localhost:8080/auth/realms/mcd3";
+
+  // HTTPS enforcement for production
+  if (isProduction) {
+    const urls = [
+      { name: "API_BASE_GS", value: apiBaseGs },
+      { name: "API_BASE_CCUS", value: apiBaseCcus },
+      { name: "API_FACE_API", value: apiFaceApi },
+      { name: "AUTH_ISSUER", value: authIssuer },
+    ];
+
+    const httpUrls = urls.filter(url => url.value.startsWith("http://"));
+
+    if (httpUrls.length > 0) {
+      const errorMessage = `
+========================================
+❌ PRODUCTION BUILD ERROR
+========================================
+
+The following environment variables must use HTTPS in production:
+
+${httpUrls.map(url => `  - ${url.name}: ${url.value}`).join("\n")}
+
+Please update your environment variables:
+  export ${httpUrls.map(url => url.name).join("\n  export ")}
+
+HTTP is only allowed in development mode (ENV !== "production")
+========================================
+`;
+      throw new Error(errorMessage);
+    }
+  }
+
+  return ({
   ...config,
   name: "mc-gate",
   slug: "mc-gate",
@@ -49,12 +90,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     eas: {
       projectId: "0f0feec5-4f4b-4252-ad34-c1594238b4b8",
     },
-    apiBaseGs: process.env.API_BASE_GS || "http://localhost:7070",
-    apiBaseCcus: process.env.API_BASE_CCUS || "http://localhost:7071",
+    apiBaseGs,
+    apiBaseCcus,
+    apiFaceApi,
     auth: {
-      issuer:
-        process.env.AUTH_ISSUER ||
-        "http://localhost:8080/auth/realms/mcd3",
+      issuer: authIssuer,
       audience: process.env.AUTH_AUDIENCE || "mc-gate",
       clientId: process.env.AUTH_CLIENT_ID || "mc-gate-mobile",
     },
@@ -69,4 +109,5 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       },
     ],
   ],
-});
+  });
+};
