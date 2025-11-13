@@ -25,6 +25,7 @@ export class OfflineQueue {
    * データベース初期化
    */
   async initialize(): Promise<void> {
+    // scan_events テーブル
     await this.db.execAsync(`
       CREATE TABLE IF NOT EXISTS scan_events (
         id TEXT PRIMARY KEY,
@@ -52,6 +53,40 @@ export class OfflineQueue {
     await this.db.execAsync(`
       CREATE INDEX IF NOT EXISTS idx_idempotency_key
       ON scan_events(transport_idempotency_key);
+    `);
+
+    // workers テーブル
+    await this.db.execAsync(`
+      CREATE TABLE IF NOT EXISTS workers (
+        person_id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        company TEXT NOT NULL,
+        ccus_id TEXT,
+        ccus_registered INTEGER NOT NULL DEFAULT 0,
+        social_insurance INTEGER NOT NULL DEFAULT 0,
+        residency_expiry TEXT,
+        age INTEGER,
+        is_sole_proprietor INTEGER NOT NULL DEFAULT 0,
+        face_embedding TEXT,
+        face_image_url TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+    `);
+
+    await this.db.execAsync(`
+      CREATE INDEX IF NOT EXISTS idx_workers_name
+      ON workers(name);
+    `);
+
+    await this.db.execAsync(`
+      CREATE INDEX IF NOT EXISTS idx_workers_company
+      ON workers(company);
+    `);
+
+    await this.db.execAsync(`
+      CREATE INDEX IF NOT EXISTS idx_workers_ccus_id
+      ON workers(ccus_id);
     `);
   }
 

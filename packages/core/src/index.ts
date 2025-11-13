@@ -25,3 +25,7 @@ export { messagesJa };
 
 // 定数
 export * from "./constants/database";
+
+// リポジトリ
+export { WorkerRepository } from "./repository/worker-repository";
+export type { SQLiteDatabase as WorkerRepositorySQLiteDatabase } from "./repository/worker-repository";

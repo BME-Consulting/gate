@@ -112,3 +112,22 @@ export interface ProjectConfig {
 // ==========================================
 export type MessageId = string;
 export type MessageMap = Record<MessageId, string>;
+
+// ==========================================
+// 作業員マスタ
+// ==========================================
+export interface Worker {
+  personId: string;
+  name: string;
+  company: string;
+  ccusId?: string;
+  ccusRegistered: boolean;
+  socialInsurance: boolean;
+  residencyExpiry?: string;
+  age?: number;
+  isSoleProprietor: boolean;
+  faceEmbedding?: number[]; // 512次元ベクトル
+  faceImageUrl?: string;
+  createdAt: string;
+  updatedAt: string;
+}
