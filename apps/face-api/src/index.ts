@@ -4,7 +4,7 @@ import faceRoutes from './routes/face';
 import workerRoutes from './routes/workers';
 
 const app = express();
-const PORT = process.env.PORT || 8000;
+const PORT = process.env.PORT || 8100;
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));

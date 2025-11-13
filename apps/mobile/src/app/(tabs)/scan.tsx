@@ -20,12 +20,14 @@ import { MockCardReader, type CardData } from "@mc-gate/reader-bridge";
 import { useAppStore } from "../../store/appStore";
 import { useQueue } from "../../hooks/useQueue";
 import { useNetworkStatus } from "../../hooks/useNetworkStatus";
+import { useWorkers } from "../../hooks/useWorkers";
 import { showDebugError, logDebugInfo } from "../../utils/debugLogger";
 
 export default function ScanScreen() {
   const { currentProject } = useAppStore();
   const { isReady, addToQueue } = useQueue();
   const { isOffline } = useNetworkStatus();
+  const { isReady: workersReady, getWorkerById, addWorker } = useWorkers();
 
   const [selectedMethod, setSelectedMethod] = useState<ScanMethod>("QR");
   const [scanning, setScanning] = useState(false);
@@ -46,7 +48,7 @@ export default function ScanScreen() {
     setScanning(true);
   };
 
-  const handleScan = (data: unknown) => {
+  const handleScan = async (data: unknown) => {
     // スキャン直後に状態を更新してカメラを停止
     setScanning(false);
 
@@ -57,7 +59,81 @@ export default function ScanScreen() {
       switch (selectedMethod) {
         case "QR":
           console.log("QR Scanned:", data);
-          workerInfo = parseQRCode(data as string);
+          const qrData = data as string;
+
+          // QRコードフォーマットを判定
+          const parts = qrData.split("|");
+
+          if (parts.length >= 9 && parts[0] === "M1") {
+            // M1フォーマット: QRコードからデータをパースし、ローカルDBに保存
+            console.log("M1 format detected");
+            workerInfo = parseQRCode(qrData);
+
+            // ローカルDBに作業員情報を保存（存在チェック）
+            if (workersReady) {
+              try {
+                const existingWorker = await getWorkerById(workerInfo.personId);
+                if (!existingWorker) {
+                  // 存在しない場合は追加
+                  await addWorker({
+                    personId: workerInfo.personId,
+                    name: workerInfo.name,
+                    company: workerInfo.company,
+                    ccusId: workerInfo.ccusId,
+                    ccusRegistered: workerInfo.ccusRegistered,
+                    socialInsurance: workerInfo.socialInsurance,
+                    residencyExpiry: workerInfo.residencyStatus?.expiryDate,
+                    age: workerInfo.age,
+                    isSoleProprietor: workerInfo.isSoleProprietor,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                  });
+                  console.log("Worker added to local DB:", workerInfo.personId);
+                }
+              } catch (dbError) {
+                console.warn("Failed to save worker to DB:", dbError);
+                // DB保存失敗してもスキャン処理は続行
+              }
+            }
+          } else if (parts.length === 1 && parts[0].trim().length > 0) {
+            // シンプルフォーマット: personIdのみ -> ローカルDBから取得
+            const personId = parts[0].trim();
+            console.log("Simple format detected, personId:", personId);
+
+            if (workersReady) {
+              const worker = await getWorkerById(personId);
+              if (worker) {
+                // ローカルDBに存在する場合
+                workerInfo = {
+                  personId: worker.personId,
+                  name: worker.name,
+                  company: worker.company,
+                  ccusId: worker.ccusId,
+                  ccusRegistered: worker.ccusRegistered,
+                  socialInsurance: worker.socialInsurance,
+                  residencyStatus: worker.residencyExpiry ? {
+                    expiryDate: worker.residencyExpiry,
+                    workPermit: true,
+                  } : undefined,
+                  age: worker.age,
+                  healthFlags: undefined,
+                  isSoleProprietor: worker.isSoleProprietor,
+                };
+                console.log("Worker found in local DB:", workerInfo);
+              } else {
+                // ローカルDBに存在しない場合: サーバーから取得（TODO）
+                // 現在はエラーとして扱う
+                throw new Error(
+                  `作業員情報が見つかりません (ID: ${personId})\n\nM1フォーマットのQRコードをスキャンするか、サーバーから作業員マスタを同期してください。`
+                );
+              }
+            } else {
+              throw new Error("作業員データベースが初期化されていません");
+            }
+          } else {
+            // その他のフォーマット: parseQRCodeに任せる
+            workerInfo = parseQRCode(qrData);
+          }
           break;
 
         case "CARD":
@@ -242,9 +318,16 @@ export default function ScanScreen() {
             : resultData.result.action === "warn"
               ? "確認が必要です"
               : "入場可能",
-        message: `${resultData.worker.name}さん（${resultData.worker.company}）\n\n${resultData.result.messages
-          .map((msgId) => messagesJa[msgId as keyof typeof messagesJa] || msgId)
-          .join("\n")}`,
+        message: `${resultData.worker.name}さん（${resultData.worker.company}）\n` +
+          `ID: ${resultData.worker.personId}\n` +
+          (resultData.worker.ccusId ? `CCUS ID: ${resultData.worker.ccusId}\n` : "") +
+          `社会保険: ${resultData.worker.socialInsurance ? "加入" : "未加入"}\n` +
+          (resultData.worker.age ? `年齢: ${resultData.worker.age}歳\n` : "") +
+          (resultData.worker.residencyStatus?.expiryDate ? `在留期限: ${resultData.worker.residencyStatus.expiryDate}\n` : "") +
+          (resultData.worker.isSoleProprietor ? "一人親方\n" : "") +
+          `\n${resultData.result.messages
+            .map((msgId) => messagesJa[msgId as keyof typeof messagesJa] || msgId)
+            .join("\n")}`,
         variant:
           resultData.result.action === "block"
             ? ("danger" as const)

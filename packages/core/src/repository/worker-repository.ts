@@ -33,6 +33,54 @@ export class WorkerRepository {
   }
 
   /**
+   * テーブルを初期化（存在しなければ作成）
+   */
+  async initialize(): Promise<void> {
+    const schema = `
+      CREATE TABLE IF NOT EXISTS workers (
+        -- 基本情報
+        person_id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        company TEXT NOT NULL,
+
+        -- CCUS情報
+        ccus_id TEXT,
+        ccus_registered INTEGER NOT NULL DEFAULT 0,
+
+        -- 社会保険・在留資格
+        social_insurance INTEGER NOT NULL DEFAULT 0,
+        residency_expiry TEXT,
+
+        -- その他情報
+        age INTEGER,
+        is_sole_proprietor INTEGER NOT NULL DEFAULT 0,
+
+        -- 顔認証情報
+        face_embedding TEXT,
+        face_image_url TEXT,
+
+        -- タイムスタンプ
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_workers_name ON workers(name);
+      CREATE INDEX IF NOT EXISTS idx_workers_company ON workers(company);
+      CREATE INDEX IF NOT EXISTS idx_workers_ccus_id ON workers(ccus_id);
+      CREATE INDEX IF NOT EXISTS idx_workers_created_at ON workers(created_at);
+    `;
+
+    try {
+      await this.db.execAsync(schema);
+    } catch (error: any) {
+      console.error("[WorkerRepository.initialize] Failed to create table:", {
+        errorMessage: error?.message,
+      });
+      throw error;
+    }
+  }
+
+  /**
    * 作業員を追加
    */
   async add(worker: Worker): Promise<void> {

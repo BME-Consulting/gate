@@ -180,7 +180,7 @@ export function useWorkers() {
     }
 
     const allWorkers = await repositoryInstance.findAll();
-    return allWorkers.filter((worker) => worker.faceEmbedding && worker.faceEmbedding.length > 0);
+    return allWorkers.filter((worker: Worker) => worker.faceEmbedding && worker.faceEmbedding.length > 0);
   };
 
   return {

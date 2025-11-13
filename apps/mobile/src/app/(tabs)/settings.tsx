@@ -3,11 +3,12 @@
 // ==========================================
 
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, ScrollView, Switch, Alert, Platform, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Switch, Alert, Platform, TouchableOpacity, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
 import { Button, tokens } from "@mc-gate/ui-kit";
 import { MockCardReader } from "@mc-gate/reader-bridge";
 import { useAppStore } from "../../store/appStore";
+import { useWorkers } from "../../hooks/useWorkers";
 import type { CheckConfig } from "@mc-gate/core";
 import { PasscodeModal } from "../../components/PasscodeModal";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -31,6 +32,11 @@ let readerInstance: MockCardReader | null = null;
 export default function SettingsScreen() {
   const router = useRouter();
   const { user, currentProject, logout, setCurrentProject, passcode, isPasscodeEnabled, setPasscode } = useAppStore();
+  const { isReady: workersReady, workers, getAllWorkers, syncFromServer } = useWorkers();
+
+  // 作業員マスタ同期状態
+  const [workerCount, setWorkerCount] = useState<number>(0);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // チェック設定（プロジェクト設定から初期化）
   const [checkConfig, setCheckConfig] = useState<CheckConfig>({
@@ -86,7 +92,23 @@ export default function SettingsScreen() {
 
     // Update情報を取得
     loadUpdateInfo();
+
+    // 作業員数を取得
+    loadWorkerCount();
   }, []);
+
+  const loadWorkerCount = async () => {
+    if (Platform.OS === "web" || !workersReady) {
+      return;
+    }
+
+    try {
+      const allWorkers = await getAllWorkers();
+      setWorkerCount(allWorkers.length);
+    } catch (error) {
+      console.error("Failed to load worker count:", error);
+    }
+  };
 
   const loadUpdateInfo = async () => {
     try {
@@ -303,6 +325,55 @@ export default function SettingsScreen() {
 
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" });
+  };
+
+  const handleWorkerSync = async () => {
+    if (Platform.OS === "web") {
+      showAlert("エラー", "Web環境では作業員同期機能は利用できません");
+      return;
+    }
+
+    if (!workersReady) {
+      showAlert("エラー", "作業員データベースの初期化中です。しばらくお待ちください。");
+      return;
+    }
+
+    if (!user?.token) {
+      showAlert("エラー", "認証情報が見つかりません。再度ログインしてください。");
+      return;
+    }
+
+    setIsSyncing(true);
+
+    try {
+      const apiUrl = Constants.expoConfig?.extra?.apiBaseCcus || "http://localhost:8100";
+      const workersApiUrl = `${apiUrl}/api/workers`;
+
+      await syncFromServer(workersApiUrl, user.token);
+
+      // 同期後に作業員数を再取得
+      await loadWorkerCount();
+
+      showAlert("同期完了", "作業員マスタの同期が完了しました。");
+    } catch (error: any) {
+      console.error("Worker sync failed:", error);
+
+      let errorMessage = "サーバーとの同期に失敗しました。";
+
+      if (error.message?.includes("401")) {
+        errorMessage = "認証エラー: トークンが無効です。再度ログインしてください。";
+      } else if (error.message?.includes("404")) {
+        errorMessage = "サーバーエラー: 作業員APIが見つかりません。";
+      } else if (error.message?.includes("500")) {
+        errorMessage = "サーバーエラー: サーバー内部でエラーが発生しました。";
+      } else if (error.message?.includes("Network")) {
+        errorMessage = "ネットワークエラー: サーバーに接続できません。";
+      }
+
+      showAlert("同期失敗", errorMessage);
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   return (
@@ -628,6 +699,34 @@ export default function SettingsScreen() {
             )}
           </View>
         </View>
+
+        {/* 作業員マスタ管理 */}
+        {Platform.OS !== "web" && workersReady && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>作業員マスタ管理</Text>
+            <View style={styles.card}>
+              <View style={styles.row}>
+                <Text style={styles.label}>登録済み作業員</Text>
+                <Text style={styles.value}>{workerCount}名</Text>
+              </View>
+
+              <View style={styles.buttonRow}>
+                <Button
+                  title={isSyncing ? "同期中..." : "サーバーから同期"}
+                  variant="primary"
+                  onPress={handleWorkerSync}
+                  loading={isSyncing}
+                  disabled={isSyncing}
+                  fullWidth
+                />
+              </View>
+
+              <Text style={styles.note}>
+                サーバーから最新の作業員マスタを取得します。顔認証機能を使用する場合は、事前に同期が必要です。
+              </Text>
+            </View>
+          </View>
+        )}
 
         {/* BLE設定 */}
         <View style={styles.section}>

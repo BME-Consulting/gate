@@ -36,7 +36,7 @@ npm install
 npm run dev
 ```
 
-サーバーは `http://localhost:8000` で起動します。
+サーバーは `http://localhost:8100` で起動します。
 
 ### 3. ビルド（本番用）
 

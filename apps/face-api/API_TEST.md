@@ -7,7 +7,7 @@ cd /volume2/Project/MCD3/TUMON/mc-gate/apps/face-api
 npm run dev
 ```
 
-サーバーは `http://localhost:8000` で起動します。
+サーバーは `http://localhost:8100` で起動します。
 
 ## API エンドポイントテスト
 
@@ -16,7 +16,7 @@ npm run dev
 #### 作業員を追加
 
 ```bash
-curl -X POST http://localhost:8000/api/workers \
+curl -X POST http://localhost:8100/api/workers \
   -H "Content-Type: application/json" \
   -d '{
     "personId": "P001",
@@ -41,7 +41,7 @@ curl -X POST http://localhost:8000/api/workers \
 #### 全作業員を取得
 
 ```bash
-curl http://localhost:8000/api/workers | jq .
+curl http://localhost:8100/api/workers | jq .
 ```
 
 **期待されるレスポンス**:
@@ -67,7 +67,7 @@ curl http://localhost:8000/api/workers | jq .
 #### 特定の作業員を取得
 
 ```bash
-curl http://localhost:8000/api/workers/P001 | jq .
+curl http://localhost:8100/api/workers/P001 | jq .
 ```
 
 **期待されるレスポンス**:
@@ -86,7 +86,7 @@ curl http://localhost:8000/api/workers/P001 | jq .
 
 **リクエスト**:
 ```bash
-curl -X POST http://localhost:8000/api/face/register \
+curl -X POST http://localhost:8100/api/face/register \
   -H "Content-Type: application/json" \
   -d '{
     "personId": "P001",
@@ -126,7 +126,7 @@ curl -X POST http://localhost:8000/api/face/register \
 
 **リクエスト**:
 ```bash
-curl -X POST http://localhost:8000/api/face/recognize \
+curl -X POST http://localhost:8100/api/face/recognize \
   -H "Content-Type: application/json" \
   -d '{
     "imageData": "data:image/jpeg;base64,/9j/4AAQ...",
