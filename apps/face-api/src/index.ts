@@ -71,8 +71,9 @@ app.get('/health', (req, res) => {
 app.use('/api/face', authMiddleware, faceRoutes);
 app.use('/api/workers', authMiddleware, workerRoutes);
 
-const server = app.listen(PORT, () => {
-  console.log(`🚀 Face API Server running on http://localhost:${PORT}`);
+const server = app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Face API Server running on http://0.0.0.0:${PORT}`);
+  console.log(`✓ Accessible from: http://localhost:${PORT} and http://192.168.1.4:${PORT}`);
   console.log(`✓ Authentication enabled (API_KEY: ${process.env.API_KEY ? '***configured***' : 'development-api-key-12345'})`);
   console.log(`✓ Request timeout: 60 seconds`);
 });
