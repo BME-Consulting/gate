@@ -113,11 +113,26 @@ export default function SettingsScreen() {
 
   const loadUpdateInfo = async () => {
     try {
+      console.log("==================== UPDATE INFO DEBUG ====================");
+      console.log("[DEBUG] Updates.isEnabled:", Updates.isEnabled);
+      console.log("[DEBUG] Updates.channel:", Updates.channel);
+      console.log("[DEBUG] Updates.updateId:", Updates.updateId);
+      console.log("[DEBUG] Updates.isEmbeddedLaunch:", Updates.isEmbeddedLaunch);
+      console.log("[DEBUG] Updates.runtimeVersion:", Updates.runtimeVersion);
+      console.log("[DEBUG] Constants.expoConfig?.extra:", JSON.stringify(Constants.expoConfig?.extra, null, 2));
+      console.log("===========================================================");
+
       if (!Updates.isEnabled) {
+        console.log("[DEBUG] Updates disabled (development mode)");
         return; // 開発モードではUpdates無効
       }
 
+      console.log("[DEBUG] Checking for updates...");
       const update = await Updates.checkForUpdateAsync();
+      console.log("[DEBUG] Update check result:", {
+        isAvailable: update.isAvailable,
+        manifest: update.manifest ? "present" : "null",
+      });
 
       setUpdateInfo({
         currentVersion: Constants.expoConfig?.version || "不明",
@@ -143,7 +158,11 @@ export default function SettingsScreen() {
         );
       }
     } catch (error) {
-      console.error("Update check failed:", error);
+      console.error("==================== UPDATE CHECK ERROR ====================");
+      console.error("[ERROR] Error type:", error?.constructor?.name);
+      console.error("[ERROR] Error message:", error instanceof Error ? error.message : String(error));
+      console.error("[ERROR] Error stack:", error instanceof Error ? error.stack : "no stack");
+      console.error("===========================================================");
     }
   };
 

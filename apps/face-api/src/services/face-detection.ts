@@ -40,8 +40,12 @@ export async function extractFaceEmbedding(base64Image: string): Promise<number[
   const buffer = Buffer.from(base64Data, 'base64');
 
   // Canvas画像作成
-  const img = new Image();
-  img.src = buffer;
+  const img = await new Promise<Image>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = (error) => reject(new Error('Failed to load image'));
+    image.src = buffer;
+  });
 
   // 顔検出
   const detection = await faceapi

@@ -16,6 +16,15 @@
     "preview": {
       "distribution": "internal",
       "channel": "preview",
+      "env": {
+        "API_FACE_API": "http://192.168.1.4:8100",
+        "API_BASE_GS": "http://192.168.1.4:7070",
+        "API_BASE_CCUS": "http://192.168.1.4:7071",
+        "AUTH_ISSUER": "http://192.168.1.4:8080/auth/realms/mcd3",
+        "AUTH_AUDIENCE": "mc-gate",
+        "AUTH_CLIENT_ID": "mc-gate-mobile",
+        "API_FACE_API_KEY": "development-api-key-12345"
+      },
       "ios": {
         "simulator": false
       },
@@ -27,6 +36,15 @@
       "distribution": "store",
       "channel": "production",
       "autoIncrement": true,
+      "env": {
+        "API_FACE_API": "https://api.production.example.com:8100",
+        "API_BASE_GS": "https://api.production.example.com:7070",
+        "API_BASE_CCUS": "https://api.production.example.com:7071",
+        "AUTH_ISSUER": "https://auth.production.example.com/auth/realms/mcd3",
+        "AUTH_AUDIENCE": "mc-gate",
+        "AUTH_CLIENT_ID": "mc-gate-mobile",
+        "API_FACE_API_KEY": "production-api-key"
+      },
       "ios": {
         "simulator": false
       },

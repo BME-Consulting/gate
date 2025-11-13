@@ -4,7 +4,7 @@
 
 import type { ScanEvent } from "../types/index.js";
 import type { OfflineQueue } from "./sqlite.js";
-import { TIMEOUT } from "../constants/timeout.js";
+import { TIMEOUT } from "../constants/timeout";
 
 export interface SyncWorkerConfig {
   queue: OfflineQueue;
