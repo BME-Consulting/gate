@@ -5,11 +5,11 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   const isProduction = process.env.ENV === "production";
 
   // API URLs
-  const apiBaseGs = process.env.API_BASE_GS || "http://localhost:7070";
-  const apiBaseCcus = process.env.API_BASE_CCUS || "http://localhost:7071";
-  const apiFaceApi = process.env.API_FACE_API || "http://localhost:8100";
+  const apiBaseGs = process.env.API_BASE_GS || "http://192.168.1.4:7070";
+  const apiBaseCcus = process.env.API_BASE_CCUS || "http://192.168.1.4:7071";
+  const apiFaceApi = process.env.API_FACE_API || "http://192.168.1.4:8100";
   const apiFaceApiKey = process.env.API_FACE_API_KEY || "development-api-key-12345";
-  const authIssuer = process.env.AUTH_ISSUER || "http://localhost:8080/auth/realms/mcd3";
+  const authIssuer = process.env.AUTH_ISSUER || "http://192.168.1.4:8080/auth/realms/mcd3";
 
   // HTTPS enforcement for production
   if (isProduction) {
