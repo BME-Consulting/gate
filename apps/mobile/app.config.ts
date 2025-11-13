@@ -47,7 +47,7 @@ HTTP is only allowed in development mode (ENV !== "production")
   name: "mc-gate",
   slug: "mc-gate",
   owner: "bme_llc",
-  version: "1.0.9",
+  version: "1.0.10",
   orientation: "portrait",
   icon: "./assets/icon.png",
   userInterfaceStyle: "light",
@@ -69,7 +69,7 @@ HTTP is only allowed in development mode (ENV !== "production")
   },
   android: {
     package: "com.bmeconsulting.mcgate",
-    versionCode: 10,
+    versionCode: 11,
     adaptiveIcon: {
       foregroundImage: "./assets/adaptive-icon.png",
       backgroundColor: "#ffffff",
