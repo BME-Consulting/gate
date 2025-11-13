@@ -366,12 +366,13 @@ export default function SettingsScreen() {
     setIsSyncing(true);
 
     try {
-      const apiUrl = Constants.expoConfig?.extra?.apiFaceApi || "http://localhost:8100";
-      const workersApiUrl = `${apiUrl}/api/workers`;
+      // Workers APIはGS API (port 7070) を使用
+      const gsApiUrl = Constants.expoConfig?.extra?.apiBaseGs || "http://localhost:7070";
+      const workersApiUrl = `${gsApiUrl}/api/workers`;
 
       // デバッグログ: 接続先URL
       console.log("==================== WORKER SYNC DEBUG ====================");
-      console.log(`[DEBUG] Face API URL: ${apiUrl}`);
+      console.log(`[DEBUG] GS API URL: ${gsApiUrl}`);
       console.log(`[DEBUG] Workers API URL: ${workersApiUrl}`);
       console.log(`[DEBUG] Token: ${user.token.substring(0, 20)}...`);
       console.log("===========================================================");
