@@ -7,29 +7,43 @@ import { authMiddleware } from './middleware/auth';
 const app = express();
 const PORT = process.env.PORT || 8100;
 
-// 許可するオリジンのリスト
-const allowedOrigins = [
-  'http://localhost:19006',  // Expo DevTools
-  'http://localhost:8081',   // Metro Bundler
-  process.env.ALLOWED_ORIGIN // 本番環境のオリジン
-].filter(Boolean) as string[];
+// 開発環境と本番環境でCORS設定を切り替え
+const isDevelopment = process.env.NODE_ENV !== 'production';
 
-// CORS設定の厳格化
-app.use(cors({
-  origin: (origin, callback) => {
-    // originがundefinedの場合は同一オリジン（許可）
-    if (!origin) return callback(null, true);
+if (isDevelopment) {
+  // 開発環境: 全オリジンを許可
+  app.use(cors({
+    origin: '*',
+    credentials: false, // origin: '*' の場合は credentials を false にする必要がある
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key']
+  }));
+  console.log('✓ CORS: Development mode - all origins allowed');
+} else {
+  // 本番環境: 許可するオリジンのリスト
+  const allowedOrigins = [
+    'http://localhost:19006',  // Expo DevTools
+    'http://localhost:8081',   // Metro Bundler
+    process.env.ALLOWED_ORIGIN // 本番環境のオリジン
+  ].filter(Boolean) as string[];
 
-    if (allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key']
-}));
+  app.use(cors({
+    origin: (origin, callback) => {
+      // originがundefinedの場合は同一オリジン（許可）
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key']
+  }));
+  console.log(`✓ CORS: Production mode - allowed origins: ${allowedOrigins.join(', ')}`);
+}
 
 app.use(express.json({ limit: '50mb' }));
 
@@ -60,7 +74,6 @@ app.use('/api/workers', authMiddleware, workerRoutes);
 const server = app.listen(PORT, () => {
   console.log(`🚀 Face API Server running on http://localhost:${PORT}`);
   console.log(`✓ Authentication enabled (API_KEY: ${process.env.API_KEY ? '***configured***' : 'development-api-key-12345'})`);
-  console.log(`✓ CORS origins: ${allowedOrigins.join(', ')}`);
   console.log(`✓ Request timeout: 60 seconds`);
 });
 
