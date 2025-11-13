@@ -5,7 +5,7 @@
 import { useEffect, useState } from "react";
 import { Platform } from "react-native";
 import type { Worker, SQLiteDatabase } from "@mc-gate/core";
-import { DB_NAME as IMPORTED_DB_NAME } from "@mc-gate/core";
+import { DB_NAME as IMPORTED_DB_NAME, TIMEOUT, fetchWithTimeout } from "@mc-gate/core";
 
 // WORKAROUND: Ensure DB_NAME is a string, not a module object
 const DB_NAME = typeof IMPORTED_DB_NAME === "string" ? IMPORTED_DB_NAME : "mc-gate.db";
@@ -142,13 +142,14 @@ export function useWorkers() {
     }
 
     try {
-      // サーバーから全作業員を取得
-      const response = await fetch(apiUrl, {
+      // サーバーから全作業員を取得（タイムアウト付き）
+      const response = await fetchWithTimeout(apiUrl, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
+        timeoutMs: TIMEOUT.BULK_FETCH, // 90秒（大量データ対応）
       });
 
       if (!response.ok) {

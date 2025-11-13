@@ -4,6 +4,7 @@
 
 import type { ScanEvent } from "../types/index.js";
 import type { OfflineQueue } from "./sqlite.js";
+import { TIMEOUT } from "../constants/timeout.js";
 
 export interface SyncWorkerConfig {
   queue: OfflineQueue;
@@ -62,7 +63,8 @@ export class SyncWorker {
 
     for (const event of pending) {
       try {
-        const result = await this.config.sendFn(event);
+        // タイムアウト付きで送信
+        const result = await this.sendWithTimeout(event);
 
         if (result.success && result.serverReceipt) {
           // 送信成功
@@ -78,7 +80,12 @@ export class SyncWorker {
         }
       } catch (error) {
         const newAttempts = event.transport.attempts + 1;
-        const errorMessage = error instanceof Error ? error.message : "不明なエラー";
+        let errorMessage = error instanceof Error ? error.message : "不明なエラー";
+
+        // タイムアウトエラーの判定
+        if (error instanceof Error && (error.name === 'AbortError' || error.message.includes('タイムアウト'))) {
+          errorMessage = `タイムアウト (${TIMEOUT.DEFAULT / 1000}秒)`;
+        }
 
         if (newAttempts >= this.config.maxRetries) {
           // 最大リトライ回数超過
@@ -89,6 +96,12 @@ export class SyncWorker {
             errorMessage
           );
           failed++;
+
+          if (__DEV__) {
+            console.error(
+              `[SyncWorker] Event ${event.id} reached max retries (${this.config.maxRetries}): ${errorMessage}`
+            );
+          }
         } else {
           // リトライ可能
           await this.config.queue.updateStatus(
@@ -102,6 +115,30 @@ export class SyncWorker {
     }
 
     return { sent, failed };
+  }
+
+  /**
+   * タイムアウト付きでイベントを送信
+   */
+  private async sendWithTimeout(
+    event: ScanEvent
+  ): Promise<{ success: boolean; serverReceipt: boolean }> {
+    return new Promise((resolve, reject) => {
+      const timeoutId = setTimeout(() => {
+        reject(new Error(`リクエストがタイムアウトしました（${TIMEOUT.DEFAULT / 1000}秒）`));
+      }, TIMEOUT.DEFAULT);
+
+      this.config
+        .sendFn(event)
+        .then((result) => {
+          clearTimeout(timeoutId);
+          resolve(result);
+        })
+        .catch((error) => {
+          clearTimeout(timeoutId);
+          reject(error);
+        });
+    });
   }
 
   /**

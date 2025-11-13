@@ -10,6 +10,7 @@ import { MockCardReader } from "@mc-gate/reader-bridge";
 import { useAppStore } from "../../store/appStore";
 import { useWorkers } from "../../hooks/useWorkers";
 import type { CheckConfig } from "@mc-gate/core";
+import { TIMEOUT, fetchWithTimeout } from "@mc-gate/core";
 import { PasscodeModal } from "../../components/PasscodeModal";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import * as Updates from "expo-updates";
@@ -120,8 +121,8 @@ export default function SettingsScreen() {
 
       setUpdateInfo({
         currentVersion: Constants.expoConfig?.version || "不明",
-        updateId: Updates.updateId,
-        createdAt: Updates.createdAt,
+        updateId: Updates.updateId || undefined,
+        createdAt: Updates.createdAt || undefined,
         isEmbeddedLaunch: Updates.isEmbeddedLaunch,
         channel: Updates.channel,
       });
@@ -360,14 +361,16 @@ export default function SettingsScreen() {
 
       let errorMessage = "サーバーとの同期に失敗しました。";
 
-      if (error.message?.includes("401")) {
+      if (error.message?.includes("タイムアウト") || error.name === "AbortError") {
+        errorMessage = "サーバーへの接続がタイムアウトしました。\n\nネットワーク接続を確認して、もう一度お試しください。";
+      } else if (error.message?.includes("401")) {
         errorMessage = "認証エラー: トークンが無効です。再度ログインしてください。";
       } else if (error.message?.includes("404")) {
         errorMessage = "サーバーエラー: 作業員APIが見つかりません。";
       } else if (error.message?.includes("500")) {
         errorMessage = "サーバーエラー: サーバー内部でエラーが発生しました。";
-      } else if (error.message?.includes("Network")) {
-        errorMessage = "ネットワークエラー: サーバーに接続できません。";
+      } else if (error.message?.includes("Network") || error.message?.includes("Failed to fetch")) {
+        errorMessage = "ネットワークエラー: サーバーに接続できません。\n\nネットワーク接続とサーバーの状態を確認してください。";
       }
 
       showAlert("同期失敗", errorMessage);

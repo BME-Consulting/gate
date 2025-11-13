@@ -2,6 +2,9 @@
 // SyncWorker ユニットテスト（フルカバレッジ）
 // ==========================================
 
+// __DEV__をグローバルスコープで定義
+(global as any).__DEV__ = true;
+
 import { SyncWorker } from "../queue/worker";
 import type { SyncWorkerConfig } from "../queue/worker";
 import type { OfflineQueue } from "../queue/sqlite";

@@ -18,6 +18,8 @@ import {
   makeIdempotencyKey,
   type WorkerInfo,
   type ScanEvent,
+  TIMEOUT,
+  fetchWithTimeout,
 } from "@mc-gate/core";
 
 // Face API のレスポンス型定義
@@ -160,19 +162,22 @@ export default function FaceRecognitionScreen() {
       // Base64データをdata URI形式に変換
       const imageData = `data:image/jpeg;base64,${photo.base64}`;
 
-      // 環境変数からFace API URLを取得
+      // 環境変数からFace API URLとAPIキーを取得
       const apiFaceApi = Constants.expoConfig?.extra?.apiFaceApi || "http://localhost:8100";
+      const apiFaceApiKey = Constants.expoConfig?.extra?.apiFaceApiKey || "development-api-key-12345";
 
-      // Face APIに送信
-      const response = await fetch(`${apiFaceApi}/api/face/recognize`, {
+      // Face APIに送信（タイムアウト付き）
+      const response = await fetchWithTimeout(`${apiFaceApi}/api/face/recognize`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "X-API-Key": apiFaceApiKey,
         },
         body: JSON.stringify({
           imageData,
           threshold: 0.6,
         }),
+        timeoutMs: TIMEOUT.FACE_RECOGNITION, // 30秒
       });
 
       if (!response.ok) {
@@ -221,11 +226,20 @@ export default function FaceRecognitionScreen() {
       showResultAlert(result);
     } catch (error) {
       console.error("Face recognition error:", error);
-      Alert.alert(
-        "エラー",
-        error instanceof Error ? error.message : "顔認証に失敗しました",
-        [{ text: "OK" }]
-      );
+
+      let errorMessage = "顔認証に失敗しました";
+
+      if (error instanceof Error) {
+        if (error.name === 'AbortError' || error.message.includes('タイムアウト')) {
+          errorMessage = "サーバーへの接続がタイムアウトしました。\n\nネットワーク接続を確認して、もう一度お試しください。";
+        } else if (error.message.includes('Failed to fetch') || error.message.includes('Network')) {
+          errorMessage = "サーバーに接続できません。\n\nネットワーク接続とサーバーの状態を確認してください。";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+
+      Alert.alert("エラー", errorMessage, [{ text: "OK" }]);
     } finally {
       setIsProcessing(false);
     }

@@ -142,6 +142,152 @@ export class OfflineQueue {
   }
 
   /**
+   * 複数イベントをバッチでUPSERT（トランザクション対応）
+   */
+  async upsertBatch(events: ScanEvent[]): Promise<void> {
+    if (events.length === 0) return;
+
+    try {
+      // トランザクション開始
+      await this.db.execAsync("BEGIN TRANSACTION;");
+
+      const now = new Date().toISOString();
+      const batchSize = 10;
+
+      // SQLエスケープ関数
+      const escape = (val: string | number | null | undefined): string => {
+        if (val === null || val === undefined) return "NULL";
+        if (typeof val === "number") return String(val);
+        return `'${String(val).replace(/'/g, "''")}'`;
+      };
+
+      for (let i = 0; i < events.length; i += batchSize) {
+        const batch = events.slice(i, i + batchSize);
+        const insertStatements: string[] = [];
+
+        for (const event of batch) {
+          const lastError = event.transport.lastError ?? null;
+
+          const sql = `INSERT OR REPLACE INTO scan_events (
+            id, project_id, person_id, method, gate_mode, decided_mode,
+            occurred_at, rule_result, transport_status, transport_attempts,
+            transport_last_error, transport_idempotency_key, created_at, updated_at
+          ) VALUES (
+            ${escape(event.id)},
+            ${escape(event.projectId)},
+            ${escape(event.personId)},
+            ${escape(event.method)},
+            ${escape(event.gateMode)},
+            ${escape(event.decidedMode)},
+            ${escape(event.occurredAt)},
+            ${escape(JSON.stringify(event.ruleResult))},
+            ${escape(event.transport.status)},
+            ${event.transport.attempts},
+            ${lastError === null ? "NULL" : escape(lastError)},
+            ${escape(event.transport.idempotencyKey)},
+            ${escape(now)},
+            ${escape(now)}
+          );`;
+
+          insertStatements.push(sql);
+        }
+
+        // バッチ実行
+        await this.db.execAsync(insertStatements.join("\n"));
+      }
+
+      // トランザクションコミット
+      await this.db.execAsync("COMMIT;");
+
+      if (typeof __DEV__ !== "undefined" && __DEV__) {
+        console.log(`[OfflineQueue] Batch upsert completed: ${events.length} events`);
+      }
+    } catch (error: any) {
+      // エラー時はロールバック
+      try {
+        await this.db.execAsync("ROLLBACK;");
+      } catch (rollbackError) {
+        console.error("[OfflineQueue] Failed to rollback transaction:", rollbackError);
+      }
+
+      console.error("[OfflineQueue] Batch upsert failed, rolled back:", {
+        operation: "upsertBatch",
+        eventCount: events.length,
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      throw new Error(
+        `Database transaction failed: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
+    }
+  }
+
+  /**
+   * イベントを送信済みとしてマーク（トランザクション対応）
+   */
+  async markAsSent(idempotencyKey: string): Promise<void> {
+    try {
+      await this.db.execAsync("BEGIN TRANSACTION;");
+
+      await this.db.runAsync(
+        `UPDATE scan_events
+         SET transport_status = 'sent'
+         WHERE transport_idempotency_key = ?`,
+        [idempotencyKey]
+      );
+
+      await this.db.execAsync("COMMIT;");
+    } catch (error: any) {
+      try {
+        await this.db.execAsync("ROLLBACK;");
+      } catch (rollbackError) {
+        console.error("[OfflineQueue] Failed to rollback transaction:", rollbackError);
+      }
+
+      console.error("[OfflineQueue] Failed to mark as sent:", {
+        idempotencyKey,
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      throw error;
+    }
+  }
+
+  /**
+   * イベントを失敗としてマーク（トランザクション対応）
+   */
+  async markAsFailed(idempotencyKey: string, errorMessage: string): Promise<void> {
+    try {
+      await this.db.execAsync("BEGIN TRANSACTION;");
+
+      await this.db.runAsync(
+        `UPDATE scan_events
+         SET transport_status = 'failed',
+             transport_attempts = transport_attempts + 1,
+             transport_last_error = ?
+         WHERE transport_idempotency_key = ?`,
+        [errorMessage, idempotencyKey]
+      );
+
+      await this.db.execAsync("COMMIT;");
+    } catch (error: any) {
+      try {
+        await this.db.execAsync("ROLLBACK;");
+      } catch (rollbackError) {
+        console.error("[OfflineQueue] Failed to rollback transaction:", rollbackError);
+      }
+
+      console.error("[OfflineQueue] Failed to mark as failed:", {
+        idempotencyKey,
+        errorMessage,
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      throw error;
+    }
+  }
+
+  /**
    * pending状態のイベントを取得
    */
   async getPending(limit: number = 50): Promise<ScanEvent[]> {

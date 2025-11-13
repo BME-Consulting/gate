@@ -3,6 +3,7 @@
 // ==========================================
 
 import type { ScanEvent } from "@mc-gate/core";
+import { TIMEOUT, fetchWithTimeout } from "@mc-gate/core";
 
 export interface SendScanEventRequest {
   scanEvent: ScanEvent;
@@ -78,6 +79,37 @@ export async function sendScanEvent(
     message: "送信が完了しました",
     timestamp: new Date().toISOString(),
   };
+}
+
+/**
+ * タイムアウト付きでスキャンイベントをサーバーに送信（実装例）
+ *
+ * 本番環境ではこちらを使用
+ */
+export async function sendScanEventWithTimeout(
+  request: SendScanEventRequest,
+  apiUrl: string
+): Promise<SendScanEventResponse> {
+  const response = await fetchWithTimeout(`${apiUrl}/api/events`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${request.token}`,
+    },
+    body: JSON.stringify(request.scanEvent),
+    timeoutMs: TIMEOUT.DEFAULT, // 30秒
+  });
+
+  if (!response.ok) {
+    throw new ApiError(
+      "HTTP_ERROR",
+      `HTTP error! status: ${response.status}`,
+      response.status
+    );
+  }
+
+  const result = await response.json();
+  return result as SendScanEventResponse;
 }
 
 /**

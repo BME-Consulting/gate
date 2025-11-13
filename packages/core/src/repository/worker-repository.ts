@@ -206,16 +206,33 @@ export class WorkerRepository {
   }
 
   /**
-   * サーバーから同期（全件削除 + 挿入）
+   * サーバーから同期（全件削除 + 挿入）- トランザクション対応
    */
   async syncFromServer(workers: Worker[]): Promise<void> {
     try {
+      // トランザクション開始
+      await this.db.execAsync("BEGIN TRANSACTION;");
+
       // 既存データを全削除
       await this.db.execAsync(`DELETE FROM workers;`);
 
-      // バッチ挿入
-      await this.upsertBatch(workers);
+      // バッチ挿入（トランザクション内）
+      await this.upsertBatchInternal(workers);
+
+      // コミット
+      await this.db.execAsync("COMMIT;");
+
+      if (typeof __DEV__ !== "undefined" && __DEV__) {
+        console.log(`[WorkerRepository] Sync completed: ${workers.length} workers`);
+      }
     } catch (error: any) {
+      // ロールバック
+      try {
+        await this.db.execAsync("ROLLBACK;");
+      } catch (rollbackError) {
+        console.error("[WorkerRepository] Failed to rollback transaction:", rollbackError);
+      }
+
       console.error("[WorkerRepository.syncFromServer] Failed to sync:", {
         errorMessage: error?.message,
         workerCount: workers.length,
@@ -225,9 +242,49 @@ export class WorkerRepository {
   }
 
   /**
-   * バッチ更新/挿入（10件ずつ処理）
+   * バッチ更新/挿入（トランザクション対応）
    */
   async upsertBatch(workers: Worker[]): Promise<void> {
+    if (workers.length === 0) return;
+
+    try {
+      // トランザクション開始
+      await this.db.execAsync("BEGIN TRANSACTION;");
+
+      // バッチ挿入
+      await this.upsertBatchInternal(workers);
+
+      // コミット
+      await this.db.execAsync("COMMIT;");
+
+      if (typeof __DEV__ !== "undefined" && __DEV__) {
+        console.log(`[WorkerRepository] Batch upsert completed: ${workers.length} workers`);
+      }
+    } catch (error: any) {
+      // ロールバック
+      try {
+        await this.db.execAsync("ROLLBACK;");
+      } catch (rollbackError) {
+        console.error("[WorkerRepository] Failed to rollback transaction:", rollbackError);
+      }
+
+      console.error("[WorkerRepository] Batch upsert failed, rolled back:", {
+        operation: "upsertBatch",
+        workerCount: workers.length,
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      throw new Error(
+        `Database transaction failed: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
+    }
+  }
+
+  /**
+   * バッチ更新/挿入の内部処理（10件ずつ処理）
+   * トランザクション内で呼び出される前提
+   */
+  private async upsertBatchInternal(workers: Worker[]): Promise<void> {
     const batchSize = 10;
 
     for (let i = 0; i < workers.length; i += batchSize) {
@@ -271,7 +328,7 @@ export class WorkerRepository {
       try {
         await this.db.execAsync(batchSQL);
       } catch (error: any) {
-        console.error("[WorkerRepository.upsertBatch] Failed to insert batch:", {
+        console.error("[WorkerRepository.upsertBatchInternal] Failed to insert batch:", {
           errorMessage: error?.message,
           batchIndex: i / batchSize,
           batchSize: batch.length,

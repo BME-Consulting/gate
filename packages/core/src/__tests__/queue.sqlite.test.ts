@@ -86,23 +86,24 @@ describe("OfflineQueue", () => {
     it("✅ テーブルとインデックスを作成するSQLを実行する", async () => {
       await queue.initialize();
 
-      expect(mockDb.execAsync).toHaveBeenCalledTimes(3);
+      // scan_events テーブル + 2つのインデックス + workers テーブル + 3つのインデックス = 7回
+      expect(mockDb.execAsync).toHaveBeenCalledTimes(7);
 
-      // テーブル作成SQL
-      expect(mockDb.execAsync).toHaveBeenNthCalledWith(
-        1,
+      // scan_events テーブル作成SQL
+      expect(mockDb.execAsync).toHaveBeenCalledWith(
         expect.stringContaining("CREATE TABLE IF NOT EXISTS scan_events")
       );
 
-      // インデックス作成SQL (transport_status)
-      expect(mockDb.execAsync).toHaveBeenNthCalledWith(
-        2,
-        expect.stringContaining("CREATE INDEX IF NOT EXISTS idx_transport_status")
+      // workers テーブル作成SQL
+      expect(mockDb.execAsync).toHaveBeenCalledWith(
+        expect.stringContaining("CREATE TABLE IF NOT EXISTS workers")
       );
 
-      // インデックス作成SQL (idempotency_key)
-      expect(mockDb.execAsync).toHaveBeenNthCalledWith(
-        3,
+      // インデックス作成SQL
+      expect(mockDb.execAsync).toHaveBeenCalledWith(
+        expect.stringContaining("CREATE INDEX IF NOT EXISTS idx_transport_status")
+      );
+      expect(mockDb.execAsync).toHaveBeenCalledWith(
         expect.stringContaining("CREATE INDEX IF NOT EXISTS idx_idempotency_key")
       );
     });
@@ -123,31 +124,18 @@ describe("OfflineQueue", () => {
 
       await queue.add(event);
 
-      expect(mockDb.runAsync).toHaveBeenCalledTimes(1);
-      expect(mockDb.runAsync).toHaveBeenCalledWith(
-        expect.stringContaining("INSERT INTO scan_events"),
-        [
-          "evt-001",
-          "PRJ001",
-          "P001",
-          "QR",
-          "IN",
-          "IN",
-          "2025-11-06T10:00:00.000Z",
-          JSON.stringify({
-            action: "allow",
-            messages: [],
-            sendToCcus: true,
-            includeInGs: true,
-          }),
-          "pending",
-          0,
-          null,
-          "key-001",
-          expect.any(String), // created_at
-          expect.any(String), // updated_at
-        ]
+      // execAsync方式を使用しているため、SQLエスケープされた文字列が挿入される
+      expect(mockDb.execAsync).toHaveBeenCalledTimes(1);
+      expect(mockDb.execAsync).toHaveBeenCalledWith(
+        expect.stringContaining("INSERT INTO scan_events")
       );
+
+      const sql = mockDb.execAsync.mock.calls[0][0];
+      expect(sql).toContain("'evt-001'");
+      expect(sql).toContain("'PRJ001'");
+      expect(sql).toContain("'P001'");
+      expect(sql).toContain("'QR'");
+      expect(sql).toContain("'pending'");
     });
 
     it("✅ 【境界値】lastError が存在する場合も正しく挿入できる", async () => {
@@ -162,13 +150,11 @@ describe("OfflineQueue", () => {
 
       await queue.add(event);
 
-      expect(mockDb.runAsync).toHaveBeenCalledWith(
-        expect.stringContaining("INSERT INTO scan_events"),
-        expect.arrayContaining(["Network timeout"])
-      );
+      const sql = mockDb.execAsync.mock.calls[0][0];
+      expect(sql).toContain("'Network timeout'");
     });
 
-    it("✅ 【境界値】lastError が undefined の場合は null として挿入", async () => {
+    it("✅ 【境界値】lastError が undefined の場合は NULL として挿入", async () => {
       const event = createSampleEvent({
         transport: {
           status: "pending",
@@ -180,14 +166,16 @@ describe("OfflineQueue", () => {
 
       await queue.add(event);
 
-      expect(mockDb.runAsync).toHaveBeenCalledWith(
-        expect.stringContaining("INSERT INTO scan_events"),
-        expect.arrayContaining([null])
-      );
+      const sql = mockDb.execAsync.mock.calls[0][0];
+      // lastError が undefined の場合は NULL として挿入される
+      // SQL構造: (..., transport_last_error, ...) VALUES (..., NULL, ...)
+      const values = sql.match(/VALUES\s*\(([\s\S]*?)\)/);
+      expect(values).toBeTruthy();
+      expect(values![1]).toContain("NULL");
     });
 
     it("❌ データベースエラー時は例外をスローする", async () => {
-      mockDb.runAsync.mockRejectedValueOnce(new Error("Constraint violation"));
+      mockDb.execAsync.mockRejectedValueOnce(new Error("Constraint violation"));
 
       const event = createSampleEvent();
 
@@ -292,41 +280,43 @@ describe("OfflineQueue", () => {
     it("✅ 【正常系】ステータスを pending → sent に更新できる", async () => {
       await queue.updateStatus("evt-001", "sent", 1);
 
-      expect(mockDb.runAsync).toHaveBeenCalledWith(
-        expect.stringContaining("UPDATE scan_events"),
-        ["sent", 1, null, expect.any(String), "evt-001"]
-      );
+      expect(mockDb.execAsync).toHaveBeenCalledTimes(1);
+      const sql = mockDb.execAsync.mock.calls[0][0];
+      expect(sql).toContain("UPDATE scan_events");
+      expect(sql).toContain("'sent'");
+      expect(sql).toContain("'evt-001'");
     });
 
     it("✅ 【正常系】ステータスを pending → failed に更新できる", async () => {
       await queue.updateStatus("evt-002", "failed", 3, "Connection timeout");
 
-      expect(mockDb.runAsync).toHaveBeenCalledWith(
-        expect.stringContaining("UPDATE scan_events"),
-        ["failed", 3, "Connection timeout", expect.any(String), "evt-002"]
-      );
+      const sql = mockDb.execAsync.mock.calls[0][0];
+      expect(sql).toContain("'failed'");
+      expect(sql).toContain("3");
+      expect(sql).toContain("'Connection timeout'");
+      expect(sql).toContain("'evt-002'");
     });
 
-    it("✅ 【境界値】lastError が undefined の場合は null として更新", async () => {
+    it("✅ 【境界値】lastError が undefined の場合は NULL として更新", async () => {
       await queue.updateStatus("evt-003", "sent", 1, undefined);
 
-      expect(mockDb.runAsync).toHaveBeenCalledWith(
-        expect.any(String),
-        ["sent", 1, null, expect.any(String), "evt-003"]
-      );
+      const sql = mockDb.execAsync.mock.calls[0][0];
+      expect(sql).toContain("'sent'");
+      expect(sql).toContain("transport_last_error = NULL");
+      expect(sql).toContain("'evt-003'");
     });
 
     it("✅ 【境界値】attempts が 0 の場合も正しく更新", async () => {
       await queue.updateStatus("evt-004", "pending", 0);
 
-      expect(mockDb.runAsync).toHaveBeenCalledWith(
-        expect.any(String),
-        ["pending", 0, null, expect.any(String), "evt-004"]
-      );
+      const sql = mockDb.execAsync.mock.calls[0][0];
+      expect(sql).toContain("'pending'");
+      expect(sql).toContain("0");
+      expect(sql).toContain("'evt-004'");
     });
 
     it("❌ データベースエラー時は例外をスローする", async () => {
-      mockDb.runAsync.mockRejectedValueOnce(new Error("Update failed"));
+      mockDb.execAsync.mockRejectedValueOnce(new Error("Update failed"));
 
       await expect(
         queue.updateStatus("evt-005", "sent", 1)
@@ -760,19 +750,15 @@ describe("OfflineQueue", () => {
 
       await queue.add(event);
 
-      expect(mockDb.runAsync).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.arrayContaining(["P-001@example.com"])
-      );
+      const sql = mockDb.execAsync.mock.calls[0][0];
+      expect(sql).toContain("'P-001@example.com'");
     });
 
     it("✅ 非常に大きな attempts 値でも処理できる", async () => {
       await queue.updateStatus("evt-001", "failed", 999999);
 
-      expect(mockDb.runAsync).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.arrayContaining([999999])
-      );
+      const sql = mockDb.execAsync.mock.calls[0][0];
+      expect(sql).toContain("999999");
     });
 
     it("✅ 非常に長い lastError メッセージでも処理できる", async () => {
@@ -780,10 +766,8 @@ describe("OfflineQueue", () => {
 
       await queue.updateStatus("evt-001", "failed", 1, longError);
 
-      expect(mockDb.runAsync).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.arrayContaining([longError])
-      );
+      const sql = mockDb.execAsync.mock.calls[0][0];
+      expect(sql).toContain(longError.replace(/'/g, "''"));
     });
 
     it("✅ CARD メソッドのイベントも正しく処理", async () => {
@@ -791,10 +775,8 @@ describe("OfflineQueue", () => {
 
       await queue.add(event);
 
-      expect(mockDb.runAsync).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.arrayContaining(["CARD"])
-      );
+      const sql = mockDb.execAsync.mock.calls[0][0];
+      expect(sql).toContain("'CARD'");
     });
 
     it("✅ OUT モードのイベントも正しく処理", async () => {
@@ -802,10 +784,8 @@ describe("OfflineQueue", () => {
 
       await queue.add(event);
 
-      expect(mockDb.runAsync).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.arrayContaining(["OUT"])
-      );
+      const sql = mockDb.execAsync.mock.calls[0][0];
+      expect(sql).toContain("'OUT'");
     });
   });
 
@@ -818,9 +798,8 @@ describe("OfflineQueue", () => {
       const event = createSampleEvent();
       await queue.add(event);
 
-      expect(mockDb.runAsync).toHaveBeenCalledWith(
-        expect.stringContaining("INSERT"),
-        expect.any(Array)
+      expect(mockDb.execAsync).toHaveBeenCalledWith(
+        expect.stringContaining("INSERT")
       );
 
       // 2. pending イベントを取得
@@ -834,36 +813,38 @@ describe("OfflineQueue", () => {
       // 3. ステータスを sent に更新
       await queue.updateStatus("evt-001", "sent", 1);
 
-      expect(mockDb.runAsync).toHaveBeenCalledWith(
-        expect.stringContaining("UPDATE"),
-        ["sent", 1, null, expect.any(String), "evt-001"]
+      expect(mockDb.execAsync).toHaveBeenCalledWith(
+        expect.stringContaining("UPDATE")
       );
+
+      const updateSQL = mockDb.execAsync.mock.calls[1][0];
+      expect(updateSQL).toContain("'sent'");
+      expect(updateSQL).toContain("'evt-001'");
     });
 
     it("✅ リトライシナリオ: pending → failed → pending → sent", async () => {
       // 1. 初回失敗
       await queue.updateStatus("evt-001", "failed", 1, "Timeout");
 
-      expect(mockDb.runAsync).toHaveBeenCalledWith(
-        expect.any(String),
-        ["failed", 1, "Timeout", expect.any(String), "evt-001"]
-      );
+      let sql = mockDb.execAsync.mock.calls[0][0];
+      expect(sql).toContain("'failed'");
+      expect(sql).toContain("'Timeout'");
+      expect(sql).toContain("'evt-001'");
 
       // 2. リトライ（pending に戻す）
       await queue.updateStatus("evt-001", "pending", 1);
 
-      expect(mockDb.runAsync).toHaveBeenCalledWith(
-        expect.any(String),
-        ["pending", 1, null, expect.any(String), "evt-001"]
-      );
+      sql = mockDb.execAsync.mock.calls[1][0];
+      expect(sql).toContain("'pending'");
+      expect(sql).toContain("'evt-001'");
 
       // 3. 再送成功
       await queue.updateStatus("evt-001", "sent", 2);
 
-      expect(mockDb.runAsync).toHaveBeenCalledWith(
-        expect.any(String),
-        ["sent", 2, null, expect.any(String), "evt-001"]
-      );
+      sql = mockDb.execAsync.mock.calls[2][0];
+      expect(sql).toContain("'sent'");
+      expect(sql).toContain("2");
+      expect(sql).toContain("'evt-001'");
     });
   });
 });

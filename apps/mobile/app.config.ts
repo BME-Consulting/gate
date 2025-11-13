@@ -8,6 +8,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   const apiBaseGs = process.env.API_BASE_GS || "http://localhost:7070";
   const apiBaseCcus = process.env.API_BASE_CCUS || "http://localhost:7071";
   const apiFaceApi = process.env.API_FACE_API || "http://localhost:8100";
+  const apiFaceApiKey = process.env.API_FACE_API_KEY || "development-api-key-12345";
   const authIssuer = process.env.AUTH_ISSUER || "http://localhost:8080/auth/realms/mcd3";
 
   // HTTPS enforcement for production
@@ -93,6 +94,7 @@ HTTP is only allowed in development mode (ENV !== "production")
     apiBaseGs,
     apiBaseCcus,
     apiFaceApi,
+    apiFaceApiKey,
     auth: {
       issuer: authIssuer,
       audience: process.env.AUTH_AUDIENCE || "mc-gate",
