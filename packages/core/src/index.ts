@@ -31,3 +31,12 @@ export * from "./constants/timeout";
 // リポジトリ
 export { WorkerRepository } from "./repository/worker-repository";
 export type { SQLiteDatabase as WorkerRepositorySQLiteDatabase } from "./repository/worker-repository";
+
+// 顔認証 (ローカルマッチャー)
+export { LocalFaceMatcher } from "./face/local-matcher";
+export {
+  calculateEuclideanDistance,
+  distanceToConfidence,
+  isSamePerson,
+} from "./face/local-matcher";
+export type { FaceMatchResult } from "./face/local-matcher";

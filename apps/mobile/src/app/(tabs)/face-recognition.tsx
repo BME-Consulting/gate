@@ -252,9 +252,9 @@ export default function FaceRecognitionScreen() {
 
       if (error instanceof Error) {
         if (error.name === 'AbortError' || error.message.includes('タイムアウト')) {
-          errorMessage = "サーバーへの接続がタイムアウトしました。\n\nネットワーク接続を確認して、もう一度お試しください。";
+          errorMessage = "Face APIサーバーへの接続がタイムアウトしました。\n\n【オフライン時の制限】\n現在、オフライン環境では顔認証機能は使用できません。\n\nネットワーク接続を確認してから、もう一度お試しください。";
         } else if (error.message.includes('Failed to fetch') || error.message.includes('Network')) {
-          errorMessage = "サーバーに接続できません。\n\nネットワーク接続とサーバーの状態を確認してください。";
+          errorMessage = "Face APIサーバーに接続できません。\n\n【オフライン時の制限】\n顔認証機能はFace APIサーバーへの接続が必要です。オフライン環境では使用できません。\n\n以下を確認してください:\n・ネットワーク接続\n・Face APIサーバーの起動状態\n・サーバーURL: " + (Constants.expoConfig?.extra?.apiFaceApi || "未設定");
         } else {
           errorMessage = error.message;
         }

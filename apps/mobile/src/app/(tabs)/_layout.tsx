@@ -49,6 +49,15 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="face-registration"
+        options={{
+          title: "顔登録",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person-add" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="history"
         options={{
           title: "履歴",
