@@ -21,7 +21,9 @@ router.get('/workers', async (req, res) => {
     }
 
     query += ' ORDER BY updated_at DESC LIMIT ? OFFSET ?';
-    params.push(parseInt(limit as string), parseInt(offset as string));
+    const limitNum = Math.min(1000, Math.max(1, Number(limit) || 100));
+    const offsetNum = Math.max(0, Number(offset) || 0);
+    params.push(limitNum, offsetNum);
 
     const rows = db.prepare(query).all(...params);
 
@@ -54,14 +56,14 @@ router.get('/workers', async (req, res) => {
         personId: row.person_id,
         name: row.name,
         company: row.company,
-        ccusId: row.ccus_id || undefined,
+        ccusId: row.ccus_id ?? undefined,
         ccusRegistered: row.ccus_registered === 1,
         socialInsurance: row.social_insurance === 1,
-        residencyExpiry: row.residency_expiry || undefined,
+        residencyExpiry: row.residency_expiry ?? undefined,
         age: row.age !== null ? row.age : undefined,
         isSoleProprietor: row.is_sole_proprietor === 1,
         faceEmbedding,
-        faceImageUrl: row.face_image_url || undefined,
+        faceImageUrl: row.face_image_url ?? undefined,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
       };

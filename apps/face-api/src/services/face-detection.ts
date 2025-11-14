@@ -9,6 +9,12 @@ faceapi.env.monkeyPatch({ Canvas, Image, ImageData });
 let modelsLoaded = false;
 
 /**
+ * 顔認識の類似度しきい値
+ * 環境変数FACE_THRESHOLDで設定可能（デフォルト: 0.6）
+ */
+const FACE_THRESHOLD = parseFloat(process.env.FACE_THRESHOLD || '0.6');
+
+/**
  * face-api.jsモデルをロード
  */
 export async function loadModels(): Promise<void> {
@@ -84,6 +90,6 @@ export function calculateDistance(embedding1: number[], embedding2: number[]): n
 /**
  * 顔の類似度判定（閾値: 0.6）
  */
-export function isSamePerson(distance: number, threshold: number = 0.6): boolean {
+export function isSamePerson(distance: number, threshold: number = FACE_THRESHOLD): boolean {
   return distance < threshold;
 }

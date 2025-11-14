@@ -30,7 +30,7 @@ export default function LoginScreen() {
       login({
         id: "user-1",
         name: username,
-        token: "development-api-key-12345", // Matches GS API auth middleware
+        token: "development-api-key-12345", // Development API key (matches server auth)
       });
 
       // モックプロジェクト設定

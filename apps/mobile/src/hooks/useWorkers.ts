@@ -147,7 +147,7 @@ export function useWorkers() {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          "x-api-key": token,
         },
         timeoutMs: TIMEOUT.BULK_FETCH, // 90秒（大量データ対応）
       });

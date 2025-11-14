@@ -1,23 +1,37 @@
 import { Request, Response, NextFunction } from 'express';
 
-// 簡易的なAPIキー認証（本番ではJWT/OAuth推奨）
+/**
+ * API Key認証ミドルウェア
+ *
+ * 以下のいずれかの方法でAPIキーを受け取る:
+ * 1. x-api-key ヘッダー
+ * 2. Authorization: ApiKey {key} ヘッダー
+ */
 export function authMiddleware(req: Request, res: Response, next: NextFunction) {
-  const apiKey = req.headers['x-api-key'] || req.headers['authorization']?.replace('Bearer ', '');
+  // 環境変数からAPIキーを取得（本番環境では必須）
+  const validApiKey = process.env.API_KEY;
 
-  // 環境変数からAPIキーを取得
-  const validApiKey = process.env.API_KEY || 'development-api-key-12345';
-
-  if (!apiKey) {
-    return res.status(401).json({
-      success: false,
-      error: 'Authentication required. Provide X-API-Key or Authorization header.'
+  // 本番環境でAPIキーが設定されていない場合はエラー
+  if (process.env.NODE_ENV === 'production' && !validApiKey) {
+    console.error('FATAL: API_KEY environment variable is not set in production');
+    return res.status(500).json({
+      error: 'INTERNAL_SERVER_ERROR',
+      message: 'Server configuration error'
     });
   }
 
-  if (apiKey !== validApiKey) {
+  // 開発環境用のデフォルトキー（本番では使用されない）
+  const apiKey = validApiKey || 'development-api-key-12345';
+
+  // リクエストからAPIキーを取得
+  const requestApiKey =
+    req.headers['x-api-key'] as string ||
+    (req.headers['authorization'] as string)?.replace(/^ApiKey\s+/i, '');
+
+  if (requestApiKey !== apiKey) {
     return res.status(403).json({
-      success: false,
-      error: 'Invalid API key'
+      error: 'FORBIDDEN',
+      message: 'Invalid API key'
     });
   }
 

@@ -181,7 +181,7 @@ export default function FaceRecognitionScreen() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-API-Key": apiFaceApiKey,
+          "x-api-key": apiFaceApiKey,
         },
         body: JSON.stringify({
           imageData,
