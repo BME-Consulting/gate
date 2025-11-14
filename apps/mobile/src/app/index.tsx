@@ -30,7 +30,7 @@ export default function LoginScreen() {
       login({
         id: "user-1",
         name: username,
-        token: "mock-token-12345", // TODO: Replace with real OAuth token
+        token: "development-api-key-12345", // Matches GS API auth middleware
       });
 
       // モックプロジェクト設定
