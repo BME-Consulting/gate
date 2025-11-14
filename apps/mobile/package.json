@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "main": "index.ts",
   "private": true,
+  "packageManager": "pnpm@9.15.4",
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
