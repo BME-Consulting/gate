@@ -31,20 +31,11 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="scan"
+        name="auth"
         options={{
-          title: "読取",
+          title: "認証",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="qr-code" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="face-recognition"
-        options={{
-          title: "顔認証",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person" size={size} color={color} />
+            <Ionicons name="scan" size={size} color={color} />
           ),
         }}
       />
