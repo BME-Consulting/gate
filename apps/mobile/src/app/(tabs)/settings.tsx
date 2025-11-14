@@ -399,6 +399,8 @@ export default function SettingsScreen() {
         errorMessage = "サーバーへの接続がタイムアウトしました。\n\nネットワーク接続を確認して、もう一度お試しください。";
       } else if (error.message?.includes("401")) {
         errorMessage = "認証エラー: トークンが無効です。再度ログインしてください。";
+      } else if (error.message?.includes("403")) {
+        errorMessage = "認証エラー: APIキーが無効です。再度ログインしてください。";
       } else if (error.message?.includes("404")) {
         errorMessage = "サーバーエラー: 作業員APIが見つかりません。";
       } else if (error.message?.includes("500")) {
