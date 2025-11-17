@@ -2,9 +2,10 @@
 // 統合認証画面（顔認証 + QRコード）
 // ==========================================
 
-import React, { useState, useRef, useMemo, useEffect } from "react";
+import React, { useState, useRef, useMemo, useEffect, useCallback } from "react";
 import { View, Text, StyleSheet, Alert, TouchableOpacity, ActivityIndicator } from "react-native";
 import { CameraView, useCameraPermissions, BarcodeScanningResult, FaceDetectionResult } from "expo-camera";
+import { useFocusEffect } from "@react-navigation/native";
 import Constants from "expo-constants";
 import { tokens } from "@mc-gate/ui-kit";
 import { Ionicons } from "@expo/vector-icons";
@@ -75,6 +76,29 @@ export default function AuthScreen() {
     }, 200);
     return () => clearInterval(interval);
   }, []);
+
+  // タブフォーカス時にカメラリソースをリセット
+  useFocusEffect(
+    useCallback(() => {
+      console.log("[Auth] Tab focused - resetting camera state");
+
+      // カメラ状態をリセット
+      setIsCameraReady(false);
+      setIsProcessing(false);
+      setDetectionStatus("顔またはQRコードを検出中...");
+      setLastFaceDetection(null);
+
+      // 処理ロックを解除
+      processingLock.current = false;
+      lastProcessTime.current = 0;
+
+      return () => {
+        console.log("[Auth] Tab unfocused - cleaning up");
+        // タブが非アクティブになったときのクリーンアップ
+        processingLock.current = false;
+      };
+    }, [])
+  );
 
   // カメラ権限のチェック
   if (!permission) {
@@ -173,9 +197,12 @@ export default function AuthScreen() {
 
   // 顔検出ハンドラー
   const handleFacesDetected = async ({ faces }: FaceDetectionResult) => {
+    console.log(`[Auth] handleFacesDetected called - faces count: ${faces.length}`);
+
     // 処理中または最近処理した場合はスキップ
     const now = Date.now();
     if (processingLock.current || now - lastProcessTime.current < 2000) {
+      console.log(`[Auth] Skipping face detection - processing: ${processingLock.current}, cooldown: ${now - lastProcessTime.current}ms`);
       return;
     }
 
@@ -185,6 +212,8 @@ export default function AuthScreen() {
       setDetectionStatus("顔またはQRコードを検出中...");
       return;
     }
+
+    console.log(`[Auth] Face detected - processing...`);
 
     // 最大の顔を取得
     const largestFace = faces.reduce((prev, current) =>
@@ -212,26 +241,33 @@ export default function AuthScreen() {
     });
 
     if (isFaceQualityGood) {
+      console.log(`[Auth] Face quality good - size: ${faceSize}, roll: ${rollAngle}, yaw: ${yawAngle}`);
       setDetectionStatus("顔を検出しました。認証中...");
       await processFaceRecognition();
     } else {
+      console.log(`[Auth] Face quality poor - size: ${faceSize}, roll: ${rollAngle}, yaw: ${yawAngle}`);
       setDetectionStatus("顔をまっすぐカメラに向けてください");
     }
   };
 
   // QRコード検出ハンドラー
   const handleBarcodeScanned = async ({ data }: BarcodeScanningResult) => {
+    console.log(`[Auth] handleBarcodeScanned called - data: ${data.substring(0, 50)}...`);
+
     // 処理中または最近処理した場合はスキップ
     const now = Date.now();
     if (processingLock.current || now - lastProcessTime.current < 2000) {
+      console.log(`[Auth] Skipping QR detection - processing: ${processingLock.current}, cooldown: ${now - lastProcessTime.current}ms`);
       return;
     }
 
     // 顔が検出されている場合はQRコードを無視（顔優先）
     if (lastFaceDetection && now - lastFaceDetection.timestamp < 1000) {
+      console.log(`[Auth] Skipping QR - face detected recently (${now - lastFaceDetection.timestamp}ms ago)`);
       return;
     }
 
+    console.log(`[Auth] Processing QR code...`);
     setDetectionStatus("QRコードを検出しました。認証中...");
     await processQRCode(data);
   };
@@ -486,7 +522,10 @@ export default function AuthScreen() {
           style={styles.camera}
           facing="front"
           mirror={true}
-          onCameraReady={() => setIsCameraReady(true)}
+          onCameraReady={() => {
+            console.log("[Auth] Camera ready");
+            setIsCameraReady(true);
+          }}
           onFacesDetected={handleFacesDetected}
           onBarcodeScanned={handleBarcodeScanned}
           barcodeScannerSettings={{
