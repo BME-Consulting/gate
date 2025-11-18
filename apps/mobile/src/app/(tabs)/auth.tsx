@@ -70,12 +70,12 @@ export default function AuthScreen() {
     return new RuleEngine(currentProject.checkConfig);
   }, [currentProject?.checkConfig]);
 
-  // タイムスライシング検出方式（500msごとに切り替え）
-  // 200msは処理が重すぎるため500msに変更
+  // タイムスライシング検出方式（1000msごとに切り替え）
+  // 500msでも処理落ちが発生したため1000msに変更
   useEffect(() => {
     const interval = setInterval(() => {
       setActiveDetector((prev) => (prev === "face" ? "qr" : "face"));
-    }, 500);
+    }, 1000);
     return () => clearInterval(interval);
   }, []);
 
@@ -314,7 +314,7 @@ export default function AuthScreen() {
           "x-api-key": apiFaceApiKey,
         },
         body: JSON.stringify({
-          imageData,
+          image_data: imageData,
           threshold: 0.6,
         }),
         timeoutMs: TIMEOUT.FACE_RECOGNITION,

@@ -117,8 +117,8 @@ export default function FaceRegistrationScreen() {
           "x-api-key": apiFaceApiKey,
         },
         body: JSON.stringify({
-          personId: selectedPersonId,
-          imageData,
+          person_id: selectedPersonId,
+          image_data: imageData,
         }),
         timeoutMs: TIMEOUT.FACE_RECOGNITION, // 30秒
       });

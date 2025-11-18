@@ -1,277 +1,215 @@
 # Face API Server
 
-顔認証バックエンドAPIサーバー
+顔認識APIサーバー - MC-Gateプロジェクト用
 
-## プロジェクト構成
+## 機能
 
-```
-apps/face-api/
-├── package.json
-├── tsconfig.json
-├── src/
-│   ├── index.ts              # Expressサーバー起動
-│   ├── routes/
-│   │   ├── face.ts           # 顔認証エンドポイント
-│   │   └── workers.ts        # 作業員マスタエンドポイント
-│   ├── services/
-│   │   ├── face-detection.ts # face-api.js統合
-│   │   └── worker-service.ts # 作業員マスタCRUD
-│   └── database/
-│       └── sqlite.ts         # SQLite接続
-└── README.md
-```
+- **顔登録**: 顔画像をpersonIdと紐づけて登録
+- **顔認証**: 顔画像から登録済みの人物を特定
+- **高精度**: face_recognition (dlib) による99.38%の精度
+- **軽量**: SQLiteベースのストレージ
+- **セキュア**: APIキー認証
 
-## セットアップ
+## クイックスタート
 
-### 1. 依存関係のインストール
+### Docker Compose（推奨）
 
 ```bash
-cd /volume2/Project/MCD3/TUMON/mc-gate/apps/face-api
-npm install
+# 1. ディレクトリに移動
+cd apps/face-api
+
+# 2. 環境変数ファイルをコピー
+cp .env.example .env
+
+# 3. Docker Composeで起動
+docker-compose up -d
+
+# 4. ログ確認
+docker-compose logs -f
 ```
 
-### 2. 開発サーバー起動
+サーバーが `http://localhost:8100` で起動します。
+
+### ローカル実行（開発用）
 
 ```bash
-npm run dev
+# 1. Python 3.10+ が必要
+python --version
+
+# 2. 仮想環境作成
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+
+# 3. 依存関係インストール
+pip install -r requirements.txt
+
+# 4. 環境変数設定
+cp .env.example .env
+
+# 5. サーバー起動
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8100
 ```
 
-サーバーは `http://localhost:8100` で起動します。
+## API仕様
 
-### 3. ビルド（本番用）
+### 1. ヘルスチェック
 
 ```bash
-npm run build
-npm start
+GET /health
 ```
-
-## 認証
-
-すべてのAPIエンドポイントは認証が必要です（ヘルスチェックを除く）。
-
-### 開発環境
-
-デフォルトのAPIキー: `development-api-key-12345`
-
-```bash
-curl -X POST http://localhost:8100/api/face/recognize \
-  -H "X-API-Key: development-api-key-12345" \
-  -H "Content-Type: application/json" \
-  -d '{"imageData": "data:image/jpeg;base64,...", "threshold": 0.6}'
-```
-
-### 本番環境
-
-環境変数 `API_KEY` を設定してください。
-
-```bash
-export API_KEY="your-secure-api-key-here"
-npm start
-```
-
-**認証ヘッダーの形式**:
-- `X-API-Key: your-api-key` または
-- `Authorization: Bearer your-api-key`
-
-## API エンドポイント
-
-### ヘルスチェック（認証不要）
-
-#### GET /health
-サーバーの状態を確認します。
 
 **レスポンス**:
 ```json
 {
   "status": "ok",
-  "timestamp": "2025-11-13T12:00:00.000Z"
+  "version": "1.0.0",
+  "registered_faces": 5
 }
 ```
 
-### 顔認証API（認証必要）
+### 2. 顔登録
 
-#### POST /api/face/register
-顔画像を登録します。
+```bash
+POST /api/face/register
+Headers:
+  x-api-key: development-api-key-12345
+  Content-Type: application/json
 
-**リクエスト**:
-```json
+Body:
 {
-  "personId": "worker-123",
-  "imageData": "data:image/jpeg;base64,..."
+  "personId": "PERSON001",
+  "imageData": "data:image/jpeg;base64,/9j/4AAQ..."
 }
 ```
 
-**レスポンス**:
+**レスポンス（成功）**:
 ```json
 {
   "success": true,
-  "personId": "worker-123",
-  "embeddingDimensions": 128
+  "personId": "PERSON001",
+  "embeddingDimensions": 128,
+  "faceCount": 1
 }
 ```
 
-#### POST /api/face/recognize
-顔認識を行います。
-
-**リクエスト**:
+**レスポンス（エラー）**:
 ```json
 {
-  "imageData": "data:image/jpeg;base64,...",
+  "success": false,
+  "error": "No face detected in the image"
+}
+```
+
+### 3. 顔認証
+
+```bash
+POST /api/face/recognize
+Headers:
+  x-api-key: development-api-key-12345
+  Content-Type: application/json
+
+Body:
+{
+  "imageData": "data:image/jpeg;base64,/9j/4AAQ...",
   "threshold": 0.6
 }
 ```
 
-**レスポンス（認識成功）**:
+**レスポンス（マッチあり）**:
 ```json
 {
-  "personId": "worker-123",
-  "confidence": 0.95,
-  "distance": 0.05,
-  "workerInfo": {
-    "name": "山田太郎",
-    "company": "ABC建設",
-    "ccusId": "12345"
-  }
+  "personId": "PERSON001",
+  "confidence": 0.85,
+  "distance": 0.35
 }
 ```
 
-**レスポンス（認識失敗）**:
+**レスポンス（マッチなし）**:
 ```json
 {
   "personId": null,
-  "confidence": 0,
-  "distance": 0.75,
-  "error": "No match found (closest distance: 0.750, threshold: 0.6)"
+  "confidence": 0.45,
+  "distance": 0.72
 }
 ```
 
-### 作業員マスタAPI（認証必要）
+## 設定
 
-#### GET /api/workers
-全作業員を取得します。
+### 環境変数
 
-**ヘッダー**:
-```
-X-API-Key: your-api-key
-```
+| 変数名 | デフォルト | 説明 |
+|--------|-----------|------|
+| `HOST` | `0.0.0.0` | バインドホスト |
+| `PORT` | `8100` | ポート番号 |
+| `API_KEY` | `development-api-key-12345` | APIキー |
+| `CORS_ORIGINS` | `http://localhost:3000,...` | CORS許可オリジン |
+| `DATABASE_PATH` | `./data/embeddings.db` | SQLiteデータベースパス |
+| `FACE_DETECTION_MODEL` | `hog` | 顔検出モデル (hog or cnn) |
+| `FACE_RECOGNITION_TOLERANCE` | `0.6` | 認識閾値 (0.0-1.0) |
+| `MAX_IMAGE_SIZE_MB` | `10` | 最大画像サイズ |
+| `LOG_LEVEL` | `INFO` | ログレベル |
 
-**レスポンス**:
-```json
-{
-  "workers": [
-    {
-      "personId": "worker-123",
-      "name": "山田太郎",
-      "company": "ABC建設",
-      "ccusId": "12345",
-      "ccusRegistered": true,
-      "socialInsurance": true
-    }
-  ]
-}
-```
+### 顔検出モデル
 
-#### POST /api/workers
-作業員を登録します。
+- **hog**: CPU向け、高速だが精度はやや低い
+- **cnn**: GPU向け、高精度だが重い
 
-**ヘッダー**:
-```
-X-API-Key: your-api-key
-Content-Type: application/json
-```
+開発環境では `hog` を推奨。
 
-**リクエスト**:
-```json
-{
-  "personId": "worker-123",
-  "name": "山田太郎",
-  "company": "ABC建設",
-  "ccusId": "12345",
-  "ccusRegistered": true,
-  "socialInsurance": true
-}
-```
+### 認識閾値
 
-**レスポンス**:
-```json
-{
-  "success": true,
-  "personId": "worker-123"
-}
-```
+- `0.6`: デフォルト（バランス）
+- `< 0.6`: 厳格（誤認識↓、未認識↑）
+- `> 0.6`: 緩和（未認識↓、誤認識↑）
 
-## 環境変数
+## トラブルシューティング
 
-`.env.example` を `.env` にコピーして設定してください。
+### Docker起動に失敗する
 
-| 変数名 | 説明 | デフォルト値 |
-|--------|------|-------------|
-| `PORT` | サーバーポート | `8100` |
-| `API_KEY` | APIキー（認証用） | `development-api-key-12345` |
-| `ALLOWED_ORIGIN` | CORS許可オリジン | なし |
-| `FACE_THRESHOLD` | 顔認識の閾値 | `0.6` |
-
-**開発環境の起動例**:
 ```bash
-# .envファイルを作成
-cp .env.example .env
+# ログ確認
+docker-compose logs face-api
 
-# サーバー起動
-npm run dev
+# コンテナ再ビルド
+docker-compose down
+docker-compose build --no-cache
+docker-compose up -d
 ```
 
-**本番環境の起動例**:
+### 顔検出に失敗する
+
+- **画像サイズ**: 最大10MB
+- **画像形式**: JPEG, PNG推奨
+- **顔の向き**: 正面を向いている
+- **解像度**: 最低でも200x200px
+
+### パフォーマンスが遅い
+
+- **顔検出モデル**: `hog` → `cnn` (GPU必要)
+- **画像サイズ**: リサイズして送信
+- **登録件数**: 1000件以上は検索が遅くなる可能性
+
+## 開発
+
+### テスト実行
+
 ```bash
-# 環境変数を設定
-export API_KEY="your-secure-random-api-key-here"
-export ALLOWED_ORIGIN="https://your-production-app.com"
-
-# ビルドして起動
-npm run build
-npm start
+pytest
 ```
 
-## CORS設定
+### 自動フォーマット
 
-デフォルトで以下のオリジンが許可されています：
-- `http://localhost:19006` (Expo DevTools)
-- `http://localhost:8081` (Metro Bundler)
-- 環境変数 `ALLOWED_ORIGIN` で指定したオリジン
+```bash
+black app/
+isort app/
+```
 
-本番環境では、環境変数 `ALLOWED_ORIGIN` を必ず設定してください。
+### 型チェック
 
-## 実装状況
+```bash
+mypy app/
+```
 
-### ✅ 完了
+## ライセンス
 
-- [x] face-api.js の統合実装
-- [x] SQLiteデータベースのスキーマ設計
-- [x] 作業員マスタCRUD実装
-- [x] 顔登録・認識ロジック実装
-- [x] エラーハンドリング
-- [x] API テスト（curl）
-- [x] **簡易APIキー認証実装**
-- [x] **CORS設定の厳格化**
-- [x] **環境変数による設定管理**
-
-### 📋 TODO
-
-- [ ] モバイルアプリとの統合
-- [ ] JWT/OAuth認証への移行（本番環境推奨）
-- [ ] ログ機能（Winston等）
-- [ ] テストコード（Jest）
-- [ ] Dockerコンテナ化
-- [ ] 本番環境デプロイ
-
-## 技術スタック
-
-- **Node.js**: ランタイム
-- **Express**: Webフレームワーク
-- **TypeScript**: 型安全な開発
-- **@vladmandic/face-api**: 顔認識ライブラリ
-- **better-sqlite3**: SQLiteデータベース
-- **tsx**: TypeScript実行環境
-
-## 開発メモ
-
-現在は基盤のみ実装済みです。各TODOを順次実装していきます。
+MIT License
