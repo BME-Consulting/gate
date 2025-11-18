@@ -101,6 +101,8 @@ HTTP is only allowed in development mode (ENV !== "production")
       audience: process.env.AUTH_AUDIENCE || "mc-gate",
       clientId: process.env.AUTH_CLIENT_ID || "mc-gate-mobile",
     },
+    // 開発中はモック認証を使用（本番環境では false に変更）
+    useMockAuth: true,
   },
   plugins: [
     "expo-updates",

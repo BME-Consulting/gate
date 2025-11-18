@@ -5,6 +5,7 @@
 import React, { useState } from "react";
 import { View, Text, StyleSheet, TextInput } from "react-native";
 import { useRouter } from "expo-router";
+import Constants from "expo-constants";
 import { Button, tokens } from "@mc-gate/ui-kit";
 import { DEFAULT_PROJECT_ID } from "@mc-gate/core";
 import { useAppStore } from "../store/appStore";
@@ -20,9 +21,13 @@ export default function LoginScreen() {
   // 環境変数のデバッグログ（開発時のみ）
   React.useEffect(() => {
     if (__DEV__) {
-      console.log("🔧 Environment variables:");
-      console.log("  EXPO_PUBLIC_USE_MOCK_AUTH:", process.env.EXPO_PUBLIC_USE_MOCK_AUTH);
-      console.log("  AUTH_ISSUER:", process.env.AUTH_ISSUER);
+      const useMockAuth = Constants.expoConfig?.extra?.useMockAuth;
+      const authIssuer = Constants.expoConfig?.extra?.auth?.issuer;
+
+      console.log("🔧 App Configuration:");
+      console.log("  useMockAuth:", useMockAuth);
+      console.log("  AUTH_ISSUER:", authIssuer);
+      console.log("  Full extra:", JSON.stringify(Constants.expoConfig?.extra, null, 2));
     }
   }, []);
 
@@ -34,12 +39,14 @@ export default function LoginScreen() {
     try {
       const { setCurrentProject, loginWithOAuth } = useAppStore.getState();
 
-      // 環境変数のチェック（開発モードでモック認証を使用するか）
-      const useMockAuth = process.env.EXPO_PUBLIC_USE_MOCK_AUTH === "true";
+      // app.config.tsから設定を取得
+      const useMockAuth = Constants.expoConfig?.extra?.useMockAuth ?? false;
+
+      console.log("🔐 Authentication mode:", useMockAuth ? "MOCK" : "OAuth");
 
       if (useMockAuth) {
         // モック実装（開発中のみ）
-        console.log("🔐 Using mock authentication");
+        console.log("✅ Using mock authentication");
         await login({
           id: "dev-user-1",
           name: username,
@@ -48,7 +55,7 @@ export default function LoginScreen() {
         });
       } else {
         // 本番: OAuth認証
-        console.log("🔐 Using OAuth authentication");
+        console.log("✅ Using OAuth authentication");
         await loginWithOAuth();
       }
 
@@ -81,7 +88,7 @@ export default function LoginScreen() {
 
         // JSON Parse errorの場合、より詳細な情報を提供
         if (message.includes("JSON Parse error") || message.includes("Unexpected character")) {
-          message = "サーバーへの接続に失敗しました。\n\nKeycloakサーバーが起動していることを確認してください。\n\n開発中の場合は、.env.developmentで\nEXPO_PUBLIC_USE_MOCK_AUTH=true\nを設定してモック認証を使用できます。";
+          message = "サーバーへの接続に失敗しました。\n\nKeycloakサーバーが起動していることを確認してください。\n\n開発中の場合は、app.config.tsで\nuseMockAuth: true\nを設定してモック認証を使用できます。";
         }
       }
 
