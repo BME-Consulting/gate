@@ -27,16 +27,11 @@ import {
   fetchWithTimeout,
 } from "@mc-gate/core";
 
-// Face API のレスポンス型定義
+// Face API のレスポンス型定義（Face APIはsnake_caseを返す）
 interface FaceRecognitionResponse {
-  personId: string | null;
+  person_id: string | null;
   confidence: number;
   distance?: number;
-  workerInfo?: {
-    name: string;
-    company: string;
-    ccusId?: string;
-  };
   error?: string;
 }
 
@@ -334,8 +329,8 @@ export default function AuthScreen() {
       const result: FaceRecognitionResponse = await response.json();
 
       // 認識成功時はローカルDBから詳細情報を取得
-      if (result.personId) {
-        const workerDetails = await getWorkerById(result.personId);
+      if (result.person_id) {
+        const workerDetails = await getWorkerById(result.person_id);
         if (workerDetails) {
           // WorkerInfo型に変換
           const workerInfo: WorkerInfo = {

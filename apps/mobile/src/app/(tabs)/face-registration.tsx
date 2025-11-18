@@ -12,11 +12,12 @@ import { useWorkers } from "../../hooks/useWorkers";
 import { router } from "expo-router";
 import { TIMEOUT, fetchWithTimeout } from "@mc-gate/core";
 
-// Face API レスポンス型定義
+// Face API レスポンス型定義（Face APIはsnake_caseを返す）
 interface FaceRegistrationResponse {
   success: boolean;
-  personId?: string;
-  embeddingDimensions?: number;
+  person_id?: string;
+  embedding_dimensions?: number;
+  face_count?: number;
   error?: string;
 }
 
@@ -183,16 +184,16 @@ export default function FaceRegistrationScreen() {
       return;
     }
 
-    if (result.success && result.personId) {
+    if (result.success && result.person_id) {
       // 登録成功
-      const selectedWorker = workers.find(w => w.personId === result.personId);
-      const workerName = selectedWorker?.name || result.personId;
+      const selectedWorker = workers.find(w => w.personId === result.person_id);
+      const workerName = selectedWorker?.name || result.person_id;
 
       Alert.alert(
         "登録完了",
         `作業員: ${workerName}\n` +
-          `Person ID: ${result.personId}\n` +
-          `エンコーディング次元数: ${result.embeddingDimensions || "N/A"}`,
+          `Person ID: ${result.person_id}\n` +
+          `エンコーディング次元数: ${result.embedding_dimensions || "N/A"}`,
         [
           {
             text: "OK",
@@ -307,13 +308,13 @@ export default function FaceRegistrationScreen() {
                       <Text style={styles.resultTitle}>登録完了</Text>
                     </View>
                     <Text style={styles.resultText}>
-                      {workers.find(w => w.personId === registrationResult.personId)?.name || registrationResult.personId}
+                      {workers.find(w => w.personId === registrationResult.person_id)?.name || registrationResult.person_id}
                     </Text>
                     <Text style={styles.resultSubText}>
-                      Person ID: {registrationResult.personId}
+                      Person ID: {registrationResult.person_id}
                     </Text>
                     <Text style={styles.resultSubText}>
-                      エンコーディング次元数: {registrationResult.embeddingDimensions || "N/A"}
+                      エンコーディング次元数: {registrationResult.embedding_dimensions || "N/A"}
                     </Text>
                   </View>
                 ) : (
