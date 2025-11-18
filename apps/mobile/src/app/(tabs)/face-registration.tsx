@@ -37,7 +37,7 @@ export default function FaceRegistrationScreen() {
         console.error("Failed to load workers:", error);
       });
     }
-  }, [isReady]);
+  }, [isReady, getAllWorkers]);
 
   // カメラ権限のチェック
   if (!permission) {

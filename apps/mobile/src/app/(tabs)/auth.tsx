@@ -70,11 +70,22 @@ export default function AuthScreen() {
     return new RuleEngine(currentProject.checkConfig);
   }, [currentProject?.checkConfig]);
 
-  // タイムスライシング検出方式（200msごとに切り替え）
+  // 顔検出ハンドラー（memoized）
+  const onFacesDetectedMemoized = useMemo(() => {
+    return activeDetector === 'face' ? handleFacesDetected : undefined;
+  }, [activeDetector]);
+
+  // QRコード検出ハンドラー（memoized）
+  const onBarcodeScannedMemoized = useMemo(() => {
+    return activeDetector === 'qr' ? handleBarcodeScanned : undefined;
+  }, [activeDetector]);
+
+  // タイムスライシング検出方式（500msごとに切り替え）
+  // 200msは処理が重すぎるため500msに変更
   useEffect(() => {
     const interval = setInterval(() => {
       setActiveDetector((prev) => (prev === "face" ? "qr" : "face"));
-    }, 200);
+    }, 500);
     return () => clearInterval(interval);
   }, []);
 
@@ -530,8 +541,8 @@ export default function AuthScreen() {
               console.log("[Auth] Camera ready");
               setIsCameraReady(true);
             }}
-            onFacesDetected={activeDetector === 'face' ? handleFacesDetected : undefined}
-            onBarcodeScanned={activeDetector === 'qr' ? handleBarcodeScanned : undefined}
+            onFacesDetected={onFacesDetectedMemoized}
+            onBarcodeScanned={onBarcodeScannedMemoized}
             barcodeScannerSettings={{
               barcodeTypes: ["qr"],
             }}
