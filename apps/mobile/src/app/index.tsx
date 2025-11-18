@@ -22,16 +22,22 @@ export default function LoginScreen() {
 
     setLoading(true);
 
-    // TODO: 実際のログイン処理（モック）
-    // SECURITY: Remove mock token before production - implement OAuth flow
-    setTimeout(() => {
-      const { setCurrentProject } = useAppStore.getState();
+    try {
+      const { setCurrentProject, loginWithOAuth } = useAppStore.getState();
 
-      login({
-        id: "user-1",
-        name: username,
-        token: "development-api-key-12345", // Development API key (matches server auth)
-      });
+      // 開発モード: モックログイン（環境変数で制御）
+      if (__DEV__ && process.env.EXPO_PUBLIC_USE_MOCK_AUTH === "true") {
+        // モック実装（開発中のみ）
+        await login({
+          id: "dev-user-1",
+          name: username,
+          token: "dev-token-" + Date.now(),
+          refreshToken: "dev-refresh-" + Date.now(),
+        });
+      } else {
+        // 本番: OAuth認証
+        await loginWithOAuth();
+      }
 
       // モックプロジェクト設定
       // NOTE: テスト用途のため、すべてのチェックをオフにしています
@@ -41,19 +47,24 @@ export default function LoginScreen() {
         name: "東京建設現場A",
         gateMode: "IN",
         checkConfig: {
-          ccusIdCheck: false,  // テスト用: オフ
-          socialInsuranceCheck: false,  // テスト用: オフ
-          residencyCheck: false,  // テスト用: オフ
-          ageCheck: false,  // テスト用: オフ
-          healthCheck: false,  // テスト用: オフ
-          soleProprietorCheck: false,  // テスト用: オフ
+          ccusIdCheck: false, // テスト用: オフ
+          socialInsuranceCheck: false, // テスト用: オフ
+          residencyCheck: false, // テスト用: オフ
+          ageCheck: false, // テスト用: オフ
+          healthCheck: false, // テスト用: オフ
+          soleProprietorCheck: false, // テスト用: オフ
         },
         serverLock: false,
       });
 
-      setLoading(false);
       router.replace("/(tabs)/home");
-    }, 1000);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "ログインに失敗しました";
+      alert(message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

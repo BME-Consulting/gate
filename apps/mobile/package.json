@@ -36,6 +36,8 @@
     "expo-sqlite": "~15.0.4",
     "expo-status-bar": "~3.0.8",
     "expo-updates": "^29.0.12",
+    "expo-web-browser": "~14.0.0",
+    "jwt-decode": "^4.0.0",
     "react": "19.1.0",
     "react-dom": "^19.1.0",
     "react-native": "0.81.5",
@@ -46,6 +48,7 @@
   },
   "devDependencies": {
     "@testing-library/react-native": "^13.0.0",
+    "@types/jwt-decode": "^3.1.0",
     "@types/react": "~19.1.0",
     "@types/react-native": "^0.73.0",
     "jest": "^30.0.1",

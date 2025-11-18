@@ -1,0 +1,74 @@
+name: EAS Update
+
+on:
+  push:
+    branches: [main, develop]
+
+jobs:
+  update:
+    name: Deploy EAS Update
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 全履歴取得（semantic-release用）
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Setup Expo
+        uses: expo/expo-github-action@v8
+        with:
+          expo-version: latest
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Determine channel
+        id: channel
+        run: |
+          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            echo "channel=production" >> $GITHUB_OUTPUT
+            echo "branch=production" >> $GITHUB_OUTPUT
+            echo "message=Production release: ${{ github.event.head_commit.message }}" >> $GITHUB_OUTPUT
+          else
+            echo "channel=preview" >> $GITHUB_OUTPUT
+            echo "branch=preview" >> $GITHUB_OUTPUT
+            echo "message=Preview: ${{ github.event.head_commit.message }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Publish EAS Update
+        working-directory: apps/mobile
+        run: |
+          npx eas-cli update \
+            --branch ${{ steps.channel.outputs.branch }} \
+            --message "${{ steps.channel.outputs.message }}" \
+            --non-interactive
+
+      - name: Comment on commit
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const channel = '${{ steps.channel.outputs.channel }}';
+            const updateUrl = 'https://expo.dev/accounts/bme_llc/projects/mc-gate/updates';
+            const message = `✅ EAS Update deployed to **${channel}** channel!\n\n[View Updates](${updateUrl})`;
+
+            github.rest.repos.createCommitComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.sha,
+              body: message
+            });

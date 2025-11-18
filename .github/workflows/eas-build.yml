@@ -1,0 +1,97 @@
+name: EAS Build
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build:
+    name: Build for ${{ matrix.platform }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      matrix:
+        platform: [android, ios]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Setup Expo
+        uses: expo/expo-github-action@v8
+        with:
+          expo-version: latest
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Validate version in app.config.ts
+        working-directory: apps/mobile
+        run: |
+          VERSION=$(npx expo config --json | jq -r '.expo.version')
+          TAG_VERSION=${GITHUB_REF#refs/tags/v}
+
+          if [ "$VERSION" != "$TAG_VERSION" ]; then
+            echo "❌ Version mismatch!"
+            echo "app.config.ts version: $VERSION"
+            echo "Git tag version: $TAG_VERSION"
+            exit 1
+          fi
+
+          echo "✅ Version validated: $VERSION"
+
+      - name: Build with EAS
+        working-directory: apps/mobile
+        run: |
+          npx eas-cli build \
+            --platform ${{ matrix.platform }} \
+            --profile production \
+            --non-interactive \
+            --no-wait
+
+      - name: Get build status
+        working-directory: apps/mobile
+        run: |
+          echo "Build started for ${{ matrix.platform }}"
+          echo "Monitor at: https://expo.dev/accounts/bme_llc/projects/mc-gate/builds"
+
+  notify:
+    name: Notify build completion
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: always()
+
+    steps:
+      - name: Create GitHub Release
+        if: needs.build.result == 'success'
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          body: |
+            ## Changes
+            ${{ github.event.head_commit.message }}
+
+            ## Builds
+            - [Android Build](https://expo.dev/accounts/bme_llc/projects/mc-gate/builds?platform=android)
+            - [iOS Build](https://expo.dev/accounts/bme_llc/projects/mc-gate/builds?platform=ios)
+
+            🤖 Generated with [Claude Code](https://claude.com/claude-code)
+          draft: false
+          prerelease: false
