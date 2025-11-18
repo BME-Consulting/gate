@@ -54,6 +54,7 @@ export default function AuthScreen() {
     confidence: number;
     size: number;
   } | null>(null);
+  const [isFocused, setIsFocused] = useState(true);
 
   const cameraRef = useRef<CameraView>(null);
   const processingLock = useRef(false);
@@ -80,10 +81,10 @@ export default function AuthScreen() {
   // タブフォーカス時にカメラリソースをリセット
   useFocusEffect(
     useCallback(() => {
-      console.log("[Auth] Tab focused - resetting camera state");
+      console.log("[Auth] Tab focused - mounting camera");
+      setIsFocused(true);
 
       // カメラ状態をリセット
-      setIsCameraReady(false);
       setIsProcessing(false);
       setDetectionStatus("顔またはQRコードを検出中...");
       setLastFaceDetection(null);
@@ -93,9 +94,11 @@ export default function AuthScreen() {
       lastProcessTime.current = 0;
 
       return () => {
-        console.log("[Auth] Tab unfocused - cleaning up");
+        console.log("[Auth] Tab unfocused - unmounting camera");
+        setIsFocused(false);
         // タブが非アクティブになったときのクリーンアップ
         processingLock.current = false;
+        setIsCameraReady(false);
       };
     }, [])
   );
@@ -516,8 +519,9 @@ export default function AuthScreen() {
   return (
     <View style={styles.container}>
       {/* カメラプレビュー */}
-      <View style={styles.cameraContainer}>
-        <CameraView
+      {isFocused && (
+        <View style={styles.cameraContainer}>
+          <CameraView
           ref={cameraRef}
           style={styles.camera}
           facing="front"
@@ -526,8 +530,8 @@ export default function AuthScreen() {
             console.log("[Auth] Camera ready");
             setIsCameraReady(true);
           }}
-          onFacesDetected={handleFacesDetected}
-          onBarcodeScanned={handleBarcodeScanned}
+          onFacesDetected={activeDetector === 'face' ? handleFacesDetected : undefined}
+          onBarcodeScanned={activeDetector === 'qr' ? handleBarcodeScanned : undefined}
           barcodeScannerSettings={{
             barcodeTypes: ["qr"],
           }}
