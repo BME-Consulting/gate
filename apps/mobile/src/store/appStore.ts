@@ -21,7 +21,7 @@ interface AppState {
   // 認証
   user: User | null;
   isAuthenticated: boolean;
-  login: (user: User) => Promise<void>;
+  login: (user: User, isMock?: boolean) => Promise<void>;
   loginWithOAuth: () => Promise<void>;
   logout: () => Promise<void>;
   ensureValidToken: () => Promise<boolean>;
@@ -47,10 +47,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   isAuthenticated: false,
 
   // 通常のログイン（トークンを受け取る）
-  login: async (user: User) => {
+  login: async (user: User, isMock = false) => {
     try {
-      // トークンを保存
-      await saveTokens(user.token, user.refreshToken || "", user.idToken);
+      // モック認証の場合はSecureStoreに保存しない
+      if (!isMock) {
+        await saveTokens(user.token, user.refreshToken || "", user.idToken);
+      }
 
       set({
         user,

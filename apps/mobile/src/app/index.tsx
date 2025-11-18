@@ -52,7 +52,7 @@ export default function LoginScreen() {
           name: username,
           token: "dev-token-" + Date.now(),
           refreshToken: "dev-refresh-" + Date.now(),
-        });
+        }, true);  // isMock = true を渡してSecureStore保存をスキップ
       } else {
         // 本番: OAuth認証
         console.log("✅ Using OAuth authentication");

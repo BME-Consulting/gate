@@ -5,9 +5,9 @@
 import * as SecureStore from "expo-secure-store";
 import { jwtDecode } from "jwt-decode";
 
-const ACCESS_TOKEN_KEY = "mc-gate:access-token";
-const REFRESH_TOKEN_KEY = "mc-gate:refresh-token";
-const ID_TOKEN_KEY = "mc-gate:id-token";
+const ACCESS_TOKEN_KEY = "mc_gate_access_token";
+const REFRESH_TOKEN_KEY = "mc_gate_refresh_token";
+const ID_TOKEN_KEY = "mc_gate_id_token";
 
 interface JWTPayload {
   exp: number;
