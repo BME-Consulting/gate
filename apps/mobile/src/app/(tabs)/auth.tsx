@@ -31,7 +31,7 @@ import {
 interface FaceRecognitionResponse {
   person_id: string | null;
   confidence: number;
-  distance?: number;
+  distance: number;  // 必須フィールド（成功時・失敗時ともに返される）
   error?: string;
 }
 
