@@ -519,23 +519,23 @@ export default function AuthScreen() {
   return (
     <View style={styles.container}>
       {/* カメラプレビュー */}
-      {isFocused && (
+      {isFocused ? (
         <View style={styles.cameraContainer}>
           <CameraView
-          ref={cameraRef}
-          style={styles.camera}
-          facing="front"
-          mirror={true}
-          onCameraReady={() => {
-            console.log("[Auth] Camera ready");
-            setIsCameraReady(true);
-          }}
-          onFacesDetected={activeDetector === 'face' ? handleFacesDetected : undefined}
-          onBarcodeScanned={activeDetector === 'qr' ? handleBarcodeScanned : undefined}
-          barcodeScannerSettings={{
-            barcodeTypes: ["qr"],
-          }}
-        >
+            ref={cameraRef}
+            style={styles.camera}
+            facing="front"
+            mirror={true}
+            onCameraReady={() => {
+              console.log("[Auth] Camera ready");
+              setIsCameraReady(true);
+            }}
+            onFacesDetected={activeDetector === 'face' ? handleFacesDetected : undefined}
+            onBarcodeScanned={activeDetector === 'qr' ? handleBarcodeScanned : undefined}
+            barcodeScannerSettings={{
+              barcodeTypes: ["qr"],
+            }}
+          >
           {/* カメラオーバーレイ */}
           <View style={styles.overlay}>
             {/* 上部バー */}
@@ -619,8 +619,9 @@ export default function AuthScreen() {
               )}
             </View>
           </View>
-        </CameraView>
-      </View>
+          </CameraView>
+        </View>
+      ) : null}
     </View>
   );
 }
