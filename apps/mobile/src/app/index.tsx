@@ -17,6 +17,15 @@ export default function LoginScreen() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // 環境変数のデバッグログ（開発時のみ）
+  React.useEffect(() => {
+    if (__DEV__) {
+      console.log("🔧 Environment variables:");
+      console.log("  EXPO_PUBLIC_USE_MOCK_AUTH:", process.env.EXPO_PUBLIC_USE_MOCK_AUTH);
+      console.log("  AUTH_ISSUER:", process.env.AUTH_ISSUER);
+    }
+  }, []);
+
   const handleLogin = async () => {
     if (!username || !password) return;
 
@@ -25,9 +34,12 @@ export default function LoginScreen() {
     try {
       const { setCurrentProject, loginWithOAuth } = useAppStore.getState();
 
-      // 開発モード: モックログイン（環境変数で制御）
-      if (__DEV__ && process.env.EXPO_PUBLIC_USE_MOCK_AUTH === "true") {
+      // 環境変数のチェック（開発モードでモック認証を使用するか）
+      const useMockAuth = process.env.EXPO_PUBLIC_USE_MOCK_AUTH === "true";
+
+      if (useMockAuth) {
         // モック実装（開発中のみ）
+        console.log("🔐 Using mock authentication");
         await login({
           id: "dev-user-1",
           name: username,
@@ -36,6 +48,7 @@ export default function LoginScreen() {
         });
       } else {
         // 本番: OAuth認証
+        console.log("🔐 Using OAuth authentication");
         await loginWithOAuth();
       }
 
@@ -59,8 +72,19 @@ export default function LoginScreen() {
 
       router.replace("/(tabs)/home");
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "ログインに失敗しました";
+      console.error("❌ Login error:", error);
+
+      let message = "ログインに失敗しました";
+
+      if (error instanceof Error) {
+        message = error.message;
+
+        // JSON Parse errorの場合、より詳細な情報を提供
+        if (message.includes("JSON Parse error") || message.includes("Unexpected character")) {
+          message = "サーバーへの接続に失敗しました。\n\nKeycloakサーバーが起動していることを確認してください。\n\n開発中の場合は、.env.developmentで\nEXPO_PUBLIC_USE_MOCK_AUTH=true\nを設定してモック認証を使用できます。";
+        }
+      }
+
       alert(message);
     } finally {
       setLoading(false);
