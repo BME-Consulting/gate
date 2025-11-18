@@ -70,16 +70,6 @@ export default function AuthScreen() {
     return new RuleEngine(currentProject.checkConfig);
   }, [currentProject?.checkConfig]);
 
-  // 顔検出ハンドラー（memoized）
-  const onFacesDetectedMemoized = useMemo(() => {
-    return activeDetector === 'face' ? handleFacesDetected : undefined;
-  }, [activeDetector]);
-
-  // QRコード検出ハンドラー（memoized）
-  const onBarcodeScannedMemoized = useMemo(() => {
-    return activeDetector === 'qr' ? handleBarcodeScanned : undefined;
-  }, [activeDetector]);
-
   // タイムスライシング検出方式（500msごとに切り替え）
   // 200msは処理が重すぎるため500msに変更
   useEffect(() => {
@@ -331,6 +321,13 @@ export default function AuthScreen() {
       });
 
       if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error(
+            "Face API サーバーのエンドポイントが見つかりません。\n\n" +
+            `URL: ${apiFaceApi}/api/face/recognize\n\n` +
+            "サーバーが正しく起動しているか確認してください。"
+          );
+        }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
@@ -541,8 +538,8 @@ export default function AuthScreen() {
               console.log("[Auth] Camera ready");
               setIsCameraReady(true);
             }}
-            onFacesDetected={onFacesDetectedMemoized}
-            onBarcodeScanned={onBarcodeScannedMemoized}
+            onFacesDetected={activeDetector === 'face' ? handleFacesDetected : undefined}
+            onBarcodeScanned={activeDetector === 'qr' ? handleBarcodeScanned : undefined}
             barcodeScannerSettings={{
               barcodeTypes: ["qr"],
             }}

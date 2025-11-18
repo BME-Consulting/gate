@@ -128,6 +128,15 @@ export default function FaceRegistrationScreen() {
 
       if (!response.ok) {
         console.error(`[DEBUG] HTTP error! status: ${response.status}`);
+
+        if (response.status === 404) {
+          throw new Error(
+            "Face API サーバーのエンドポイントが見つかりません。\n\n" +
+            `URL: ${apiFaceApi}/api/face/register\n\n` +
+            "サーバーが正しく起動しているか確認してください。"
+          );
+        }
+
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
