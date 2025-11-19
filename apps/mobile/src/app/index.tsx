@@ -7,8 +7,10 @@ import { View, Text, StyleSheet, TextInput } from "react-native";
 import { useRouter } from "expo-router";
 import Constants from "expo-constants";
 import { Button, tokens } from "@mc-gate/ui-kit";
-import { DEFAULT_PROJECT_ID } from "@mc-gate/core";
 import { useAppStore } from "../store/appStore";
+
+// WORKAROUND: Hardcode PROJECT_ID to avoid build-update mismatch
+const PROJECT_ID = "PRJ001";
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -63,7 +65,7 @@ export default function LoginScreen() {
       // NOTE: テスト用途のため、すべてのチェックをオフにしています
       // 本番環境では設定画面で個別にオン/オフを切り替えられるようにする予定
       setCurrentProject({
-        projectId: DEFAULT_PROJECT_ID,
+        projectId: PROJECT_ID,
         name: "東京建設現場A",
         gateMode: "IN",
         checkConfig: {
