@@ -1,4 +1,4 @@
-export default ({ config }) => {
+module.exports = ({ config }) => {
   // Environment detection
   const isProduction = process.env.ENV === "production";
 
