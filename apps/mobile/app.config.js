@@ -103,6 +103,10 @@ HTTP is only allowed in development mode (ENV !== "production")
       },
       // 開発中はモック認証を使用（本番環境では false に変更）
       useMockAuth: true,
+
+      // アプリケーション定数（本番運用向け）
+      defaultProjectId: process.env.DEFAULT_PROJECT_ID || "PRJ001",
+      dbName: "mc-gate.db",
     },
     plugins: [
       "expo-updates",

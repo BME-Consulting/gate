@@ -9,9 +9,6 @@ import Constants from "expo-constants";
 import { Button, tokens } from "@mc-gate/ui-kit";
 import { useAppStore } from "../store/appStore";
 
-// WORKAROUND: Hardcode PROJECT_ID to avoid build-update mismatch
-const PROJECT_ID = "PRJ001";
-
 export default function LoginScreen() {
   const router = useRouter();
   const { login } = useAppStore();
@@ -64,8 +61,9 @@ export default function LoginScreen() {
       // モックプロジェクト設定
       // NOTE: テスト用途のため、すべてのチェックをオフにしています
       // 本番環境では設定画面で個別にオン/オフを切り替えられるようにする予定
+      const defaultProjectId = Constants.expoConfig?.extra?.defaultProjectId || "PRJ001";
       setCurrentProject({
-        projectId: PROJECT_ID,
+        projectId: defaultProjectId,
         name: "東京建設現場A",
         gateMode: "IN",
         checkConfig: {

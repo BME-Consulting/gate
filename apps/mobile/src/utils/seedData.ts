@@ -4,14 +4,12 @@
 
 import { Alert } from "react-native";
 import { openDatabaseAsync } from "expo-sqlite";
+import Constants from "expo-constants";
 import type { ScanEvent, SQLiteDatabase } from "@mc-gate/core";
-import { DB_NAME as IMPORTED_DB_NAME } from "@mc-gate/core";
 
-// WORKAROUND: Hardcode PROJECT_ID to avoid build-update mismatch
-const PROJECT_ID = "PRJ001";
-
-// WORKAROUND: Hardcode DB_NAME to avoid module resolution issues in EAS Update
-const DB_NAME = typeof IMPORTED_DB_NAME === "string" ? IMPORTED_DB_NAME : "mc-gate.db";
+// 本番運用向け: app.config.js の extra から定数を取得
+const PROJECT_ID = Constants.expoConfig?.extra?.defaultProjectId || "PRJ001";
+const DB_NAME = Constants.expoConfig?.extra?.dbName || "mc-gate.db";
 const PERSON_IDS = [
   "P001", "P002", "P003", "P004", "P005",
   "P006", "P007", "P008", "P009", "P010",
