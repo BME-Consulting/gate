@@ -368,17 +368,18 @@ export default function SettingsScreen() {
     try {
       // Workers APIはGS API (port 7070) を使用
       const gsApiUrl = Constants.expoConfig?.extra?.apiBaseGs || "http://localhost:7070";
+      const gsApiKey = Constants.expoConfig?.extra?.apiGsApiKey || "development-api-key-12345";
       const workersApiUrl = `${gsApiUrl}/api/workers`;
 
       // デバッグログ: 接続先URL
       console.log("==================== WORKER SYNC DEBUG ====================");
       console.log(`[DEBUG] GS API URL: ${gsApiUrl}`);
       console.log(`[DEBUG] Workers API URL: ${workersApiUrl}`);
-      console.log(`[DEBUG] Token: ${user.token.substring(0, 20)}...`);
+      console.log(`[DEBUG] API Key: ${gsApiKey.substring(0, 20)}...`);
       console.log("===========================================================");
 
       console.log("[DEBUG] Starting worker sync...");
-      await syncFromServer(workersApiUrl, user.token);
+      await syncFromServer(workersApiUrl, gsApiKey);
       console.log("[DEBUG] Worker sync completed successfully");
 
       // 同期後に作業員数を再取得

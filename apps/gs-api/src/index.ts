@@ -1,19 +1,24 @@
 import express from 'express';
 import cors from 'cors';
-import { initializeDatabase, seedDefaultProject, seedDummyWorkers } from './database/sqlite';
+import helmet from 'helmet';
+import compression from 'compression';
+import rateLimit from 'express-rate-limit';
+import { prisma } from './lib/prisma';
 import { authMiddleware } from './middleware/auth';
 import workersRoutes from './routes/workers';
 import eventsRoutes from './routes/events';
 import statsRoutes from './routes/stats';
 
 const app = express();
-const PORT = process.env.PORT || 7070;
+const PORT = Number(process.env.PORT) || 7070;
 
-// 開発環境と本番環境でCORS設定を切り替え
+// セキュリティヘッダー
+app.use(helmet());
+
+// CORS設定
 const isDevelopment = process.env.NODE_ENV !== 'production';
 
 if (isDevelopment) {
-  // 開発環境: 全オリジンを許可
   app.use(cors({
     origin: '*',
     credentials: false,
@@ -22,18 +27,14 @@ if (isDevelopment) {
   }));
   console.log('✓ CORS: Development mode - all origins allowed');
 } else {
-  // 本番環境: 許可するオリジンのリスト
-  const allowedOrigins = [
-    'http://localhost:19006',  // Expo DevTools
-    'http://localhost:8081',   // Metro Bundler
-    process.env.ALLOWED_ORIGIN // 本番環境のオリジン
-  ].filter(Boolean) as string[];
+  const allowedOrigins = (process.env.ALLOWED_ORIGINS?.split(',') || [
+    'http://localhost:19006',
+    'http://localhost:8081',
+  ]).filter(Boolean);
 
   app.use(cors({
     origin: (origin, callback) => {
-      // originがundefinedの場合は同一オリジン（許可）
       if (!origin) return callback(null, true);
-
       if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
@@ -47,11 +48,25 @@ if (isDevelopment) {
   console.log(`✓ CORS: Production mode - allowed origins: ${allowedOrigins.join(', ')}`);
 }
 
+// 圧縮
+app.use(compression());
+
+// レート制限
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15分
+  max: 1000, // 最大1000リクエスト
+  message: {
+    error: 'TOO_MANY_REQUESTS',
+    message: 'Too many requests from this IP, please try again later.',
+  },
+});
+app.use(limiter);
+
+// JSON解析
 app.use(express.json({ limit: '50mb' }));
 
-// リクエストタイムアウトミドルウェア
+// リクエストタイムアウト
 app.use((req, res, next) => {
-  // 60秒のタイムアウト
   req.setTimeout(60000, () => {
     console.error(`Request timeout: ${req.method} ${req.url}`);
     if (!res.headersSent) {
@@ -64,18 +79,28 @@ app.use((req, res, next) => {
   next();
 });
 
-// データベース初期化
-initializeDatabase();
-seedDefaultProject();
-seedDummyWorkers();
-
 // ヘルスチェックエンドポイント（認証不要）
-app.get('/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    version: '1.0.0'
-  });
+app.get('/health', async (req, res) => {
+  try {
+    // データベース接続確認
+    await prisma.$queryRaw`SELECT 1`;
+
+    res.json({
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      version: '1.0.0',
+      database: 'connected',
+    });
+  } catch (error) {
+    console.error('Health check failed:', error);
+    res.status(503).json({
+      status: 'error',
+      timestamp: new Date().toISOString(),
+      version: '1.0.0',
+      database: 'disconnected',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
 });
 
 // 認証が必要なエンドポイント
@@ -83,13 +108,32 @@ app.use('/api', authMiddleware, workersRoutes);
 app.use('/api', authMiddleware, eventsRoutes);
 app.use('/api', authMiddleware, statsRoutes);
 
+// 404 ハンドラー
+app.use((req, res) => {
+  res.status(404).json({
+    error: 'NOT_FOUND',
+    message: `Cannot ${req.method} ${req.path}`,
+  });
+});
+
+// エラーハンドラー
+app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error('Error:', err);
+  res.status(500).json({
+    error: 'INTERNAL_SERVER_ERROR',
+    message: isDevelopment ? err.message : 'An error occurred',
+  });
+});
+
+// サーバー起動
 const server = app.listen(PORT, '0.0.0.0', () => {
   console.log('');
   console.log('========================================');
   console.log(`🚀 GS API Server running on http://0.0.0.0:${PORT}`);
-  console.log(`✓ Accessible from: http://localhost:${PORT} and http://192.168.1.4:${PORT}`);
-  console.log(`✓ Authentication enabled (API_KEY: ${process.env.API_KEY ? '***configured***' : 'development-api-key-12345'})`);
-  console.log(`✓ Request timeout: 60 seconds`);
+  console.log(`✓ Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`✓ Database: PostgreSQL (${process.env.DATABASE_URL?.split('@')[1]?.split('?')[0] || 'localhost:5435/mc_gate'})`);
+  console.log(`✓ Redis: ${process.env.REDIS_HOST}:${process.env.REDIS_PORT}`);
+  console.log(`✓ Authentication: ${process.env.API_KEY ? 'Configured' : 'Development mode'}`);
   console.log('========================================');
   console.log('');
   console.log('📋 Available endpoints:');
@@ -101,6 +145,27 @@ const server = app.listen(PORT, '0.0.0.0', () => {
   console.log('');
 });
 
-// サーバーのkeep-aliveタイムアウト設定
-server.keepAliveTimeout = 65000; // 65秒
-server.headersTimeout = 66000;   // 66秒（keepAliveTimeout + 1秒）
+// サーバー設定
+server.keepAliveTimeout = 65000;
+server.headersTimeout = 66000;
+
+// グレースフルシャットダウン
+const shutdown = async () => {
+  console.log('\n🛑 Shutting down gracefully...');
+
+  server.close(() => {
+    console.log('✓ HTTP server closed');
+  });
+
+  try {
+    await prisma.$disconnect();
+    console.log('✓ Database connection closed');
+    process.exit(0);
+  } catch (error) {
+    console.error('Error during shutdown:', error);
+    process.exit(1);
+  }
+};
+
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);

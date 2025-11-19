@@ -1,0 +1,12 @@
+node_modules
+dist
+*.log
+.env
+.env.local
+.DS_Store
+gs.db
+gs.db-shm
+gs.db-wal
+coverage
+.vscode
+.idea

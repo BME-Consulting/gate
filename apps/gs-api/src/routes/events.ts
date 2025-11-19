@@ -1,8 +1,14 @@
 import express from 'express';
-import { db } from '../database/sqlite';
-import type { ScanEvent, EventResponse } from '../types';
+import { prisma } from '../lib/prisma';
+import { EventRepository, WorkerRepository, ProjectRepository } from '../repositories';
+import type { ScanEvent, EventResponse, RuleResult } from '../types';
 
 const router = express.Router();
+
+// Repository初期化
+const eventRepo = new EventRepository(prisma);
+const workerRepo = new WorkerRepository(prisma);
+const projectRepo = new ProjectRepository(prisma);
 
 /**
  * POST /api/events
@@ -21,9 +27,7 @@ router.post('/events', async (req, res) => {
     }
 
     // 冪等性チェック
-    const existing = db.prepare(
-      'SELECT id FROM scan_events WHERE transport_idempotency_key = ?'
-    ).get(event.transport.idempotencyKey);
+    const existing = await eventRepo.findByIdempotencyKey(event.transport.idempotencyKey);
 
     if (existing) {
       console.log(`Event already exists (idempotent): ${event.id}`);
@@ -35,7 +39,7 @@ router.post('/events', async (req, res) => {
     }
 
     // 作業員存在チェック
-    const worker = db.prepare('SELECT person_id FROM workers WHERE person_id = ?').get(event.personId);
+    const worker = await workerRepo.findById(event.personId);
     if (!worker) {
       return res.status(400).json({
         error: 'INVALID_EVENT_DATA',
@@ -45,7 +49,7 @@ router.post('/events', async (req, res) => {
     }
 
     // プロジェクト存在チェック
-    const project = db.prepare('SELECT id FROM projects WHERE id = ?').get(event.projectId);
+    const project = await projectRepo.findById(event.projectId);
     if (!project) {
       return res.status(400).json({
         error: 'INVALID_EVENT_DATA',
@@ -55,29 +59,7 @@ router.post('/events', async (req, res) => {
     }
 
     // イベント保存
-    const now = new Date().toISOString();
-    db.prepare(`
-      INSERT INTO scan_events (
-        id, project_id, person_id, method, gate_mode, decided_mode,
-        occurred_at, rule_result, transport_status, transport_attempts,
-        transport_last_error, transport_idempotency_key, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      event.id,
-      event.projectId,
-      event.personId,
-      event.method,
-      event.gateMode,
-      event.decidedMode,
-      event.occurredAt,
-      JSON.stringify(event.ruleResult),
-      event.transport.status,
-      event.transport.attempts,
-      event.transport.lastError ?? null,
-      event.transport.idempotencyKey,
-      now,
-      now
-    );
+    await eventRepo.create(event);
 
     console.log(`✅ Event created successfully: ${event.id}`);
 
@@ -104,75 +86,40 @@ router.get('/projects/:projectId/events', async (req, res) => {
     const { projectId } = req.params;
     const { dateFrom, dateTo, decidedMode, limit = '100', offset = '0' } = req.query;
 
-    let query = 'SELECT * FROM scan_events WHERE project_id = ?';
-    const params: any[] = [projectId];
-
-    if (dateFrom) {
-      query += ' AND occurred_at >= ?';
-      params.push(dateFrom);
-    }
-
-    if (dateTo) {
-      query += ' AND occurred_at <= ?';
-      params.push(dateTo);
-    }
-
-    if (decidedMode) {
-      query += ' AND decided_mode = ?';
-      params.push(decidedMode);
-    }
-
-    query += ' ORDER BY occurred_at DESC LIMIT ? OFFSET ?';
     const limitNum = Math.min(1000, Math.max(1, Number(limit) || 100));
     const offsetNum = Math.max(0, Number(offset) || 0);
-    params.push(limitNum, offsetNum);
 
-    const rows = db.prepare(query).all(...params);
+    const result = await eventRepo.findByProject(projectId, {
+      dateFrom: dateFrom as string | undefined,
+      dateTo: dateTo as string | undefined,
+      decidedMode: decidedMode as string | undefined,
+      limit: limitNum,
+      offset: offsetNum,
+    });
 
-    // 総数取得
-    let countQuery = 'SELECT COUNT(*) as count FROM scan_events WHERE project_id = ?';
-    const countParams: any[] = [projectId];
-
-    if (dateFrom) {
-      countQuery += ' AND occurred_at >= ?';
-      countParams.push(dateFrom);
-    }
-
-    if (dateTo) {
-      countQuery += ' AND occurred_at <= ?';
-      countParams.push(dateTo);
-    }
-
-    if (decidedMode) {
-      countQuery += ' AND decided_mode = ?';
-      countParams.push(decidedMode);
-    }
-
-    const { count } = db.prepare(countQuery).get(...countParams) as { count: number };
-
-    // 行をScanEvent型に変換
-    const events: ScanEvent[] = rows.map((row: any) => ({
-      id: row.id,
-      projectId: row.project_id,
-      personId: row.person_id,
-      method: row.method,
-      gateMode: row.gate_mode,
-      decidedMode: row.decided_mode,
-      occurredAt: row.occurred_at,
-      ruleResult: JSON.parse(row.rule_result),
+    // Prisma結果をScanEvent型に変換
+    const events: ScanEvent[] = result.events.map((event) => ({
+      id: event.id,
+      projectId: event.projectId,
+      personId: event.personId,
+      method: event.method as 'QR' | 'CARD' | 'FACE',
+      gateMode: event.gateMode as 'IN' | 'OUT',
+      decidedMode: event.decidedMode as 'IN' | 'OUT',
+      occurredAt: event.occurredAt.toISOString(),
+      ruleResult: event.ruleResult as unknown as RuleResult,
       transport: {
-        status: row.transport_status,
-        attempts: row.transport_attempts,
-        lastError: row.transport_last_error ?? undefined,
-        idempotencyKey: row.transport_idempotency_key,
+        status: event.transportStatus as 'pending' | 'sent' | 'failed',
+        attempts: event.transportAttempts,
+        lastError: event.transportLastError || undefined,
+        idempotencyKey: event.transportIdempotencyKey,
       },
     }));
 
     res.json({
       events,
-      total: count,
-      limit: parseInt(limit as string),
-      offset: parseInt(offset as string),
+      total: result.total,
+      limit: limitNum,
+      offset: offsetNum,
     });
   } catch (error: any) {
     console.error('Error in GET /api/projects/:projectId/events:', error);

@@ -1,0 +1,838 @@
+openapi: 3.1.0
+info:
+  title: MC-Gate GS API
+  description: |
+    MCD3 Gate Service API - 建設現場の入退場管理システム
+
+    ## 概要
+    モバイルアプリからのスキャンイベントを受信し、統計情報を提供するバックエンドサービス。
+
+    ## 認証
+    本番環境では OAuth 2.0 (Keycloak) によるBearer認証を使用。
+    開発環境では API Key 認証をサポート。
+
+    ## レート制限
+    - 100 requests / 15 minutes (per IP)
+    - 429 Too Many Requests レスポンスで通知
+
+    ## エラーコード
+    - `BAD_REQUEST` (400): リクエスト不正
+    - `UNAUTHORIZED` (401): 認証失敗
+    - `FORBIDDEN` (403): 権限不足
+    - `NOT_FOUND` (404): リソース未存在
+    - `REQUEST_TIMEOUT` (408): タイムアウト
+    - `CONFLICT` (409): 競合
+    - `UNPROCESSABLE_ENTITY` (422): バリデーションエラー
+    - `INTERNAL_SERVER_ERROR` (500): サーバーエラー
+
+  version: 1.0.0
+  contact:
+    name: BME Consulting
+    email: support@bme-consulting.jp
+  license:
+    name: Proprietary
+    url: https://bme-consulting.jp/license
+
+servers:
+  - url: http://localhost:7070
+    description: ローカル開発環境
+  - url: http://192.168.1.4:7070
+    description: LAN開発環境 (NAS)
+  - url: https://api.mc-gate.example.com
+    description: 本番環境 (未構築)
+
+tags:
+  - name: Health
+    description: ヘルスチェック
+  - name: Events
+    description: スキャンイベント管理
+  - name: Stats
+    description: 統計情報
+  - name: Workers
+    description: 作業員マスタ
+
+paths:
+  /health:
+    get:
+      summary: ヘルスチェック
+      description: サーバーの稼働状態を確認します（認証不要）
+      operationId: getHealth
+      tags:
+        - Health
+      responses:
+        '200':
+          description: 正常稼働中
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+                    example: ok
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: '2025-11-19T10:30:00.000Z'
+                  version:
+                    type: string
+                    example: '1.0.0'
+                required:
+                  - status
+                  - timestamp
+
+  /api/events:
+    post:
+      summary: スキャンイベント受信
+      description: |
+        モバイルアプリから送信されたスキャンイベントを受信・保存します。
+
+        **冪等性保証**:
+        同じ `transport.idempotencyKey` のリクエストは重複して処理されません。
+
+      operationId: createEvent
+      tags:
+        - Events
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScanEvent'
+            examples:
+              allowEntry:
+                summary: 入場許可（正常）
+                value:
+                  id: '550e8400-e29b-41d4-a716-446655440000'
+                  projectId: 'PRJ001'
+                  personId: 'W001'
+                  method: 'QR'
+                  gateMode: 'IN'
+                  decidedMode: 'IN'
+                  occurredAt: '2025-11-19T10:30:00.000Z'
+                  ruleResult:
+                    action: 'allow'
+                    messages: []
+                    sendToCcus: true
+                    includeInGs: true
+                  transport:
+                    status: 'sent'
+                    attempts: 1
+                    idempotencyKey: 'abc123xyz'
+
+              warnEntry:
+                summary: 警告（社会保険未加入）
+                value:
+                  id: '550e8400-e29b-41d4-a716-446655440001'
+                  projectId: 'PRJ001'
+                  personId: 'W004'
+                  method: 'QR'
+                  gateMode: 'IN'
+                  decidedMode: 'IN'
+                  occurredAt: '2025-11-19T10:35:00.000Z'
+                  ruleResult:
+                    action: 'warn'
+                    messages: ['WARN_SOCIAL_INSURANCE_UNREGISTERED']
+                    sendToCcus: true
+                    includeInGs: true
+                  transport:
+                    status: 'sent'
+                    attempts: 1
+                    idempotencyKey: 'def456uvw'
+
+              blockEntry:
+                summary: 入場拒否（CCUS未登録）
+                value:
+                  id: '550e8400-e29b-41d4-a716-446655440002'
+                  projectId: 'PRJ001'
+                  personId: 'W003'
+                  method: 'CARD'
+                  gateMode: 'IN'
+                  decidedMode: 'IN'
+                  occurredAt: '2025-11-19T10:40:00.000Z'
+                  ruleResult:
+                    action: 'block'
+                    messages: ['BLOCK_CCUS_UNREGISTERED']
+                    sendToCcus: false
+                    includeInGs: false
+                  transport:
+                    status: 'sent'
+                    attempts: 1
+                    idempotencyKey: 'ghi789rst'
+
+      responses:
+        '201':
+          description: イベント作成成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventResponse'
+              examples:
+                created:
+                  summary: 新規作成
+                  value:
+                    success: true
+                    id: '550e8400-e29b-41d4-a716-446655440000'
+                    message: 'Event received successfully'
+
+        '200':
+          description: 冪等性により既存イベントを返却
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventResponse'
+              examples:
+                idempotent:
+                  summary: 既存イベント（冪等）
+                  value:
+                    success: true
+                    id: '550e8400-e29b-41d4-a716-446655440000'
+                    message: 'Event already exists (idempotent)'
+
+        '400':
+          description: リクエスト不正
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                missingFields:
+                  summary: 必須フィールド欠損
+                  value:
+                    error: 'BAD_REQUEST'
+                    message: 'Required fields missing: id, projectId, personId'
+
+                workerNotFound:
+                  summary: 作業員未登録
+                  value:
+                    error: 'INVALID_EVENT_DATA'
+                    message: 'Worker not found: W999'
+                    details:
+                      field: 'personId'
+                      issue: 'Worker does not exist'
+
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '408':
+          $ref: '#/components/responses/Timeout'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/projects/{projectId}/events:
+    get:
+      summary: イベント履歴取得
+      description: |
+        プロジェクトのスキャンイベント履歴を取得します。
+
+        **フィルタリング**:
+        - 日時範囲 (`dateFrom`, `dateTo`)
+        - 入退モード (`decidedMode`)
+
+        **ページネーション**:
+        - `limit`: 取得件数（最大1000、デフォルト100）
+        - `offset`: オフセット（デフォルト0）
+
+      operationId: listEvents
+      tags:
+        - Events
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          description: プロジェクトID
+          schema:
+            type: string
+            example: 'PRJ001'
+
+        - name: dateFrom
+          in: query
+          required: false
+          description: 開始日時（ISO 8601）
+          schema:
+            type: string
+            format: date-time
+            example: '2025-11-19T00:00:00.000Z'
+
+        - name: dateTo
+          in: query
+          required: false
+          description: 終了日時（ISO 8601）
+          schema:
+            type: string
+            format: date-time
+            example: '2025-11-19T23:59:59.999Z'
+
+        - name: decidedMode
+          in: query
+          required: false
+          description: 入退モードでフィルタ
+          schema:
+            type: string
+            enum: [IN, OUT]
+
+        - name: limit
+          in: query
+          required: false
+          description: 取得件数（最大1000）
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+
+        - name: offset
+          in: query
+          required: false
+          description: オフセット
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+
+      responses:
+        '200':
+          description: イベント履歴取得成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ScanEvent'
+                  total:
+                    type: integer
+                    description: 総件数
+                    example: 1234
+                  limit:
+                    type: integer
+                    example: 100
+                  offset:
+                    type: integer
+                    example: 0
+                required:
+                  - events
+                  - total
+                  - limit
+                  - offset
+
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/projects/{projectId}/stats:
+    get:
+      summary: 統計情報取得
+      description: |
+        プロジェクトの統計情報を取得します。
+
+        **統計項目**:
+        - `todayIn`: 今日の入場数
+        - `todayOut`: 今日の退場数
+        - `currentInSite`: 現在場内人数（入場 - 退場）
+
+        **キャッシュ**:
+        Redis キャッシュ（TTL 60秒）により高速化されています。
+
+      operationId: getStats
+      tags:
+        - Stats
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          description: プロジェクトID
+          schema:
+            type: string
+            example: 'PRJ001'
+
+        - name: date
+          in: query
+          required: false
+          description: 基準日（デフォルトは今日）
+          schema:
+            type: string
+            format: date
+            example: '2025-11-19'
+
+      responses:
+        '200':
+          description: 統計情報取得成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Stats'
+
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/workers:
+    get:
+      summary: 作業員マスタ取得
+      description: |
+        作業員マスタ全件を取得します。
+
+        **レスポンスヘッダー**:
+        - `Last-Modified`: 最終更新日時
+
+      operationId: listWorkers
+      tags:
+        - Workers
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      responses:
+        '200':
+          description: 作業員マスタ取得成功
+          headers:
+            Last-Modified:
+              schema:
+                type: string
+                format: date-time
+              description: 最終更新日時
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkersResponse'
+
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Keycloak OAuth 2.0 Bearer トークン認証。
+
+        **取得方法**:
+        ```
+        POST http://keycloak:8080/realms/mcd3/protocol/openid-connect/token
+        Content-Type: application/x-www-form-urlencoded
+
+        grant_type=password&
+        client_id=mc-gate-mobile&
+        username=user&
+        password=pass
+        ```
+
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: |
+        API Key 認証（開発環境専用）。
+
+        **使用方法**:
+        ```
+        X-API-Key: development-api-key-12345
+        ```
+
+        または Authorization ヘッダー:
+        ```
+        Authorization: ApiKey development-api-key-12345
+        ```
+
+  schemas:
+    ScanEvent:
+      type: object
+      description: スキャンイベント
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: イベントID（UUID v4）
+          example: '550e8400-e29b-41d4-a716-446655440000'
+
+        projectId:
+          type: string
+          description: プロジェクトID
+          example: 'PRJ001'
+
+        personId:
+          type: string
+          description: 作業員ID
+          example: 'W001'
+
+        method:
+          type: string
+          enum: [QR, CARD, FACE]
+          description: スキャン方法
+          example: 'QR'
+
+        gateMode:
+          type: string
+          enum: [IN, OUT]
+          description: ゲートモード
+          example: 'IN'
+
+        decidedMode:
+          type: string
+          enum: [IN, OUT]
+          description: 決定モード
+          example: 'IN'
+
+        occurredAt:
+          type: string
+          format: date-time
+          description: 発生日時（ISO 8601）
+          example: '2025-11-19T10:30:00.000Z'
+
+        ruleResult:
+          $ref: '#/components/schemas/RuleResult'
+
+        transport:
+          $ref: '#/components/schemas/TransportStatus'
+
+      required:
+        - id
+        - projectId
+        - personId
+        - method
+        - gateMode
+        - decidedMode
+        - occurredAt
+        - ruleResult
+        - transport
+
+    RuleResult:
+      type: object
+      description: ルール判定結果
+      properties:
+        action:
+          type: string
+          enum: [allow, warn, block]
+          description: |
+            判定アクション:
+            - `allow`: 入場許可
+            - `warn`: 警告（確認が必要）
+            - `block`: 入場拒否
+          example: 'allow'
+
+        messages:
+          type: array
+          items:
+            type: string
+          description: メッセージID（i18n用）
+          example: ['WARN_SOCIAL_INSURANCE_UNREGISTERED']
+
+        sendToCcus:
+          type: boolean
+          description: CCUS APIへ送信するか
+          example: true
+
+        includeInGs:
+          type: boolean
+          description: GS統計に含めるか
+          example: true
+
+      required:
+        - action
+        - messages
+        - sendToCcus
+        - includeInGs
+
+    TransportStatus:
+      type: object
+      description: 送信ステータス
+      properties:
+        status:
+          type: string
+          enum: [pending, sent, failed]
+          description: |
+            送信状態:
+            - `pending`: 送信待ち
+            - `sent`: 送信完了
+            - `failed`: 送信失敗（5回リトライ後）
+          example: 'sent'
+
+        attempts:
+          type: integer
+          minimum: 0
+          description: 送信試行回数
+          example: 1
+
+        lastError:
+          type: string
+          description: 最後のエラーメッセージ
+          example: 'Network timeout'
+
+        idempotencyKey:
+          type: string
+          description: 冪等キー（重複チェック用）
+          example: 'abc123xyz'
+
+      required:
+        - status
+        - attempts
+        - idempotencyKey
+
+    Stats:
+      type: object
+      description: 統計情報
+      properties:
+        todayIn:
+          type: integer
+          minimum: 0
+          description: 今日の入場数
+          example: 45
+
+        todayOut:
+          type: integer
+          minimum: 0
+          description: 今日の退場数
+          example: 12
+
+        currentInSite:
+          type: integer
+          minimum: 0
+          description: 現在場内人数（入場 - 退場）
+          example: 33
+
+      required:
+        - todayIn
+        - todayOut
+        - currentInSite
+
+    Worker:
+      type: object
+      description: 作業員マスタ
+      properties:
+        personId:
+          type: string
+          description: 作業員ID
+          example: 'W001'
+
+        name:
+          type: string
+          description: 氏名
+          example: '山田太郎'
+
+        company:
+          type: string
+          description: 会社名
+          example: '株式会社サンプル建設'
+
+        ccusId:
+          type: string
+          description: CCUS ID
+          example: 'CCUS001'
+
+        ccusRegistered:
+          type: boolean
+          description: CCUS登録済みか
+          example: true
+
+        socialInsurance:
+          type: boolean
+          description: 社会保険加入済みか
+          example: true
+
+        residencyExpiry:
+          type: string
+          format: date
+          description: 在留期限
+          example: '2026-12-31'
+
+        age:
+          type: integer
+          minimum: 0
+          maximum: 150
+          description: 年齢
+          example: 35
+
+        isSoleProprietor:
+          type: boolean
+          description: 一人親方か
+          example: false
+
+        faceEmbedding:
+          type: array
+          items:
+            type: number
+            format: float
+          description: 顔特徴ベクトル（512次元）
+          example: [0.123, -0.456, 0.789]
+
+        faceImageUrl:
+          type: string
+          format: uri
+          description: 顔画像URL
+          example: 'https://s3.amazonaws.com/mc-gate/faces/W001.jpg'
+
+        createdAt:
+          type: string
+          format: date-time
+          description: 作成日時
+          example: '2025-01-01T00:00:00.000Z'
+
+        updatedAt:
+          type: string
+          format: date-time
+          description: 更新日時
+          example: '2025-11-19T10:30:00.000Z'
+
+      required:
+        - personId
+        - name
+        - company
+        - ccusRegistered
+        - socialInsurance
+        - isSoleProprietor
+        - createdAt
+        - updatedAt
+
+    WorkersResponse:
+      type: object
+      description: 作業員マスタレスポンス
+      properties:
+        workers:
+          type: array
+          items:
+            $ref: '#/components/schemas/Worker'
+        total:
+          type: integer
+          description: 総件数
+          example: 5
+        updatedAt:
+          type: string
+          format: date-time
+          description: 最終更新日時
+          example: '2025-11-19T10:30:00.000Z'
+      required:
+        - workers
+        - total
+        - updatedAt
+
+    EventResponse:
+      type: object
+      description: イベント作成レスポンス
+      properties:
+        success:
+          type: boolean
+          example: true
+        id:
+          type: string
+          format: uuid
+          example: '550e8400-e29b-41d4-a716-446655440000'
+        message:
+          type: string
+          example: 'Event received successfully'
+      required:
+        - success
+        - id
+        - message
+
+    ErrorResponse:
+      type: object
+      description: エラーレスポンス
+      properties:
+        error:
+          type: string
+          description: エラーコード
+          example: 'BAD_REQUEST'
+        message:
+          type: string
+          description: ユーザー向けメッセージ
+          example: 'Required fields missing: id, projectId, personId'
+        details:
+          type: object
+          description: 詳細情報（開発環境のみ）
+          additionalProperties: true
+        timestamp:
+          type: string
+          format: date-time
+          description: エラー発生日時
+          example: '2025-11-19T10:30:00.000Z'
+        path:
+          type: string
+          description: リクエストパス
+          example: '/api/events'
+        requestId:
+          type: string
+          description: トレーシングID
+          example: 'req-12345-abcde'
+      required:
+        - error
+        - message
+
+  responses:
+    Unauthorized:
+      description: 認証失敗
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: 'UNAUTHORIZED'
+            message: 'Missing authorization token'
+
+    Forbidden:
+      description: 権限不足
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: 'FORBIDDEN'
+            message: 'Invalid API key'
+
+    NotFound:
+      description: リソース未存在
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: 'NOT_FOUND'
+            message: 'Project not found: PRJ999'
+
+    Timeout:
+      description: タイムアウト
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: 'REQUEST_TIMEOUT'
+            message: 'Request timeout'
+
+    InternalServerError:
+      description: サーバーエラー
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: 'INTERNAL_SERVER_ERROR'
+            message: 'An unexpected error occurred'

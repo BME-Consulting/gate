@@ -136,7 +136,7 @@ export function useWorkers() {
   /**
    * サーバーから作業員マスタを同期
    */
-  const syncFromServer = async (apiUrl: string, token: string): Promise<void> => {
+  const syncFromServer = async (apiUrl: string, apiKey: string): Promise<void> => {
     if (!repositoryInstance) {
       throw new Error("WorkerRepository is not initialized");
     }
@@ -147,7 +147,7 @@ export function useWorkers() {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
+          "x-api-key": apiKey,
         },
         timeoutMs: TIMEOUT.BULK_FETCH, // 90秒（大量データ対応）
       });

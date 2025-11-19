@@ -9,6 +9,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   const apiBaseGs = "http://192.168.1.4:7070";
   const apiBaseCcus = "http://192.168.1.4:7071";
   const apiFaceApi = "http://192.168.1.4:8100";
+  const apiGsApiKey = "development-api-key-12345";
   const apiFaceApiKey = "development-api-key-12345";
   const authIssuer = "http://192.168.1.4:8080/auth/realms/mcd3";
 
@@ -43,7 +44,7 @@ HTTP is only allowed in development mode (ENV !== "production")
     }
   }
 
-  return ({
+  return {
   ...config,
   name: "mc-gate",
   slug: "mc-gate",
@@ -95,6 +96,7 @@ HTTP is only allowed in development mode (ENV !== "production")
     apiBaseGs,
     apiBaseCcus,
     apiFaceApi,
+    apiGsApiKey,
     apiFaceApiKey,
     auth: {
       issuer: authIssuer,
@@ -124,5 +126,5 @@ HTTP is only allowed in development mode (ENV !== "production")
       },
     ],
   ],
-  });
+  };
 };

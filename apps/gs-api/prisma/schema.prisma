@@ -1,0 +1,88 @@
+// Prisma Schema for GS API
+// PostgreSQL Database
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// Projects Table
+// ==========================================
+model Project {
+  id              String        @id
+  name            String
+  gateMode        String        @map("gate_mode")
+  scanMethodLock  String?       @map("scan_method_lock")
+  gateModeLock    String?       @map("gate_mode_lock")
+  checkConfig     Json          @map("check_config")
+  serverLock      Boolean       @default(false) @map("server_lock")
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+  scanEvents      ScanEvent[]
+
+  @@index([name])
+  @@index([updatedAt])
+  @@map("projects")
+}
+
+// ==========================================
+// Workers Table
+// ==========================================
+model Worker {
+  personId         String        @id @map("person_id")
+  name             String
+  company          String
+  ccusId           String?       @unique @map("ccus_id")
+  ccusRegistered   Boolean       @default(false) @map("ccus_registered")
+  socialInsurance  Boolean       @default(false) @map("social_insurance")
+  residencyExpiry  DateTime?     @map("residency_expiry") @db.Date
+  age              Int?
+  isSoleProprietor Boolean       @default(false) @map("is_sole_proprietor")
+  faceEmbedding    Json?         @map("face_embedding")
+  faceImageUrl     String?       @map("face_image_url")
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+  scanEvents       ScanEvent[]
+
+  @@index([name])
+  @@index([company])
+  @@index([ccusId])
+  @@index([updatedAt])
+  @@map("workers")
+}
+
+// ==========================================
+// Scan Events Table
+// ==========================================
+model ScanEvent {
+  id                        String   @id
+  projectId                 String   @map("project_id")
+  personId                  String   @map("person_id")
+  method                    String
+  gateMode                  String   @map("gate_mode")
+  decidedMode               String   @map("decided_mode")
+  occurredAt                DateTime @map("occurred_at") @db.Timestamptz
+  ruleResult                Json     @map("rule_result")
+  transportStatus           String   @default("pending") @map("transport_status")
+  transportAttempts         Int      @default(0) @map("transport_attempts")
+  transportLastError        String?  @map("transport_last_error")
+  transportIdempotencyKey   String   @unique @map("transport_idempotency_key")
+  createdAt                 DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                 DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  worker    Worker  @relation(fields: [personId], references: [personId], onDelete: Restrict)
+
+  @@index([projectId, occurredAt(sort: Desc)])
+  @@index([personId, occurredAt(sort: Desc)])
+  @@index([transportStatus])
+  @@index([transportIdempotencyKey])
+  @@index([projectId, decidedMode, occurredAt], name: "idx_stats")
+  @@index([occurredAt], type: Brin)
+  @@map("scan_events")
+}

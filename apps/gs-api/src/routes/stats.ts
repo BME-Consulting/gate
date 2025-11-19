@@ -1,8 +1,12 @@
 import express from 'express';
-import { db } from '../database/sqlite';
+import { prisma } from '../lib/prisma';
+import { EventRepository } from '../repositories';
 import type { Stats } from '../types';
 
 const router = express.Router();
+
+// Repository初期化
+const eventRepo = new EventRepository(prisma);
 
 /**
  * GET /api/projects/:projectId/stats
@@ -19,35 +23,9 @@ router.get('/projects/:projectId/stats', async (req, res) => {
       : new Date();
 
     targetDate.setHours(0, 0, 0, 0);
-    const startOfDay = targetDate.toISOString();
 
-    // 入場数取得
-    const todayInResult = db.prepare(`
-      SELECT COUNT(*) as count FROM scan_events
-      WHERE project_id = ?
-        AND decided_mode = 'IN'
-        AND occurred_at >= ?
-        AND transport_status = 'sent'
-    `).get(projectId, startOfDay) as { count: number };
-
-    // 退場数取得
-    const todayOutResult = db.prepare(`
-      SELECT COUNT(*) as count FROM scan_events
-      WHERE project_id = ?
-        AND decided_mode = 'OUT'
-        AND occurred_at >= ?
-        AND transport_status = 'sent'
-    `).get(projectId, startOfDay) as { count: number };
-
-    const todayIn = todayInResult.count || 0;
-    const todayOut = todayOutResult.count || 0;
-    const currentInSite = Math.max(0, todayIn - todayOut);
-
-    const stats: Stats = {
-      todayIn,
-      todayOut,
-      currentInSite,
-    };
+    // Repositoryから統計を取得
+    const stats = await eventRepo.getStats(projectId, targetDate);
 
     res.json(stats);
   } catch (error: any) {
