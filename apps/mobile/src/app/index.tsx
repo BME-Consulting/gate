@@ -38,8 +38,8 @@ export default function LoginScreen() {
     try {
       const { setCurrentProject, loginWithOAuth } = useAppStore.getState();
 
-      // app.config.tsから設定を取得
-      const useMockAuth = Constants.expoConfig?.extra?.useMockAuth ?? false;
+      // app.config.jsから設定を取得（安全性優先）
+      const useMockAuth = Constants.expoConfig?.extra?.useMockAuth ?? true;  // デフォルトはモック認証
 
       console.log("🔐 Authentication mode:", useMockAuth ? "MOCK" : "OAuth");
 
@@ -61,8 +61,7 @@ export default function LoginScreen() {
       // モックプロジェクト設定
       // NOTE: テスト用途のため、すべてのチェックをオフにしています
       // 本番環境では設定画面で個別にオン/オフを切り替えられるようにする予定
-      const configProjectId = Constants.expoConfig?.extra?.defaultProjectId;
-      const defaultProjectId = (typeof configProjectId === "string" && configProjectId) ? configProjectId : "PRJ001";
+      const defaultProjectId = "PRJ001";  // ハードコード（安全性優先）
       setCurrentProject({
         projectId: defaultProjectId,
         name: "東京建設現場A",
