@@ -61,7 +61,8 @@ export default function LoginScreen() {
       // モックプロジェクト設定
       // NOTE: テスト用途のため、すべてのチェックをオフにしています
       // 本番環境では設定画面で個別にオン/オフを切り替えられるようにする予定
-      const defaultProjectId = Constants.expoConfig?.extra?.defaultProjectId || "PRJ001";
+      const configProjectId = Constants.expoConfig?.extra?.defaultProjectId;
+      const defaultProjectId = (typeof configProjectId === "string" && configProjectId) ? configProjectId : "PRJ001";
       setCurrentProject({
         projectId: defaultProjectId,
         name: "東京建設現場A",

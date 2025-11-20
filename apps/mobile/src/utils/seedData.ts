@@ -7,9 +7,16 @@ import { openDatabaseAsync } from "expo-sqlite";
 import Constants from "expo-constants";
 import type { ScanEvent, SQLiteDatabase } from "@mc-gate/core";
 
-// 本番運用向け: app.config.js の extra から定数を取得
-const PROJECT_ID = Constants.expoConfig?.extra?.defaultProjectId || "PRJ001";
-const DB_NAME = Constants.expoConfig?.extra?.dbName || "mc-gate.db";
+// 定数取得用ヘルパー関数（トップレベルでのアクセスを回避）
+function getProjectId(): string {
+  const configProjectId = Constants.expoConfig?.extra?.defaultProjectId;
+  return (typeof configProjectId === "string" && configProjectId) ? configProjectId : "PRJ001";
+}
+
+function getDbName(): string {
+  return Constants.expoConfig?.extra?.dbName || "mc-gate.db";
+}
+
 const PERSON_IDS = [
   "P001", "P002", "P003", "P004", "P005",
   "P006", "P007", "P008", "P009", "P010",
@@ -51,6 +58,7 @@ function generateScanEvent(index: number): ScanEvent {
   const personId = randomElement(PERSON_IDS);
   const method = Math.random() > 0.3 ? "QR" : "CARD";
   const decidedMode = Math.random() > 0.5 ? "IN" : "OUT";
+  const projectId = getProjectId();
 
   // 今日(00:00:00)から現在時刻までのランダムな時刻を生成
   const today = new Date();
@@ -97,7 +105,7 @@ function generateScanEvent(index: number): ScanEvent {
 
   return {
     id: generateUUID(),
-    projectId: PROJECT_ID,
+    projectId: projectId,
     personId,
     method: method as "QR" | "CARD",
     gateMode: "IN",
@@ -113,7 +121,7 @@ function generateScanEvent(index: number): ScanEvent {
       status,
       attempts,
       lastError,
-      idempotencyKey: `${PROJECT_ID}-${personId}-${decidedMode}-${occurredAt.getTime()}`,
+      idempotencyKey: `${projectId}-${personId}-${decidedMode}-${occurredAt.getTime()}`,
     },
   };
 }
@@ -153,9 +161,11 @@ function generateInsertSQL(event: ScanEvent): string {
 
 export async function seedDummyData(count: number = 50) {
   console.log(`Seeding ${count} dummy scan events using execAsync...`);
+  const dbName = getDbName();
+  const projectId = getProjectId();
 
   try {
-    const db = (await openDatabaseAsync(DB_NAME)) as unknown as SQLiteDatabase;
+    const db = (await openDatabaseAsync(dbName)) as unknown as SQLiteDatabase;
 
     // テーブルの作成（既存の場合はスキップ）
     await db.execAsync(`
@@ -205,7 +215,7 @@ export async function seedDummyData(count: number = 50) {
 
           Alert.alert(
             "デバッグ情報（execAsync版）",
-            `DB_NAME: ${DB_NAME}\nPROJECT_ID: ${PROJECT_ID}\n\n最初のSQL:\n${insertSQL.substring(0, 200)}...`,
+            `DB_NAME: ${dbName}\nPROJECT_ID: ${projectId}\n\n最初のSQL:\n${insertSQL.substring(0, 200)}...`,
             [{ text: "OK" }]
           );
         }
@@ -218,7 +228,7 @@ export async function seedDummyData(count: number = 50) {
 
         console.log(`Inserted ${batchEnd}/${count} events...`);
       } catch (execError: any) {
-        const errorMsg = `execAsync エラー！\n\nエラー: ${execError.message}\n\nDB_NAME: ${DB_NAME}\nPROJECT_ID: ${PROJECT_ID}\n\nバッチ範囲: ${batchStart}-${batchEnd}`;
+        const errorMsg = `execAsync エラー！\n\nエラー: ${execError.message}\n\nDB_NAME: ${dbName}\nPROJECT_ID: ${projectId}\n\nバッチ範囲: ${batchStart}-${batchEnd}`;
 
         Alert.alert(
           "❌ execAsync エラー",
@@ -260,9 +270,10 @@ export async function seedDummyData(count: number = 50) {
 // 既存データを削除してリセット
 export async function clearDummyData() {
   console.log("Clearing all scan events...");
+  const dbName = getDbName();
 
   try {
-    const db = (await openDatabaseAsync(DB_NAME)) as unknown as SQLiteDatabase;
+    const db = (await openDatabaseAsync(dbName)) as unknown as SQLiteDatabase;
     await db.execAsync("DELETE FROM scan_events");
     console.log("✅ All scan events cleared!");
 
