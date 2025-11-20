@@ -8,19 +8,6 @@ import { Button, tokens } from "@mc-gate/ui-kit";
 import { useQueue } from "../../hooks/useQueue";
 import { useAppStore } from "../../store/appStore";
 
-// Web互換のアラート関数
-const showAlert = (title: string, message: string) => {
-  if (Platform.OS === "web") {
-    // Web環境でのみ alert を使用
-    if (typeof globalThis !== "undefined" && "alert" in globalThis) {
-      globalThis.alert(`${title}\n\n${message}`);
-    } else {
-      console.warn(`${title}: ${message}`);
-    }
-  } else {
-    Alert.alert(title, message);
-  }
-};
 
 export default function DebugScreen() {
   const { currentProject } = useAppStore();
@@ -35,7 +22,7 @@ export default function DebugScreen() {
 
   const handleGenerateDummyData = async () => {
     if (Platform.OS === "web") {
-      showAlert(
+      Alert.alert(
         "Web環境では使用不可",
         "ダミーデータ生成はネイティブ環境（iOS/Android）でのみ利用可能です。"
       );
@@ -43,7 +30,7 @@ export default function DebugScreen() {
     }
 
     if (!currentProject) {
-      showAlert(
+      Alert.alert(
         "現場が未選択",
         "設定画面から現場を選択してください。"
       );
@@ -56,12 +43,12 @@ export default function DebugScreen() {
       const result = await seedDummyData(50);
 
       if (result.success) {
-        showAlert("成功", `${result.count}件のダミーデータを生成しました！`);
+        Alert.alert("成功", `${result.count}件のダミーデータを生成しました！`);
         await loadStats();
       }
     } catch (error) {
       console.error("Error generating dummy data:", error);
-      showAlert(
+      Alert.alert(
         "エラー",
         error instanceof Error ? error.message : "ダミーデータの生成に失敗しました"
       );
@@ -72,7 +59,7 @@ export default function DebugScreen() {
 
   const handleClearAllData = async () => {
     if (Platform.OS === "web") {
-      showAlert(
+      Alert.alert(
         "Web環境では使用不可",
         "データ削除はネイティブ環境（iOS/Android）でのみ利用可能です。"
       );
@@ -85,12 +72,12 @@ export default function DebugScreen() {
       const result = await clearDummyData();
 
       if (result.success) {
-        showAlert("成功", "全てのスキャンイベントを削除しました！");
+        Alert.alert("成功", "全てのスキャンイベントを削除しました！");
         await loadStats();
       }
     } catch (error) {
       console.error("Error clearing data:", error);
-      showAlert(
+      Alert.alert(
         "エラー",
         error instanceof Error ? error.message : "データの削除に失敗しました"
       );

@@ -13,24 +13,6 @@ import { useFocusEffect } from "expo-router";
 
 type StatsDisplayMode = "inout" | "total";
 
-// Web互換のアラート関数
-const showAlert = (title: string, message: string, onConfirm?: () => void) => {
-  if (Platform.OS === "web") {
-    // Web環境でのみ confirm を使用
-    if (typeof globalThis !== "undefined" && "confirm" in globalThis) {
-      const confirmed = globalThis.confirm(`${title}\n\n${message}`);
-      if (confirmed && onConfirm) onConfirm();
-    } else {
-      console.warn(`${title}: ${message}`);
-      if (onConfirm) onConfirm();
-    }
-  } else {
-    Alert.alert(title, message, [
-      { text: "キャンセル", style: "cancel" },
-      { text: "OK", onPress: onConfirm },
-    ]);
-  }
-};
 
 export default function HomeScreen() {
   const { user, currentProject } = useAppStore();
@@ -101,13 +83,19 @@ export default function HomeScreen() {
   };
 
   const handleResetStats = () => {
-    showAlert(
+    Alert.alert(
       "統計リセット確認",
       "受付人数カウントをリセットしますか？\n※データは削除されず、表示のみリセットされます",
-      () => {
-        setStatsResetDate(new Date());
-        setStats({ currentInSite: 0, todayIn: 0, todayOut: 0 });
-      }
+      [
+        { text: "キャンセル", style: "cancel" },
+        {
+          text: "OK",
+          onPress: () => {
+            setStatsResetDate(new Date());
+            setStats({ currentInSite: 0, todayIn: 0, todayOut: 0 });
+          },
+        },
+      ]
     );
   };
 

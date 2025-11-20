@@ -16,19 +16,6 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import * as Updates from "expo-updates";
 import Constants from "expo-constants";
 
-// Web互換のアラート関数
-const showAlert = (title: string, message: string) => {
-  if (Platform.OS === "web") {
-    // Web環境でのみ alert を使用
-    if (typeof globalThis !== "undefined" && "alert" in globalThis) {
-      globalThis.alert(`${title}\n\n${message}`);
-    } else {
-      console.warn(`${title}: ${message}`);
-    }
-  } else {
-    Alert.alert(title, message);
-  }
-};
 
 // BLEリーダーのシングルトンインスタンス
 let readerInstance: MockCardReader | null = null;
@@ -171,7 +158,7 @@ export default function SettingsScreen() {
 
   const checkForUpdates = async () => {
     if (!Updates.isEnabled) {
-      showAlert("開発モード", "開発モードではEAS Updateは利用できません");
+      Alert.alert("開発モード", "開発モードではEAS Updateは利用できません");
       return;
     }
 
@@ -195,10 +182,10 @@ export default function SettingsScreen() {
           ]
         );
       } else {
-        showAlert("最新版", "アプリは最新版です");
+        Alert.alert("最新版", "アプリは最新版です");
       }
     } catch (error) {
-      showAlert(
+      Alert.alert(
         "エラー",
         error instanceof Error ? error.message : "アップデート確認に失敗しました"
       );
@@ -227,7 +214,7 @@ export default function SettingsScreen() {
         );
       }
     } catch (error) {
-      showAlert(
+      Alert.alert(
         "エラー",
         error instanceof Error ? error.message : "アップデートのダウンロードに失敗しました"
       );
@@ -261,9 +248,9 @@ export default function SettingsScreen() {
       setBleDeviceInfo(`${info.name} (FW: ${info.firmwareVersion})`);
       setBleConnected(true);
 
-      showAlert("接続成功", `${info.name} に接続しました。`);
+      Alert.alert("接続成功", `${info.name} に接続しました。`);
     } catch (error) {
-      showAlert(
+      Alert.alert(
         "接続失敗",
         error instanceof Error ? error.message : "BLEリーダーとの接続に失敗しました"
       );
@@ -280,9 +267,9 @@ export default function SettingsScreen() {
       setBleConnected(false);
       setBleDeviceInfo("");
 
-      showAlert("切断完了", "BLEリーダーから切断しました。");
+      Alert.alert("切断完了", "BLEリーダーから切断しました。");
     } catch (error) {
-      showAlert(
+      Alert.alert(
         "エラー",
         error instanceof Error ? error.message : "切断に失敗しました"
       );
@@ -325,11 +312,11 @@ export default function SettingsScreen() {
     if (passcodeModalMode === "set" && newPasscode) {
       // パスコード設定成功
       setPasscode(newPasscode);
-      showAlert("設定完了", "パスコードロックを有効にしました");
+      Alert.alert("設定完了", "パスコードロックを有効にしました");
     } else {
       // パスコード確認成功 → 無効化
       setPasscode(null);
-      showAlert("解除完了", "パスコードロックを無効にしました");
+      Alert.alert("解除完了", "パスコードロックを無効にしました");
     }
     setPasscodeModalVisible(false);
   };
@@ -352,17 +339,17 @@ export default function SettingsScreen() {
 
   const handleWorkerSync = async () => {
     if (Platform.OS === "web") {
-      showAlert("エラー", "Web環境では作業員同期機能は利用できません");
+      Alert.alert("エラー", "Web環境では作業員同期機能は利用できません");
       return;
     }
 
     if (!workersReady) {
-      showAlert("エラー", "作業員データベースの初期化中です。しばらくお待ちください。");
+      Alert.alert("エラー", "作業員データベースの初期化中です。しばらくお待ちください。");
       return;
     }
 
     if (!user?.token) {
-      showAlert("エラー", "認証情報が見つかりません。再度ログインしてください。");
+      Alert.alert("エラー", "認証情報が見つかりません。再度ログインしてください。");
       return;
     }
 
@@ -388,7 +375,7 @@ export default function SettingsScreen() {
       // 同期後に作業員数を再取得
       await loadWorkerCount();
 
-      showAlert("同期完了", "作業員マスタの同期が完了しました。");
+      Alert.alert("同期完了", "作業員マスタの同期が完了しました。");
     } catch (error: any) {
       console.error("==================== WORKER SYNC ERROR ====================");
       console.error("[ERROR] Error type:", error?.constructor?.name);
@@ -413,7 +400,7 @@ export default function SettingsScreen() {
         errorMessage = "ネットワークエラー: サーバーに接続できません。\n\nネットワーク接続とサーバーの状態を確認してください。";
       }
 
-      showAlert("同期失敗", errorMessage);
+      Alert.alert("同期失敗", errorMessage);
     } finally {
       setIsSyncing(false);
     }

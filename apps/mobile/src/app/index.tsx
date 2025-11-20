@@ -93,16 +93,7 @@ export default function LoginScreen() {
         }
       }
 
-      if (Platform.OS === "web") {
-        // Web環境でのみ alert を使用
-        if (typeof globalThis !== "undefined" && "alert" in globalThis) {
-          globalThis.alert(message);
-        } else {
-          console.error("ログインエラー:", message);
-        }
-      } else {
-        Alert.alert("ログインエラー", message);
-      }
+      Alert.alert("ログインエラー", message);
     } finally {
       setLoading(false);
     }
