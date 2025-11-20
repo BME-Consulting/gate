@@ -19,10 +19,13 @@ import Constants from "expo-constants";
 // Web互換のアラート関数
 const showAlert = (title: string, message: string) => {
   if (Platform.OS === "web") {
-    // Web環境ではalertを使用
-    (globalThis as any).alert(`${title}\n\n${message}`);
+    // Web環境でのみ alert を使用
+    if (typeof globalThis !== "undefined" && "alert" in globalThis) {
+      globalThis.alert(`${title}\n\n${message}`);
+    } else {
+      console.warn(`${title}: ${message}`);
+    }
   } else {
-    // ネイティブ環境ではAlertを使用
     Alert.alert(title, message);
   }
 };

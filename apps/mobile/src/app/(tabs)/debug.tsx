@@ -3,7 +3,7 @@
 // ==========================================
 
 import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Platform } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Platform, Alert } from "react-native";
 import { Button, tokens } from "@mc-gate/ui-kit";
 import { useQueue } from "../../hooks/useQueue";
 import { useAppStore } from "../../store/appStore";
@@ -11,10 +11,13 @@ import { useAppStore } from "../../store/appStore";
 // Web互換のアラート関数
 const showAlert = (title: string, message: string) => {
   if (Platform.OS === "web") {
-    (globalThis as any).alert(`${title}\n\n${message}`);
+    // Web環境でのみ alert を使用
+    if (typeof globalThis !== "undefined" && "alert" in globalThis) {
+      globalThis.alert(`${title}\n\n${message}`);
+    } else {
+      console.warn(`${title}: ${message}`);
+    }
   } else {
-    // ネイティブではAlert.alertを使用
-    const { Alert } = require("react-native");
     Alert.alert(title, message);
   }
 };

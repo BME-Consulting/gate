@@ -3,7 +3,7 @@
 // ==========================================
 
 import React, { useState } from "react";
-import { View, Text, StyleSheet, TextInput } from "react-native";
+import { View, Text, StyleSheet, TextInput, Alert, Platform } from "react-native";
 import { useRouter } from "expo-router";
 import Constants from "expo-constants";
 import { Button, tokens } from "@mc-gate/ui-kit";
@@ -93,7 +93,16 @@ export default function LoginScreen() {
         }
       }
 
-      alert(message);
+      if (Platform.OS === "web") {
+        // Web環境でのみ alert を使用
+        if (typeof globalThis !== "undefined" && "alert" in globalThis) {
+          globalThis.alert(message);
+        } else {
+          console.error("ログインエラー:", message);
+        }
+      } else {
+        Alert.alert("ログインエラー", message);
+      }
     } finally {
       setLoading(false);
     }

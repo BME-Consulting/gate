@@ -16,8 +16,14 @@ type StatsDisplayMode = "inout" | "total";
 // Web互換のアラート関数
 const showAlert = (title: string, message: string, onConfirm?: () => void) => {
   if (Platform.OS === "web") {
-    const confirmed = (globalThis as any).confirm(`${title}\n\n${message}`);
-    if (confirmed && onConfirm) onConfirm();
+    // Web環境でのみ confirm を使用
+    if (typeof globalThis !== "undefined" && "confirm" in globalThis) {
+      const confirmed = globalThis.confirm(`${title}\n\n${message}`);
+      if (confirmed && onConfirm) onConfirm();
+    } else {
+      console.warn(`${title}: ${message}`);
+      if (onConfirm) onConfirm();
+    }
   } else {
     Alert.alert(title, message, [
       { text: "キャンセル", style: "cancel" },
