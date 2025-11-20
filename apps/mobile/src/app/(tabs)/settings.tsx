@@ -20,7 +20,7 @@ import Constants from "expo-constants";
 const showAlert = (title: string, message: string) => {
   if (Platform.OS === "web") {
     // Web環境ではalertを使用
-    window.alert(`${title}\n\n${message}`);
+    (globalThis as any).alert(`${title}\n\n${message}`);
   } else {
     // ネイティブ環境ではAlertを使用
     Alert.alert(title, message);

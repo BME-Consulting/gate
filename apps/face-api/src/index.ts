@@ -5,7 +5,7 @@ import workerRoutes from './routes/workers';
 import { authMiddleware } from './middleware/auth';
 
 const app = express();
-const PORT = process.env.PORT || 8100;
+const PORT = Number(process.env.PORT) || 8100;
 
 // 開発環境と本番環境でCORS設定を切り替え
 const isDevelopment = process.env.NODE_ENV !== 'production';

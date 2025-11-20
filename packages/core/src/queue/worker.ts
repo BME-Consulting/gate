@@ -155,6 +155,6 @@ export class SyncWorker {
       }
 
       this.scheduleNext();
-    }, this.config.intervalMs);
+    }, this.config.intervalMs) as unknown as NodeJS.Timeout;
   }
 }

@@ -36,9 +36,10 @@ export async function fetchWithTimeout(
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
+    // AbortSignal型の互換性問題を回避 - controller.signalの型がglobal.AbortSignalと完全には互換性がないが実行時には問題ない
     const response = await fetch(url, {
       ...fetchOptions,
-      signal: controller.signal,
+      signal: controller.signal as any,
     });
     clearTimeout(timeoutId);
     return response;

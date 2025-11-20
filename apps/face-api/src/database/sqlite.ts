@@ -5,7 +5,7 @@ import Database from 'better-sqlite3';
 
 let db: Database.Database | null = null;
 
-export function initDatabase() {
+export function initDatabase(): Database.Database {
   if (db) return db;
 
   // TODO: データベース初期化
@@ -14,7 +14,7 @@ export function initDatabase() {
   throw new Error('Database not initialized');
 }
 
-export function getDatabase() {
+export function getDatabase(): Database.Database {
   if (!db) {
     throw new Error('Database not initialized. Call initDatabase() first.');
   }

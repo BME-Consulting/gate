@@ -16,7 +16,7 @@ type StatsDisplayMode = "inout" | "total";
 // Web互換のアラート関数
 const showAlert = (title: string, message: string, onConfirm?: () => void) => {
   if (Platform.OS === "web") {
-    const confirmed = window.confirm(`${title}\n\n${message}`);
+    const confirmed = (globalThis as any).confirm(`${title}\n\n${message}`);
     if (confirmed && onConfirm) onConfirm();
   } else {
     Alert.alert(title, message, [

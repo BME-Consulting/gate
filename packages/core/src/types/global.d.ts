@@ -1,13 +1,17 @@
 /**
  * グローバル型定義
+ *
+ * React Native / Expo環境で使用するグローバル変数とWeb APIの型定義
  */
 
-declare global {
-  /**
-   * React Nativeのdevelopment mode判定
-   * Node.js環境では常にfalse
-   */
-  var __DEV__: boolean;
+// グローバル関数
+declare function alert(message?: string): void;
+
+// Windowオブジェクト（Web環境のみ）
+declare interface Window {
+  confirm(message?: string): boolean;
+  alert(message?: string): void;
 }
 
-export {};
+// Node.js Timeoutの型定義を明示
+declare type NodeTimeout = ReturnType<typeof setTimeout>;

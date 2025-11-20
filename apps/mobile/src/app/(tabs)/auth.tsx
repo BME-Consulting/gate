@@ -4,7 +4,7 @@
 
 import React, { useState, useRef, useMemo, useEffect, useCallback } from "react";
 import { View, Text, StyleSheet, Alert, TouchableOpacity, ActivityIndicator } from "react-native";
-import { CameraView, useCameraPermissions, BarcodeScanningResult, FaceDetectionResult } from "expo-camera";
+import { CameraView, useCameraPermissions, BarcodeScanningResult } from "expo-camera";
 import { useFocusEffect } from "@react-navigation/native";
 import Constants from "expo-constants";
 import { tokens } from "@mc-gate/ui-kit";
@@ -26,6 +26,18 @@ import {
   TIMEOUT,
   fetchWithTimeout,
 } from "@mc-gate/core";
+
+// expo-camera SDK 54では顔検出機能が変更されたため、独自に型定義
+interface FaceDetectionResult {
+  faces: Array<{
+    bounds: {
+      origin: { x: number; y: number };
+      size: { width: number; height: number };
+    };
+    rollAngle?: number;
+    yawAngle?: number;
+  }>;
+}
 
 // Face API のレスポンス型定義（Face APIはsnake_caseを返す）
 interface FaceRecognitionResponse {
@@ -215,7 +227,7 @@ export default function AuthScreen() {
     console.log(`[Auth] Face detected - processing...`);
 
     // 最大の顔を取得
-    const largestFace = faces.reduce((prev, current) =>
+    const largestFace = faces.reduce((prev: any, current: any) =>
       current.bounds.size.width * current.bounds.size.height >
       prev.bounds.size.width * prev.bounds.size.height
         ? current
@@ -326,7 +338,7 @@ export default function AuthScreen() {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const result: FaceRecognitionResponse = await response.json();
+      const result = (await response.json()) as FaceRecognitionResponse;
 
       // 認識成功時はローカルDBから詳細情報を取得
       if (result.person_id) {
@@ -533,8 +545,8 @@ export default function AuthScreen() {
               console.log("[Auth] Camera ready");
               setIsCameraReady(true);
             }}
-            onFacesDetected={activeDetector === 'face' ? handleFacesDetected : undefined}
-            onBarcodeScanned={activeDetector === 'qr' ? handleBarcodeScanned : undefined}
+            {...(activeDetector === 'face' && { onFacesDetected: handleFacesDetected })}
+            {...(activeDetector === 'qr' && { onBarcodeScanned: handleBarcodeScanned })}
             barcodeScannerSettings={{
               barcodeTypes: ["qr"],
             }}

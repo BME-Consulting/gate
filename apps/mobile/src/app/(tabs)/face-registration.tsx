@@ -141,7 +141,7 @@ export default function FaceRegistrationScreen() {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const result: FaceRegistrationResponse = await response.json();
+      const result = (await response.json()) as FaceRegistrationResponse;
       console.log("[DEBUG] Response body:", JSON.stringify(result, null, 2));
 
       // 登録結果を保存

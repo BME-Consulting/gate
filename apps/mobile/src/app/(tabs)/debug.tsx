@@ -11,7 +11,7 @@ import { useAppStore } from "../../store/appStore";
 // Web互換のアラート関数
 const showAlert = (title: string, message: string) => {
   if (Platform.OS === "web") {
-    window.alert(`${title}\n\n${message}`);
+    (globalThis as any).alert(`${title}\n\n${message}`);
   } else {
     // ネイティブではAlert.alertを使用
     const { Alert } = require("react-native");

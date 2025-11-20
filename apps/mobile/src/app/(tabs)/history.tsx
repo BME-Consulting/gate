@@ -206,7 +206,7 @@ export default function HistoryScreen() {
   // FlatListのパフォーマンス最適化用の定数
   const ITEM_HEIGHT = 180; // 推定アイテム高さ（px）
   const getItemLayout = useCallback(
-    (_data: ScanEvent[] | null | undefined, index: number) => ({
+    (_data: ArrayLike<ScanEvent> | null | undefined, index: number) => ({
       length: ITEM_HEIGHT,
       offset: ITEM_HEIGHT * index,
       index,

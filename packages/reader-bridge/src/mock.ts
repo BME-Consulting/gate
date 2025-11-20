@@ -94,7 +94,7 @@ export class MockCardReader {
 
       // すべてのリスナーに通知
       this.listeners.forEach((listener) => listener(mockCard));
-    }, intervalMs);
+    }, intervalMs) as unknown as NodeJS.Timeout;
   }
 
   /**
