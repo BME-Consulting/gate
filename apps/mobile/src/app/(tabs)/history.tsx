@@ -2,7 +2,7 @@
 // 履歴一覧画面
 // ==========================================
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -37,7 +37,8 @@ export default function HistoryScreen() {
   } | null>(null);
   const [errorModalVisible, setErrorModalVisible] = useState(false);
 
-  const loadHistory = async () => {
+  // 履歴データをロード（依存関係を明示的に管理）
+  const loadHistory = useCallback(async () => {
     if (!currentProject || !isReady) return;
 
     try {
@@ -54,13 +55,13 @@ export default function HistoryScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentProject, isReady, filterStatus, getHistory]);
 
   // 画面フォーカス時にデータを更新
   useFocusEffect(
-    React.useCallback(() => {
+    useCallback(() => {
       loadHistory();
-    }, [currentProject, isReady, filterStatus])
+    }, [loadHistory])
   );
 
   const handleRefresh = async () => {
@@ -117,7 +118,8 @@ export default function HistoryScreen() {
     }
   };
 
-  const renderItem = ({ item }: { item: ScanEvent }) => (
+  // renderItemをuseCallbackでメモ化してパフォーマンス向上
+  const renderItem = useCallback(({ item }: { item: ScanEvent }) => (
     <TouchableOpacity
       style={styles.historyCard}
       onPress={() => handleErrorClick(item)}
@@ -199,6 +201,17 @@ export default function HistoryScreen() {
         </View>
       )}
     </TouchableOpacity>
+  ), [handleErrorClick]);
+
+  // FlatListのパフォーマンス最適化用の定数
+  const ITEM_HEIGHT = 180; // 推定アイテム高さ（px）
+  const getItemLayout = useCallback(
+    (_data: ScanEvent[] | null | undefined, index: number) => ({
+      length: ITEM_HEIGHT,
+      offset: ITEM_HEIGHT * index,
+      index,
+    }),
+    []
   );
 
   if (!isReady && Platform.OS !== "web") {
@@ -250,7 +263,7 @@ export default function HistoryScreen() {
         ))}
       </View>
 
-      {/* 履歴リスト */}
+      {/* 履歴リスト - パフォーマンス最適化済み */}
       <FlatList
         data={history}
         renderItem={renderItem}
@@ -266,6 +279,13 @@ export default function HistoryScreen() {
             </Text>
           </View>
         }
+        // パフォーマンス最適化
+        getItemLayout={getItemLayout}
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
+        windowSize={5}
+        removeClippedSubviews={true}
+        updateCellsBatchingPeriod={50}
       />
     </View>
     </>

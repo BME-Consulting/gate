@@ -2,7 +2,7 @@
 // ホーム画面
 // ==========================================
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Platform, Alert } from "react-native";
 import { tokens, Banner, Button } from "@mc-gate/ui-kit";
 import { formatDate } from "@mc-gate/utils";
@@ -50,7 +50,8 @@ export default function HomeScreen() {
   } | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  const loadStats = async () => {
+  // 統計データをロード（依存関係を明示的に管理）
+  const loadStats = useCallback(async () => {
     if (!currentProject || !isReady) return;
 
     try {
@@ -78,13 +79,13 @@ export default function HomeScreen() {
     } catch (error) {
       console.error("Failed to load stats:", error);
     }
-  };
+  }, [currentProject, isReady, getTodayStats, getQueueCounts, getLatestEvent]);
 
   // 画面フォーカス時にデータを更新
   useFocusEffect(
-    React.useCallback(() => {
+    useCallback(() => {
       loadStats();
-    }, [currentProject, isReady])
+    }, [loadStats])
   );
 
   const handleRefresh = async () => {

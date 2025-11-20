@@ -2,17 +2,20 @@ module.exports = ({ config }) => {
   // Environment detection
   const isProduction = process.env.ENV === "production";
 
-  // API URLs - IMPORTANT: Use hardcoded values for EAS Update compatibility
-  // .env files are not included in EAS builds (gitignored)
-  const apiBaseGs = "http://192.168.1.4:7070";
-  const apiBaseCcus = "http://192.168.1.4:7071";
-  const apiFaceApi = "http://192.168.1.4:8100";
-  const apiGsApiKey = "development-api-key-12345";
-  const apiFaceApiKey = "development-api-key-12345";
-  const authIssuer = "http://192.168.1.4:8080/auth/realms/mcd3";
+  // API URLs - IMPORTANT: Use environment variables for production
+  // For development, fallback to hardcoded values
+  const apiBaseGs = process.env.API_BASE_GS || "http://192.168.1.4:7070";
+  const apiBaseCcus = process.env.API_BASE_CCUS || "http://192.168.1.4:7071";
+  const apiFaceApi = process.env.API_FACE_API || "http://192.168.1.4:8100";
+  const authIssuer = process.env.AUTH_ISSUER || "http://192.168.1.4:8080/auth/realms/mcd3";
 
-  // HTTPS enforcement for production
+  // API Keys - MUST be set via environment variables in production
+  const apiGsApiKey = process.env.API_GS_API_KEY || (isProduction ? null : "development-api-key-12345");
+  const apiFaceApiKey = process.env.API_FACE_API_KEY || (isProduction ? null : "development-api-key-12345");
+
+  // Validation for production environment
   if (isProduction) {
+    // 1. HTTPS enforcement
     const urls = [
       { name: "API_BASE_GS", value: apiBaseGs },
       { name: "API_BASE_CCUS", value: apiBaseCcus },
@@ -20,25 +23,36 @@ module.exports = ({ config }) => {
       { name: "AUTH_ISSUER", value: authIssuer },
     ];
 
-    const httpUrls = urls.filter(url => url.value.startsWith("http://"));
+    const httpUrls = urls.filter(url => url.value && url.value.startsWith("http://"));
 
     if (httpUrls.length > 0) {
-      const errorMessage = `
+      throw new Error(`
 ========================================
-❌ PRODUCTION BUILD ERROR
+❌ PRODUCTION BUILD ERROR - HTTP URLs
 ========================================
 
-The following environment variables must use HTTPS in production:
+The following URLs must use HTTPS in production:
 
 ${httpUrls.map(url => `  - ${url.name}: ${url.value}`).join("\n")}
 
-Please update your environment variables:
-  export ${httpUrls.map(url => url.name).join("\n  export ")}
-
-HTTP is only allowed in development mode (ENV !== "production")
+Please update your environment variables.
 ========================================
-`;
-      throw new Error(errorMessage);
+`);
+    }
+
+    // 2. API Keys validation
+    if (!apiGsApiKey || !apiFaceApiKey) {
+      throw new Error(`
+========================================
+❌ PRODUCTION BUILD ERROR - API Keys
+========================================
+
+API Keys must be set via environment variables in production:
+
+${!apiGsApiKey ? "  - API_GS_API_KEY is missing\n" : ""}${!apiFaceApiKey ? "  - API_FACE_API_KEY is missing\n" : ""}
+Please set these environment variables before building.
+========================================
+`);
     }
   }
 
@@ -101,8 +115,8 @@ HTTP is only allowed in development mode (ENV !== "production")
         audience: process.env.AUTH_AUDIENCE || "mc-gate",
         clientId: process.env.AUTH_CLIENT_ID || "mc-gate-mobile",
       },
-      // 開発中はモック認証を使用（本番環境では false に変更）
-      useMockAuth: true,
+      // モック認証の使用（環境変数で制御、本番では必ず false）
+      useMockAuth: process.env.USE_MOCK_AUTH === "true" || !isProduction,
 
       // アプリケーション定数（本番運用向け）
       defaultProjectId: process.env.DEFAULT_PROJECT_ID || "PRJ001",
