@@ -2,16 +2,24 @@
 // ルートレイアウト
 // ==========================================
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { Stack, useRouter, usePathname } from "expo-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import * as Linking from "expo-linking";
 
-const queryClient = new QueryClient();
-
 export default function RootLayout() {
   const router = useRouter();
   const pathname = usePathname();
+
+  // QueryClient を useMemo で安全に初期化（New Architecture 対応）
+  const queryClient = useMemo(() => new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: 1,
+        staleTime: 5 * 60 * 1000, // 5分
+      },
+    },
+  }), []);
 
   useEffect(() => {
     try {
