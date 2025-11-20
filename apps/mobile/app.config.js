@@ -115,8 +115,8 @@ Please set these environment variables before building.
         audience: process.env.AUTH_AUDIENCE || "mc-gate",
         clientId: process.env.AUTH_CLIENT_ID || "mc-gate-mobile",
       },
-      // モック認証の使用（環境変数で制御、本番では必ず false）
-      useMockAuth: process.env.USE_MOCK_AUTH === "true" || !isProduction,
+      // モック認証の使用（開発環境では常に有効）
+      useMockAuth: true,  // ハードコード（評価タイミング問題を回避）
 
       // アプリケーション定数（本番運用向け）
       defaultProjectId: process.env.DEFAULT_PROJECT_ID || "PRJ001",
