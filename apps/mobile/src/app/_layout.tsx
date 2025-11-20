@@ -14,19 +14,31 @@ export default function RootLayout() {
   const pathname = usePathname();
 
   useEffect(() => {
-    // QRコードスキャン中のリンクイベントを無効化
-    const subscription = Linking.addEventListener("url", (event) => {
-      // Scan画面にいる場合は、リンクイベントを無視
-      if (pathname?.includes("scan")) {
-        console.log("Link event ignored during scan:", event.url);
-        return;
-      }
-      // その他の画面では通常のリンク処理
-    });
+    try {
+      // QRコードスキャン中のリンクイベントを無効化
+      const subscription = Linking.addEventListener("url", (event) => {
+        try {
+          // Scan画面にいる場合は、リンクイベントを無視
+          if (pathname?.includes("scan")) {
+            console.log("Link event ignored during scan:", event.url);
+            return;
+          }
+          // その他の画面では通常のリンク処理
+        } catch (error) {
+          console.error("[_layout.tsx] Link event handler error:", error);
+        }
+      });
 
-    return () => {
-      subscription.remove();
-    };
+      return () => {
+        try {
+          subscription.remove();
+        } catch (error) {
+          console.error("[_layout.tsx] Cleanup error:", error);
+        }
+      };
+    } catch (error) {
+      console.error("[_layout.tsx] useEffect error:", error);
+    }
   }, [pathname]);
 
   return (
