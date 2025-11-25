@@ -208,6 +208,11 @@ export default function AuthScreen() {
 
   // 顔検出ハンドラー
   const handleFacesDetected = async ({ faces }: FaceDetectionResult) => {
+    // activeDetector が 'face' でない場合は早期リターン（動的props問題の回避）
+    if (activeDetector !== 'face') {
+      return;
+    }
+
     console.log(`[Auth] handleFacesDetected called - faces count: ${faces.length}`);
 
     // 処理中または最近処理した場合はスキップ
@@ -545,7 +550,7 @@ export default function AuthScreen() {
               console.log("[Auth] Camera ready");
               setIsCameraReady(true);
             }}
-            {...(activeDetector === 'face' && { onFacesDetected: handleFacesDetected })}
+            onFacesDetected={handleFacesDetected}
             {...(activeDetector === 'qr' && { onBarcodeScanned: handleBarcodeScanned })}
             barcodeScannerSettings={{
               barcodeTypes: ["qr"],
