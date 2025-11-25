@@ -24,7 +24,7 @@
       "node": "22.12.0",
       "env": {
         "APP_ENV": "preview",
-        "API_FACE_API": "http://192.168.1.4:8100",
+        "API_FACE_API": "http://192.168.1.4:8101",
         "API_BASE_GS": "http://192.168.1.4:7070",
         "API_BASE_CCUS": "http://192.168.1.4:7071",
         "AUTH_ISSUER": "http://192.168.1.4:8080/auth/realms/mcd3",
@@ -46,7 +46,7 @@
       "node": "22.12.0",
       "env": {
         "APP_ENV": "production",
-        "API_FACE_API": "https://api.production.example.com:8100",
+        "API_FACE_API": "http://192.168.1.4:8101",
         "API_BASE_GS": "https://api.production.example.com:7070",
         "API_BASE_CCUS": "https://api.production.example.com:7071",
         "AUTH_ISSUER": "https://auth.production.example.com/auth/realms/mcd3",
