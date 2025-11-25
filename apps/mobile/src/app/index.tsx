@@ -42,14 +42,15 @@ export default function LoginScreen() {
       const useMockAuth = Constants.expoConfig?.extra?.useMockAuth ?? true;  // デフォルトはモック認証
       const appEnv = Constants.expoConfig?.extra?.appEnv || "development";
 
-      // 二重チェック: 本番環境では強制的にモック認証を無効化
-      const isDev = __DEV__;
-      const shouldUseMock = isDev && appEnv !== "production" && useMockAuth;
+      // appEnvでモック認証を制御（__DEV__に依存しない）
+      // 本番環境では強制的にモック認証を無効化
+      const shouldUseMock = appEnv !== "production" && useMockAuth;
 
       console.log("🔐 Authentication mode:", shouldUseMock ? "MOCK" : "OAuth");
-      console.log("  __DEV__:", isDev);
+      console.log("  __DEV__:", __DEV__);
       console.log("  appEnv:", appEnv);
       console.log("  useMockAuth:", useMockAuth);
+      console.log("  shouldUseMock:", shouldUseMock);
 
       if (shouldUseMock) {
         // モック実装（開発中のみ）
