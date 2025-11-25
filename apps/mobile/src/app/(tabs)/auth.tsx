@@ -1,10 +1,12 @@
 // ==========================================
 // 統合認証画面（顔認証 + QRコード）
+// react-native-vision-camera を使用した顔検出
 // ==========================================
 
 import React, { useState, useRef, useMemo, useEffect, useCallback } from "react";
 import { View, Text, StyleSheet, Alert, TouchableOpacity, ActivityIndicator } from "react-native";
 import { CameraView, useCameraPermissions, BarcodeScanningResult } from "expo-camera";
+import { Camera, useCameraDevice, useCameraPermission } from "react-native-vision-camera";
 import { useFocusEffect } from "@react-navigation/native";
 import Constants from "expo-constants";
 import { tokens } from "@mc-gate/ui-kit";
@@ -14,6 +16,8 @@ import { useQueue } from "../../hooks/useQueue";
 import { useAppStore } from "../../store/appStore";
 import { router } from "expo-router";
 import { parseQRCode } from "@mc-gate/qr";
+import { useFaceDetection } from "../../hooks/useFaceDetection";
+import type { Face } from "vision-camera-face-detector";
 import {
   RuleEngine,
   generateUUID,
@@ -27,18 +31,6 @@ import {
   fetchWithTimeout,
 } from "@mc-gate/core";
 
-// expo-camera SDK 54では顔検出機能が変更されたため、独自に型定義
-interface FaceDetectionResult {
-  faces: Array<{
-    bounds: {
-      origin: { x: number; y: number };
-      size: { width: number; height: number };
-    };
-    rollAngle?: number;
-    yawAngle?: number;
-  }>;
-}
-
 // Face API のレスポンス型定義（Face APIはsnake_caseを返す）
 interface FaceRecognitionResponse {
   person_id: string | null;
@@ -51,7 +43,12 @@ interface FaceRecognitionResponse {
 type DetectorType = "face" | "qr";
 
 export default function AuthScreen() {
-  const [permission, requestPermission] = useCameraPermissions();
+  // expo-camera permissions (for QR scanning)
+  const [expoCameraPermission, requestExpoCameraPermission] = useCameraPermissions();
+
+  // vision-camera permissions (for face detection)
+  const { hasPermission: hasVisionCameraPermission, requestPermission: requestVisionCameraPermission } = useCameraPermission();
+
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [activeDetector, setActiveDetector] = useState<DetectorType>("face");
@@ -63,13 +60,17 @@ export default function AuthScreen() {
   } | null>(null);
   const [isFocused, setIsFocused] = useState(true);
 
-  const cameraRef = useRef<CameraView>(null);
+  const expoCameraRef = useRef<CameraView>(null);
+  const visionCameraRef = useRef<Camera>(null);
   const processingLock = useRef(false);
   const lastProcessTime = useRef(0);
 
   const { getWorkerById, addWorker } = useWorkers();
   const { currentProject } = useAppStore();
   const { isReady: queueReady, addToQueue } = useQueue();
+
+  // vision-camera device
+  const visionCameraDevice = useCameraDevice('front');
 
   // ルールエンジンの初期化
   const ruleEngine = useMemo(() => {
@@ -78,7 +79,6 @@ export default function AuthScreen() {
   }, [currentProject?.checkConfig]);
 
   // タイムスライシング検出方式（1000msごとに切り替え）
-  // 500msでも処理落ちが発生したため1000msに変更
   useEffect(() => {
     const interval = setInterval(() => {
       setActiveDetector((prev) => (prev === "face" ? "qr" : "face"));
@@ -111,8 +111,71 @@ export default function AuthScreen() {
     }, [])
   );
 
+  // 顔検出コールバック
+  const handleFacesDetected = useCallback(async (faces: Face[]) => {
+    // activeDetector が 'face' でない場合は早期リターン
+    if (activeDetector !== 'face') {
+      return;
+    }
+
+    console.log(`[Auth] handleFacesDetected called - faces count: ${faces.length}`);
+
+    // 処理中または最近処理した場合はスキップ
+    const now = Date.now();
+    if (processingLock.current || now - lastProcessTime.current < 2000) {
+      console.log(`[Auth] Skipping face detection - processing: ${processingLock.current}, cooldown: ${now - lastProcessTime.current}ms`);
+      return;
+    }
+
+    // 顔が検出されていない場合
+    if (faces.length === 0) {
+      setLastFaceDetection(null);
+      setDetectionStatus("顔またはQRコードを検出中...");
+      return;
+    }
+
+    console.log(`[Auth] Face detected - processing...`);
+
+    // 最大の顔を取得
+    const largestFace = faces.reduce((prev, current) =>
+      current.bounds.width * current.bounds.height >
+      prev.bounds.width * prev.bounds.height
+        ? current
+        : prev
+    );
+
+    const faceSize = largestFace.bounds.width * largestFace.bounds.height;
+
+    // 顔の品質チェック
+    const isFaceQualityGood = faceSize > 20000; // 顔のサイズが十分大きい
+
+    // 顔検出情報を保存
+    setLastFaceDetection({
+      timestamp: now,
+      confidence: 0.8, // vision-camera face detector の固定値
+      size: faceSize,
+    });
+
+    if (isFaceQualityGood) {
+      console.log(`[Auth] Face quality good - size: ${faceSize}`);
+      setDetectionStatus("顔を検出しました。認証中...");
+      await processFaceRecognition();
+    } else {
+      console.log(`[Auth] Face quality poor - size: ${faceSize}`);
+      setDetectionStatus("顔をまっすぐカメラに向けてください");
+    }
+  }, [activeDetector]);
+
+  // useFaceDetection hook を使用
+  const frameProcessor = useFaceDetection({
+    enabled: activeDetector === 'face' && !isProcessing,
+    onFacesDetected: handleFacesDetected,
+    minFaceSize: 20000,
+    cooldownMs: 2000,
+  });
+
   // カメラ権限のチェック
-  if (!permission) {
+  if (!expoCameraPermission || !hasVisionCameraPermission) {
     return (
       <View style={styles.container}>
         <View style={styles.centerContent}>
@@ -123,7 +186,7 @@ export default function AuthScreen() {
     );
   }
 
-  if (!permission.granted) {
+  if (!expoCameraPermission.granted || !hasVisionCameraPermission) {
     return (
       <View style={styles.container}>
         <View style={styles.centerContent}>
@@ -131,9 +194,27 @@ export default function AuthScreen() {
           <Text style={styles.message}>
             認証機能を使用するにはカメラへのアクセスが必要です
           </Text>
-          <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
+          <TouchableOpacity
+            style={styles.permissionButton}
+            onPress={async () => {
+              await requestExpoCameraPermission();
+              await requestVisionCameraPermission();
+            }}
+          >
             <Text style={styles.permissionButtonText}>カメラを許可</Text>
           </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  // vision-camera device check
+  if (!visionCameraDevice) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.centerContent}>
+          <Ionicons name="camera-outline" size={64} color={tokens.color.text.secondary} />
+          <Text style={styles.message}>カメラデバイスが見つかりません</Text>
         </View>
       </View>
     );
@@ -206,66 +287,6 @@ export default function AuthScreen() {
     }
   };
 
-  // 顔検出ハンドラー
-  const handleFacesDetected = async ({ faces }: FaceDetectionResult) => {
-    // activeDetector が 'face' でない場合は早期リターン（動的props問題の回避）
-    if (activeDetector !== 'face') {
-      return;
-    }
-
-    console.log(`[Auth] handleFacesDetected called - faces count: ${faces.length}`);
-
-    // 処理中または最近処理した場合はスキップ
-    const now = Date.now();
-    if (processingLock.current || now - lastProcessTime.current < 2000) {
-      console.log(`[Auth] Skipping face detection - processing: ${processingLock.current}, cooldown: ${now - lastProcessTime.current}ms`);
-      return;
-    }
-
-    // 顔が検出されていない場合
-    if (faces.length === 0) {
-      setLastFaceDetection(null);
-      setDetectionStatus("顔またはQRコードを検出中...");
-      return;
-    }
-
-    console.log(`[Auth] Face detected - processing...`);
-
-    // 最大の顔を取得
-    const largestFace = faces.reduce((prev: any, current: any) =>
-      current.bounds.size.width * current.bounds.size.height >
-      prev.bounds.size.width * prev.bounds.size.height
-        ? current
-        : prev
-    );
-
-    const faceSize = largestFace.bounds.size.width * largestFace.bounds.size.height;
-    const rollAngle = largestFace.rollAngle || 0;
-    const yawAngle = largestFace.yawAngle || 0;
-
-    // 顔の品質チェック
-    const isFaceQualityGood =
-      faceSize > 20000 && // 顔のサイズが十分大きい
-      Math.abs(rollAngle) < 30 && // 傾きが小さい
-      Math.abs(yawAngle) < 30; // 横を向いていない
-
-    // 顔検出情報を保存
-    setLastFaceDetection({
-      timestamp: now,
-      confidence: 0.8, // expo-camera の顔検出は信頼度スコアを返さないため固定値
-      size: faceSize,
-    });
-
-    if (isFaceQualityGood) {
-      console.log(`[Auth] Face quality good - size: ${faceSize}, roll: ${rollAngle}, yaw: ${yawAngle}`);
-      setDetectionStatus("顔を検出しました。認証中...");
-      await processFaceRecognition();
-    } else {
-      console.log(`[Auth] Face quality poor - size: ${faceSize}, roll: ${rollAngle}, yaw: ${yawAngle}`);
-      setDetectionStatus("顔をまっすぐカメラに向けてください");
-    }
-  };
-
   // QRコード検出ハンドラー
   const handleBarcodeScanned = async ({ data }: BarcodeScanningResult) => {
     console.log(`[Auth] handleBarcodeScanned called - data: ${data.substring(0, 50)}...`);
@@ -290,7 +311,7 @@ export default function AuthScreen() {
 
   // 顔認証処理
   const processFaceRecognition = async () => {
-    if (!cameraRef.current || !isCameraReady || processingLock.current) {
+    if (!visionCameraRef.current || !isCameraReady || processingLock.current) {
       return;
     }
 
@@ -299,18 +320,20 @@ export default function AuthScreen() {
       lastProcessTime.current = Date.now();
       setIsProcessing(true);
 
-      // 写真を撮影
-      const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.8,
-        base64: true,
+      // 写真を撮影（vision-camera）
+      const photo = await visionCameraRef.current.takePhoto({
+        qualityPrioritization: 'balanced',
+        enableShutterSound: false,
       });
 
-      if (!photo || !photo.base64) {
+      if (!photo || !photo.path) {
         throw new Error("写真の撮影に失敗しました");
       }
 
-      // Base64データをdata URI形式に変換
-      const imageData = `data:image/jpeg;base64,${photo.base64}`;
+      // Base64に変換（react-native-fs を使用）
+      const RNFS = require('react-native-fs');
+      const base64Image = await RNFS.readFile(photo.path, 'base64');
+      const imageData = `data:image/jpeg;base64,${base64Image}`;
 
       // 環境変数からFace API URLとAPIキーを取得
       const apiFaceApi = Constants.expoConfig?.extra?.apiFaceApi || "http://localhost:8100";
@@ -538,24 +561,43 @@ export default function AuthScreen() {
 
   return (
     <View style={styles.container}>
-      {/* カメラプレビュー */}
+      {/* Dual Camera Approach: vision-camera for face, expo-camera for QR */}
       {isFocused ? (
         <View style={styles.cameraContainer}>
-          <CameraView
-            ref={cameraRef}
-            style={styles.camera}
-            facing="front"
-            mirror={true}
-            onCameraReady={() => {
-              console.log("[Auth] Camera ready");
-              setIsCameraReady(true);
-            }}
-            onFacesDetected={handleFacesDetected}
-            {...(activeDetector === 'qr' && { onBarcodeScanned: handleBarcodeScanned })}
-            barcodeScannerSettings={{
-              barcodeTypes: ["qr"],
-            }}
-          >
+          {/* Vision Camera - Face Detection */}
+          {activeDetector === 'face' && (
+            <Camera
+              ref={visionCameraRef}
+              style={StyleSheet.absoluteFill}
+              device={visionCameraDevice}
+              isActive={true}
+              photo={true}
+              frameProcessor={frameProcessor}
+              onInitialized={() => {
+                console.log("[Auth] Vision Camera initialized");
+                setIsCameraReady(true);
+              }}
+            />
+          )}
+
+          {/* Expo Camera - QR Scanning */}
+          {activeDetector === 'qr' && (
+            <CameraView
+              ref={expoCameraRef}
+              style={StyleSheet.absoluteFill}
+              facing="front"
+              mirror={true}
+              onCameraReady={() => {
+                console.log("[Auth] Expo Camera ready");
+                setIsCameraReady(true);
+              }}
+              onBarcodeScanned={handleBarcodeScanned}
+              barcodeScannerSettings={{
+                barcodeTypes: ["qr"],
+              }}
+            />
+          )}
+
           {/* カメラオーバーレイ */}
           <View style={styles.overlay}>
             {/* 上部バー */}
@@ -639,7 +681,6 @@ export default function AuthScreen() {
               )}
             </View>
           </View>
-          </CameraView>
         </View>
       ) : null}
     </View>
@@ -686,12 +727,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  camera: {
-    flex: 1,
-  },
-
   overlay: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: "transparent",
   },
 

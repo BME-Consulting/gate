@@ -129,6 +129,14 @@ Please set these environment variables before building.
     plugins: [
       "expo-updates",
       [
+        "react-native-vision-camera",
+        {
+          cameraPermissionText: "顔認証とQRコード読み取りにカメラを使用します。",
+          enableFrameProcessors: true,
+          enableCodeScanner: false  // expo-cameraをQRスキャンに使用
+        }
+      ],
+      [
         "expo-build-properties",
         {
           ios: {
