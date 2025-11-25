@@ -1,6 +1,7 @@
 module.exports = ({ config }) => {
   // Environment detection
   const isProduction = process.env.ENV === "production";
+  const appEnv = process.env.APP_ENV || (isProduction ? "production" : "development");
 
   // API URLs - IMPORTANT: Use environment variables for production
   // For development, fallback to hardcoded values
@@ -115,8 +116,10 @@ Please set these environment variables before building.
         audience: process.env.AUTH_AUDIENCE || "mc-gate",
         clientId: process.env.AUTH_CLIENT_ID || "mc-gate-mobile",
       },
-      // モック認証の使用（開発環境では常に有効）
-      useMockAuth: true,  // ハードコード（評価タイミング問題を回避）
+      // モック認証の使用（APP_ENVで強制制御）
+      // 本番環境（APP_ENV=production）では絶対にfalse
+      useMockAuth: appEnv === "production" ? false : true,
+      appEnv,  // アプリ内で環境判定に使用
 
       // アプリケーション定数（本番運用向け）
       defaultProjectId: process.env.DEFAULT_PROJECT_ID || "PRJ001",

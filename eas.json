@@ -25,6 +25,9 @@
     },
     "production": {
       "channel": "production",
+      "env": {
+        "APP_ENV": "production"
+      },
       "ios": {
         "simulator": false
       },
