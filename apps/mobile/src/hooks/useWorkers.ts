@@ -23,6 +23,41 @@ if (Platform.OS !== "web") {
   WorkerRepository = core.WorkerRepository;
 }
 
+/**
+ * モック用：ダミー作業員データを生成
+ */
+function generateMockWorkers(count: number): Worker[] {
+  const workers: Worker[] = [];
+  const companies = ["大成建設", "鹿島建設", "清水建設", "竹中工務店", "大林組"];
+  const lastNames = ["田中", "佐藤", "鈴木", "高橋", "渡辺", "伊藤", "山本", "中村", "小林", "加藤"];
+  const firstNames = ["太郎", "次郎", "三郎", "一郎", "健太", "大輔", "翔太", "拓也", "直樹", "和也"];
+
+  for (let i = 0; i < count; i++) {
+    const lastName = lastNames[Math.floor(Math.random() * lastNames.length)];
+    const firstName = firstNames[Math.floor(Math.random() * firstNames.length)];
+    const name = `${lastName} ${firstName}`;
+    const ccusId = `CCUS${String(i + 1).padStart(6, "0")}`;
+    const personId = `P${String(10000 + i).padStart(6, "0")}`;
+
+    workers.push({
+      personId,
+      name,
+      ccusId,
+      company: companies[i % companies.length],
+      hasSocialInsurance: Math.random() > 0.1, // 90%は社会保険加入
+      residencyExpiry: new Date(2025, 11, 31).toISOString(), // 2025年12月31日
+      age: 25 + Math.floor(Math.random() * 40), // 25〜64歳
+      isHealthy: Math.random() > 0.05, // 95%は健康
+      isSoleProprietor: Math.random() > 0.8, // 20%は一人親方
+      faceEmbedding: null, // 顔データは未登録
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+  }
+
+  return workers;
+}
+
 let repositoryInstance: any | null = null;
 let dbInstance: SQLiteDatabase | null = null;
 
@@ -142,30 +177,46 @@ export function useWorkers() {
     }
 
     try {
-      // サーバーから全作業員を取得（タイムアウト付き）
-      const response = await fetchWithTimeout(apiUrl, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": apiKey,
-        },
-        timeoutMs: TIMEOUT.BULK_FETCH, // 90秒（大量データ対応）
-      });
+      // モック認証の判定（Constants経由）
+      const Constants = require("expo-constants").default;
+      const useMockAuth = Constants.expoConfig?.extra?.useMockAuth ?? true;
+      const appEnv = Constants.expoConfig?.extra?.appEnv || "development";
+      const shouldUseMock = appEnv !== "production" && useMockAuth;
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      let serverWorkers: Worker[];
+
+      if (shouldUseMock) {
+        // モック実装: ダミー作業員データを生成
+        console.log("🔄 Using mock worker sync (development mode)");
+        serverWorkers = generateMockWorkers(30); // 30人のダミーデータ
+
+        // モック同期の遅延（サーバー接続を模擬）
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      } else {
+        // 本番実装: 実際のサーバーから取得
+        console.log("🔄 Fetching workers from server:", apiUrl);
+        const response = await fetchWithTimeout(apiUrl, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": apiKey,
+          },
+          timeoutMs: TIMEOUT.BULK_FETCH, // 90秒（大量データ対応）
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = (await response.json()) as { workers: Worker[] };
+        serverWorkers = data.workers || [];
       }
-
-      const data = (await response.json()) as { workers: Worker[] };
-      const serverWorkers: Worker[] = data.workers || [];
 
       // バッチでUPSERT
       await repositoryInstance.upsertBatch(serverWorkers);
       await getAllWorkers(); // リストを更新
 
-      if (__DEV__) {
-        console.log(`✅ Synced ${serverWorkers.length} workers from server`);
-      }
+      console.log(`✅ Synced ${serverWorkers.length} workers from server`);
     } catch (error: any) {
       console.error("Failed to sync workers from server:", error);
       throw error;
