@@ -36,7 +36,7 @@
     "expo-sqlite": "~15.0.4",
     "expo-status-bar": "~3.0.8",
     "expo-updates": "^29.0.12",
-    "expo-web-browser": "~14.0.0",
+    "expo-web-browser": "~15.0.9",
     "jwt-decode": "^4.0.0",
     "react": "19.1.0",
     "react-dom": "^19.1.0",
