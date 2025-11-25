@@ -43,20 +43,37 @@ export interface Worker {
 }
 
 /**
- * 全作業員を取得
+ * 全作業員を取得（face_embeddingsテーブルとLEFT JOIN）
  */
 export function getAllWorkers(): Worker[] {
-  const stmt = db.prepare('SELECT * FROM workers ORDER BY created_at DESC');
+  const stmt = db.prepare(`
+    SELECT
+      w.*,
+      fe.embedding,
+      fe.embedding_dimensions
+    FROM workers w
+    LEFT JOIN face_embeddings fe ON w.person_id = fe.person_id
+    ORDER BY w.created_at DESC
+  `);
   const rows = stmt.all();
 
   return rows.map(rowToWorker);
 }
 
 /**
- * IDで作業員を検索
+ * IDで作業員を検索（face_embeddingsテーブルとLEFT JOIN）
  */
 export function getWorkerById(personId: string): Worker | null {
-  const stmt = db.prepare('SELECT * FROM workers WHERE person_id = ? LIMIT 1');
+  const stmt = db.prepare(`
+    SELECT
+      w.*,
+      fe.embedding,
+      fe.embedding_dimensions
+    FROM workers w
+    LEFT JOIN face_embeddings fe ON w.person_id = fe.person_id
+    WHERE w.person_id = ?
+    LIMIT 1
+  `);
   const row = stmt.get(personId);
 
   if (!row) return null;
@@ -95,34 +112,67 @@ export function addWorker(worker: Worker): void {
 }
 
 /**
- * 顔エンコーディングを更新
+ * 顔エンコーディングを更新（face_embeddingsテーブルに保存）
  */
 export function updateFaceEmbedding(personId: string, embedding: number[]): void {
   const now = new Date().toISOString();
 
+  // BLOBとして保存（Float32Array → Buffer）
+  const embeddingBuffer = Buffer.from(new Float32Array(embedding).buffer);
+  const embeddingDimensions = embedding.length;
+
+  // UPSERT: 存在すれば更新、存在しなければ挿入
   const stmt = db.prepare(`
-    UPDATE workers
-    SET face_embedding = ?, updated_at = ?
-    WHERE person_id = ?
+    INSERT INTO face_embeddings (person_id, embedding, embedding_dimensions, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(person_id) DO UPDATE SET
+      embedding = excluded.embedding,
+      embedding_dimensions = excluded.embedding_dimensions,
+      updated_at = excluded.updated_at
   `);
 
-  stmt.run(JSON.stringify(embedding), now, personId);
+  stmt.run(personId, embeddingBuffer, embeddingDimensions, now, now);
 }
 
 /**
- * 顔エンコーディングで作業員を検索
+ * 顔エンコーディングで作業員を検索（face_embeddingsテーブルから取得）
  */
 export function findWorkersByFaceEmbedding(): Worker[] {
-  const stmt = db.prepare('SELECT * FROM workers WHERE face_embedding IS NOT NULL');
+  const stmt = db.prepare(`
+    SELECT
+      w.*,
+      fe.embedding,
+      fe.embedding_dimensions
+    FROM workers w
+    INNER JOIN face_embeddings fe ON w.person_id = fe.person_id
+  `);
   const rows = stmt.all();
 
   return rows.map(rowToWorker);
 }
 
 /**
- * 行をWorkerオブジェクトに変換
+ * 行をWorkerオブジェクトに変換（face_embeddingsテーブルからのBLOBデータを処理）
  */
 function rowToWorker(row: any): Worker {
+  let faceEmbedding: number[] | undefined = undefined;
+
+  // face_embeddingsテーブルからのBLOBデータを処理
+  if (row.embedding) {
+    try {
+      // BufferをFloat32Arrayに変換
+      const buffer = Buffer.isBuffer(row.embedding) ? row.embedding : Buffer.from(row.embedding);
+      const float32Array = new Float32Array(
+        buffer.buffer,
+        buffer.byteOffset,
+        buffer.byteLength / Float32Array.BYTES_PER_ELEMENT
+      );
+      faceEmbedding = Array.from(float32Array);
+    } catch (error) {
+      console.error(`Failed to parse face embedding for ${row.person_id}:`, error);
+    }
+  }
+
   return {
     personId: row.person_id,
     name: row.name,
@@ -133,7 +183,7 @@ function rowToWorker(row: any): Worker {
     residencyExpiry: row.residency_expiry || undefined,
     age: row.age !== null ? row.age : undefined,
     isSoleProprietor: row.is_sole_proprietor === 1,
-    faceEmbedding: row.face_embedding ? JSON.parse(row.face_embedding) : undefined,
+    faceEmbedding,
     faceImageUrl: row.face_image_url || undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
