@@ -1,7 +1,8 @@
 module.exports = ({ config }) => {
   // Environment detection
-  const isProduction = process.env.ENV === "production";
-  const appEnv = process.env.APP_ENV || (isProduction ? "production" : "development");
+  // APP_ENVを統一的に使用（ENVとの二重管理を避ける）
+  const appEnv = process.env.APP_ENV || process.env.ENV || "development";
+  const isProduction = appEnv === "production";
 
   // API URLs - IMPORTANT: Use environment variables for production
   // For development, fallback to hardcoded values

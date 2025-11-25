@@ -8,6 +8,9 @@
       "developmentClient": true,
       "distribution": "internal",
       "channel": "development",
+      "env": {
+        "APP_ENV": "development"
+      },
       "ios": {
         "buildConfiguration": "Debug",
         "simulator": false
@@ -16,6 +19,9 @@
     "preview": {
       "distribution": "internal",
       "channel": "preview",
+      "env": {
+        "APP_ENV": "preview"
+      },
       "ios": {
         "simulator": false
       },
