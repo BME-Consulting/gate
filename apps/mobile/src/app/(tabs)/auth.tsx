@@ -59,6 +59,7 @@ export default function AuthScreen() {
     size: number;
   } | null>(null);
   const [isFocused, setIsFocused] = useState(true);
+  const [initError, setInitError] = useState<string | null>(null);
 
   const expoCameraRef = useRef<CameraView>(null);
   const visionCameraRef = useRef<Camera>(null);
@@ -71,6 +72,17 @@ export default function AuthScreen() {
 
   // vision-camera device
   const visionCameraDevice = useCameraDevice('front');
+
+  // デバイス取得失敗時のエラーハンドリング
+  useEffect(() => {
+    if (visionCameraDevice === null || visionCameraDevice === undefined) {
+      console.error("[Auth] Vision camera device not found");
+      setInitError("カメラデバイスが見つかりません。新しいビルドが必要です。");
+    } else {
+      console.log("[Auth] Vision camera device found:", visionCameraDevice);
+      setInitError(null);
+    }
+  }, [visionCameraDevice]);
 
   // ルールエンジンの初期化
   const ruleEngine = useMemo(() => {
@@ -208,13 +220,24 @@ export default function AuthScreen() {
     );
   }
 
-  // vision-camera device check
-  if (!visionCameraDevice) {
+  // エラー表示
+  if (initError) {
     return (
       <View style={styles.container}>
         <View style={styles.centerContent}>
-          <Ionicons name="camera-outline" size={64} color={tokens.color.text.secondary} />
-          <Text style={styles.message}>カメラデバイスが見つかりません</Text>
+          <Ionicons name="alert-circle-outline" size={64} color={tokens.color.error} />
+          <Text style={styles.message}>{initError}</Text>
+          <Text style={[styles.message, { fontSize: 14, marginTop: 16 }]}>
+            {"\n"}react-native-vision-cameraを使用するには、新しいビルドのAPKをインストールする必要があります。
+            {"\n\n"}Build ID: 57ef7e37-05a0-425b-8501-b5061bae998c
+            {"\n\n"}上記のビルドからAPKをダウンロードしてインストールしてください。
+          </Text>
+          <TouchableOpacity
+            style={[styles.permissionButton, { marginTop: 24 }]}
+            onPress={() => router.back()}
+          >
+            <Text style={styles.permissionButtonText}>戻る</Text>
+          </TouchableOpacity>
         </View>
       </View>
     );
