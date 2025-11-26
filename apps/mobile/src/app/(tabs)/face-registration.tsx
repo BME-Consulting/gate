@@ -1,16 +1,19 @@
 // ==========================================
-// 顔登録画面
+// 顔登録画面（顔検出バリデーション付き）
 // ==========================================
 
-import React, { useState, useRef, useEffect } from "react";
-import { View, Text, StyleSheet, Alert, TouchableOpacity, ActivityIndicator, Modal, FlatList, Pressable } from "react-native";
-import { CameraView, useCameraPermissions } from "expo-camera";
+import React, { useState, useRef, useEffect, useCallback } from "react";
+import { View, Text, StyleSheet, Alert, TouchableOpacity, ActivityIndicator, Modal, FlatList } from "react-native";
+import { Camera, useCameraDevice, useCameraPermission } from "react-native-vision-camera";
+import { useFocusEffect } from "@react-navigation/native";
 import Constants from "expo-constants";
 import { Button, tokens } from "@mc-gate/ui-kit";
 import { Ionicons } from "@expo/vector-icons";
 import { useWorkers } from "../../hooks/useWorkers";
 import { router } from "expo-router";
 import { TIMEOUT, fetchWithTimeout } from "@mc-gate/core";
+import { useFaceDetection } from "../../hooks/useFaceDetection";
+import type { Face } from "react-native-vision-camera-face-detector";
 
 // Face API レスポンス型定義（Face APIはsnake_caseを返す）
 interface FaceRegistrationResponse {
@@ -22,14 +25,37 @@ interface FaceRegistrationResponse {
 }
 
 export default function FaceRegistrationScreen() {
-  const [permission, requestPermission] = useCameraPermissions();
+  const { hasPermission, requestPermission } = useCameraPermission();
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedPersonId, setSelectedPersonId] = useState<string>("");
   const [registrationResult, setRegistrationResult] = useState<FaceRegistrationResponse | null>(null);
   const [isWorkerModalVisible, setIsWorkerModalVisible] = useState(false);
-  const cameraRef = useRef<CameraView>(null);
+  const [detectionStatus, setDetectionStatus] = useState<string>("作業員を選択して顔をフレーム内に合わせてください");
+  const [lastFaceDetection, setLastFaceDetection] = useState<{
+    timestamp: number;
+    size: number;
+  } | null>(null);
+  const [isFocused, setIsFocused] = useState(true);
+  const [initError, setInitError] = useState<string | null>(null);
+
+  const cameraRef = useRef<Camera>(null);
+  const processingLock = useRef(false);
   const { workers, getAllWorkers, isReady } = useWorkers();
+
+  // vision-camera device
+  const cameraDevice = useCameraDevice('front') || undefined;
+
+  // デバイス取得失敗時のエラーハンドリング
+  useEffect(() => {
+    if (cameraDevice === null || cameraDevice === undefined) {
+      console.error("[FaceReg] Vision camera device not found");
+      setInitError("カメラデバイスが見つかりません。新しいビルドが必要です。");
+    } else {
+      console.log("[FaceReg] Vision camera device found:", cameraDevice);
+      setInitError(null);
+    }
+  }, [cameraDevice]);
 
   // 作業員一覧を取得
   useEffect(() => {
@@ -40,8 +66,79 @@ export default function FaceRegistrationScreen() {
     }
   }, [isReady, getAllWorkers]);
 
+  // タブフォーカス時にカメラリソースをリセット
+  useFocusEffect(
+    useCallback(() => {
+      console.log("[FaceReg] Tab focused - mounting camera");
+      setIsFocused(true);
+      setIsProcessing(false);
+      setDetectionStatus("作業員を選択して顔をフレーム内に合わせてください");
+      setLastFaceDetection(null);
+      processingLock.current = false;
+
+      return () => {
+        console.log("[FaceReg] Tab unfocused - unmounting camera");
+        setIsFocused(false);
+        processingLock.current = false;
+        setIsCameraReady(false);
+      };
+    }, [])
+  );
+
+  // 顔検出コールバック
+  const handleFacesDetected = useCallback(async (faces: Face[]) => {
+    console.log(`[FaceReg] handleFacesDetected called - faces count: ${faces.length}`);
+
+    // 顔が検出されていない場合
+    if (faces.length === 0) {
+      setLastFaceDetection(null);
+      if (selectedPersonId) {
+        setDetectionStatus("顔をフレーム内に合わせてください");
+      }
+      return;
+    }
+
+    console.log(`[FaceReg] Face detected`);
+
+    // 最大の顔を取得
+    const largestFace = faces.reduce((prev, current) =>
+      current.bounds.width * current.bounds.height >
+      prev.bounds.width * prev.bounds.height
+        ? current
+        : prev
+    );
+
+    const faceSize = largestFace.bounds.width * largestFace.bounds.height;
+
+    // 顔の品質チェック
+    const isFaceQualityGood = faceSize > 20000; // 顔のサイズが十分大きい
+
+    // 顔検出情報を保存
+    const now = Date.now();
+    setLastFaceDetection({
+      timestamp: now,
+      size: faceSize,
+    });
+
+    if (isFaceQualityGood) {
+      console.log(`[FaceReg] Face quality good - size: ${faceSize}`);
+      setDetectionStatus("✅ 顔を検出しました。写真を撮影してください");
+    } else {
+      console.log(`[FaceReg] Face quality poor - size: ${faceSize}`);
+      setDetectionStatus("顔をまっすぐカメラに向けてください");
+    }
+  }, [selectedPersonId]);
+
+  // useFaceDetection hook を使用
+  const frameProcessor = useFaceDetection({
+    enabled: !!selectedPersonId && !isProcessing,
+    onFacesDetected: handleFacesDetected,
+    minFaceSize: 20000,
+    cooldownMs: 500, // Registration allows more frequent updates for better UX
+  });
+
   // カメラ権限のチェック
-  if (!permission) {
+  if (!hasPermission) {
     return (
       <View style={styles.container}>
         <View style={styles.centerContent}>
@@ -52,7 +149,7 @@ export default function FaceRegistrationScreen() {
     );
   }
 
-  if (!permission.granted) {
+  if (!hasPermission) {
     return (
       <View style={styles.container}>
         <View style={styles.centerContent}>
@@ -66,9 +163,27 @@ export default function FaceRegistrationScreen() {
     );
   }
 
+  // エラー表示
+  if (initError) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.centerContent}>
+          <Ionicons name="alert-circle-outline" size={64} color={tokens.color.danger} />
+          <Text style={styles.message}>{initError}</Text>
+          <TouchableOpacity
+            style={[styles.permissionButton, { marginTop: 24 }]}
+            onPress={() => router.back()}
+          >
+            <Text style={styles.permissionButtonText}>戻る</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
   // 写真を撮影してFace APIに送信
   const handleTakePicture = async () => {
-    if (!cameraRef.current || !isCameraReady || isProcessing) {
+    if (!cameraRef.current || !isCameraReady || isProcessing || processingLock.current) {
       return;
     }
 
@@ -78,22 +193,46 @@ export default function FaceRegistrationScreen() {
       return;
     }
 
+    // 顔が検出されているか確認
+    if (!lastFaceDetection) {
+      Alert.alert("エラー", "顔が検出されていません。\n顔をフレーム内に合わせてください", [{ text: "OK" }]);
+      return;
+    }
+
+    // 顔検出が古い場合は拒否
+    const now = Date.now();
+    if (now - lastFaceDetection.timestamp > 2000) {
+      Alert.alert("エラー", "顔の検出が古くなっています。\nもう一度顔をフレーム内に合わせてください", [{ text: "OK" }]);
+      setLastFaceDetection(null);
+      return;
+    }
+
+    // 顔のサイズが十分大きいか確認
+    if (lastFaceDetection.size < 20000) {
+      Alert.alert("エラー", "顔が小さすぎます。\nカメラに近づいてください", [{ text: "OK" }]);
+      return;
+    }
+
     try {
+      processingLock.current = true;
       setIsProcessing(true);
       setRegistrationResult(null);
+      setDetectionStatus("登録中...");
 
-      // 写真を撮影
-      const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.8,
-        base64: true,
+      // 写真を撮影（vision-camera）
+      const photo = await cameraRef.current.takePhoto({
+        flash: 'off',
+        enableShutterSound: false,
       });
 
-      if (!photo || !photo.base64) {
+      if (!photo || !photo.path) {
         throw new Error("写真の撮影に失敗しました");
       }
 
-      // Base64データをdata URI形式に変換
-      const imageData = `data:image/jpeg;base64,${photo.base64}`;
+      // Base64に変換（react-native-fs を使用）
+      const RNFS = require('react-native-fs');
+      const base64Image = await RNFS.readFile(photo.path, 'base64');
+      const imageData = `data:image/jpeg;base64,${base64Image}`;
 
       // 環境変数からFace API URLとAPIキーを取得
       const apiFaceApi = Constants.expoConfig?.extra?.apiFaceApi || "http://localhost:8100";
@@ -125,7 +264,6 @@ export default function FaceRegistrationScreen() {
       });
 
       console.log(`[DEBUG] Response received! Status: ${response.status}`);
-      console.log(`[DEBUG] Response headers:`, Object.fromEntries(response.headers.entries()));
 
       if (!response.ok) {
         console.error(`[DEBUG] HTTP error! status: ${response.status}`);
@@ -154,8 +292,6 @@ export default function FaceRegistrationScreen() {
       console.error("==================== FACE REGISTRATION ERROR ====================");
       console.error("[ERROR] Error type:", error?.constructor?.name);
       console.error("[ERROR] Error message:", error instanceof Error ? error.message : String(error));
-      console.error("[ERROR] Error name:", error instanceof Error ? error.name : "unknown");
-      console.error("[ERROR] Error stack:", error instanceof Error ? error.stack : "no stack");
       console.error("===============================================================");
 
       let errorMessage = "顔登録に失敗しました";
@@ -172,7 +308,9 @@ export default function FaceRegistrationScreen() {
 
       Alert.alert("エラー", errorMessage, [{ text: "OK" }]);
     } finally {
+      processingLock.current = false;
       setIsProcessing(false);
+      setDetectionStatus("作業員を選択して顔をフレーム内に合わせてください");
     }
   };
 
@@ -201,6 +339,7 @@ export default function FaceRegistrationScreen() {
               // 登録成功後、選択をクリア
               setSelectedPersonId("");
               setRegistrationResult(null);
+              setLastFaceDetection(null);
             }
           }
         ]
@@ -226,136 +365,177 @@ export default function FaceRegistrationScreen() {
     setSelectedPersonId(personId);
     setIsWorkerModalVisible(false);
     setRegistrationResult(null);
+    setLastFaceDetection(null);
+    setDetectionStatus("顔をフレーム内に合わせてください");
   };
 
   // 選択された作業員情報を取得
   const selectedWorker = workers.find(w => w.personId === selectedPersonId);
 
+  // 顔が検出されているかチェック
+  const isFaceDetected = lastFaceDetection &&
+    (Date.now() - lastFaceDetection.timestamp < 2000) &&
+    lastFaceDetection.size >= 20000;
+
   return (
     <View style={styles.container}>
-      {/* カメラプレビュー */}
-      <View style={styles.cameraContainer}>
-        <CameraView
-          ref={cameraRef}
-          style={styles.camera}
-          facing="front"
-          onCameraReady={() => setIsCameraReady(true)}
-        >
-          {/* カメラオーバーレイ */}
-          <View style={styles.overlay}>
-            {/* 上部バー */}
-            <View style={styles.topBar}>
-              <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
-                <Ionicons name="arrow-back" size={28} color="#fff" />
-              </TouchableOpacity>
-              <Text style={styles.title}>顔登録</Text>
-              <View style={styles.backButton} />
-            </View>
-
-            {/* ワーカー選択UI */}
-            <View style={styles.workerSelectContainer}>
-              <TouchableOpacity
-                style={styles.workerSelectButton}
-                onPress={() => setIsWorkerModalVisible(true)}
-              >
-                <View style={styles.workerSelectContent}>
-                  <View>
-                    <Text style={styles.workerSelectLabel}>作業員を選択</Text>
-                    {selectedWorker ? (
-                      <>
-                        <Text style={styles.workerSelectText}>
-                          {selectedWorker.name}
-                        </Text>
-                        <Text style={styles.workerSelectSubText}>
-                          {selectedWorker.company} • {selectedWorker.personId}
-                        </Text>
-                      </>
-                    ) : (
-                      <Text style={styles.workerSelectPlaceholder}>
-                        タップして選択してください
-                      </Text>
-                    )}
-                  </View>
-                  <Ionicons
-                    name="chevron-down"
-                    size={24}
-                    color={tokens.color.text.secondary}
-                  />
-                </View>
-              </TouchableOpacity>
-            </View>
-
-            {/* ガイドフレーム */}
-            <View style={styles.guideContainer}>
-              <View style={styles.guideFrame}>
-                <View style={[styles.guideCorner, styles.guideCornerTopLeft]} />
-                <View style={[styles.guideCorner, styles.guideCornerTopRight]} />
-                <View style={[styles.guideCorner, styles.guideCornerBottomLeft]} />
-                <View style={[styles.guideCorner, styles.guideCornerBottomRight]} />
+      {/* Vision Camera - Face Detection */}
+      {isFocused && cameraDevice ? (
+        <View style={styles.cameraContainer}>
+          <Camera
+            ref={cameraRef}
+            style={StyleSheet.absoluteFill}
+            device={cameraDevice}
+            isActive={true}
+            photo={true}
+            frameProcessor={frameProcessor}
+            onInitialized={() => {
+              console.log("[FaceReg] Vision Camera initialized");
+              setIsCameraReady(true);
+            }}
+          >
+            {/* カメラオーバーレイ */}
+            <View style={styles.overlay}>
+              {/* 上部バー */}
+              <View style={styles.topBar}>
+                <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
+                  <Ionicons name="arrow-back" size={28} color="#fff" />
+                </TouchableOpacity>
+                <Text style={styles.title}>顔登録</Text>
+                <View style={styles.backButton} />
               </View>
-              <Text style={styles.guideText}>
-                顔をフレーム内に合わせてください
-              </Text>
-            </View>
 
-            {/* 結果表示エリア */}
-            {registrationResult && (
-              <View style={styles.resultCard}>
-                {registrationResult.success ? (
-                  <View>
-                    <View style={styles.resultHeader}>
-                      <Ionicons name="checkmark-circle" size={24} color={tokens.color.success} />
-                      <Text style={styles.resultTitle}>登録完了</Text>
+              {/* ワーカー選択UI */}
+              <View style={styles.workerSelectContainer}>
+                <TouchableOpacity
+                  style={styles.workerSelectButton}
+                  onPress={() => setIsWorkerModalVisible(true)}
+                >
+                  <View style={styles.workerSelectContent}>
+                    <View>
+                      <Text style={styles.workerSelectLabel}>作業員を選択</Text>
+                      {selectedWorker ? (
+                        <>
+                          <Text style={styles.workerSelectText}>
+                            {selectedWorker.name}
+                          </Text>
+                          <Text style={styles.workerSelectSubText}>
+                            {selectedWorker.company} • {selectedWorker.personId}
+                          </Text>
+                        </>
+                      ) : (
+                        <Text style={styles.workerSelectPlaceholder}>
+                          タップして選択してください
+                        </Text>
+                      )}
                     </View>
-                    <Text style={styles.resultText}>
-                      {workers.find(w => w.personId === registrationResult.person_id)?.name || registrationResult.person_id}
-                    </Text>
-                    <Text style={styles.resultSubText}>
-                      Person ID: {registrationResult.person_id}
-                    </Text>
-                    <Text style={styles.resultSubText}>
-                      エンコーディング次元数: {registrationResult.embedding_dimensions || "N/A"}
-                    </Text>
+                    <Ionicons
+                      name="chevron-down"
+                      size={24}
+                      color={tokens.color.text.secondary}
+                    />
+                  </View>
+                </TouchableOpacity>
+              </View>
+
+              {/* ガイドフレーム */}
+              <View style={styles.guideContainer}>
+                <View style={[
+                  styles.guideFrame,
+                  isFaceDetected && styles.guideFrameDetected
+                ]}>
+                  <View style={[
+                    styles.guideCorner,
+                    styles.guideCornerTopLeft,
+                    isFaceDetected && styles.guideCornerDetected
+                  ]} />
+                  <View style={[
+                    styles.guideCorner,
+                    styles.guideCornerTopRight,
+                    isFaceDetected && styles.guideCornerDetected
+                  ]} />
+                  <View style={[
+                    styles.guideCorner,
+                    styles.guideCornerBottomLeft,
+                    isFaceDetected && styles.guideCornerDetected
+                  ]} />
+                  <View style={[
+                    styles.guideCorner,
+                    styles.guideCornerBottomRight,
+                    isFaceDetected && styles.guideCornerDetected
+                  ]} />
+                </View>
+                <Text style={[
+                  styles.guideText,
+                  isFaceDetected && styles.guideTextDetected
+                ]}>
+                  {detectionStatus}
+                </Text>
+              </View>
+
+              {/* 結果表示エリア */}
+              {registrationResult && (
+                <View style={styles.resultCard}>
+                  {registrationResult.success ? (
+                    <View>
+                      <View style={styles.resultHeader}>
+                        <Ionicons name="checkmark-circle" size={24} color={tokens.color.success} />
+                        <Text style={styles.resultTitle}>登録完了</Text>
+                      </View>
+                      <Text style={styles.resultText}>
+                        {workers.find(w => w.personId === registrationResult.person_id)?.name || registrationResult.person_id}
+                      </Text>
+                      <Text style={styles.resultSubText}>
+                        Person ID: {registrationResult.person_id}
+                      </Text>
+                      <Text style={styles.resultSubText}>
+                        エンコーディング次元数: {registrationResult.embedding_dimensions || "N/A"}
+                      </Text>
+                    </View>
+                  ) : (
+                    <View>
+                      <View style={styles.resultHeader}>
+                        <Ionicons name="close-circle" size={24} color={tokens.color.danger} />
+                        <Text style={[styles.resultTitle, styles.resultTitleError]}>
+                          登録失敗
+                        </Text>
+                      </View>
+                      <Text style={styles.resultText}>
+                        {registrationResult.error || "顔の登録に失敗しました"}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              )}
+
+              {/* ボトムバー */}
+              <View style={styles.bottomBar}>
+                {isProcessing ? (
+                  <View style={styles.processingContainer}>
+                    <ActivityIndicator size="large" color="#fff" />
+                    <Text style={styles.processingText}>登録中...</Text>
                   </View>
                 ) : (
-                  <View>
-                    <View style={styles.resultHeader}>
-                      <Ionicons name="close-circle" size={24} color={tokens.color.danger} />
-                      <Text style={[styles.resultTitle, styles.resultTitleError]}>
-                        登録失敗
-                      </Text>
-                    </View>
-                    <Text style={styles.resultText}>
-                      {registrationResult.error || "顔の登録に失敗しました"}
-                    </Text>
-                  </View>
+                  <TouchableOpacity
+                    style={[
+                      styles.captureButton,
+                      (!isCameraReady || !selectedPersonId || !isFaceDetected) && styles.captureButtonDisabled,
+                      isFaceDetected && styles.captureButtonActive,
+                    ]}
+                    onPress={handleTakePicture}
+                    disabled={!isCameraReady || isProcessing || !selectedPersonId || !isFaceDetected}
+                  >
+                    <View style={[
+                      styles.captureButtonInner,
+                      isFaceDetected && styles.captureButtonInnerActive,
+                    ]} />
+                  </TouchableOpacity>
                 )}
               </View>
-            )}
-
-            {/* ボトムバー */}
-            <View style={styles.bottomBar}>
-              {isProcessing ? (
-                <View style={styles.processingContainer}>
-                  <ActivityIndicator size="large" color="#fff" />
-                  <Text style={styles.processingText}>登録中...</Text>
-                </View>
-              ) : (
-                <TouchableOpacity
-                  style={[
-                    styles.captureButton,
-                    (!isCameraReady || !selectedPersonId) && styles.captureButtonDisabled,
-                  ]}
-                  onPress={handleTakePicture}
-                  disabled={!isCameraReady || isProcessing || !selectedPersonId}
-                >
-                  <View style={styles.captureButtonInner} />
-                </TouchableOpacity>
-              )}
             </View>
-          </View>
-        </CameraView>
-      </View>
+          </Camera>
+        </View>
+      ) : null}
 
       {/* 作業員選択モーダル */}
       <Modal
@@ -448,11 +628,21 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
 
-  cameraContainer: {
-    flex: 1,
+  permissionButton: {
+    marginTop: tokens.spacing.lg,
+    backgroundColor: tokens.color.primary,
+    paddingHorizontal: tokens.spacing.xl,
+    paddingVertical: tokens.spacing.md,
+    borderRadius: tokens.radius.md,
   },
 
-  camera: {
+  permissionButtonText: {
+    fontSize: tokens.font.size.base,
+    fontWeight: tokens.font.weight.semibold,
+    color: "#fff",
+  },
+
+  cameraContainer: {
     flex: 1,
   },
 
@@ -541,11 +731,19 @@ const styles = StyleSheet.create({
     position: "relative",
   },
 
+  guideFrameDetected: {
+    // Animation could be added here
+  },
+
   guideCorner: {
     position: "absolute",
     width: 40,
     height: 40,
     borderColor: "#fff",
+  },
+
+  guideCornerDetected: {
+    borderColor: tokens.color.success,
   },
 
   guideCornerTopLeft: {
@@ -585,6 +783,11 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 8,
+  },
+
+  guideTextDetected: {
+    backgroundColor: tokens.color.success,
+    color: "#fff",
   },
 
   resultCard: {
@@ -659,6 +862,10 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
 
+  captureButtonActive: {
+    borderColor: tokens.color.success,
+  },
+
   captureButtonInner: {
     width: 64,
     height: 64,
@@ -666,6 +873,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderWidth: 2,
     borderColor: "#000",
+  },
+
+  captureButtonInnerActive: {
+    backgroundColor: tokens.color.success,
+    borderColor: tokens.color.success,
   },
 
   // モーダルスタイル
