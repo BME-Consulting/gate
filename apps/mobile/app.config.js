@@ -150,6 +150,7 @@ Please set these environment variables before building.
           android: {
             newArchEnabled: true,
             usesCleartextTraffic: !isProduction,  // 開発中のみHTTP許可
+            minSdkVersion: 26,  // react-native-vision-camera-face-detector requires API 26+
           },
         },
       ],
