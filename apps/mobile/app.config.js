@@ -63,7 +63,7 @@ Please set these environment variables before building.
     name: "mc-gate",
     slug: "mc-gate",
     owner: "bme_llc",
-    version: "1.0.24",
+    version: "1.0.25",
     orientation: "portrait",
     icon: "./assets/icon.png",
     userInterfaceStyle: "light",
@@ -85,7 +85,7 @@ Please set these environment variables before building.
     },
     android: {
       package: "com.bmeconsulting.mcgate",
-      versionCode: 25,
+      versionCode: 26,
       adaptiveIcon: {
         foregroundImage: "./assets/adaptive-icon.png",
         backgroundColor: "#ffffff",
