@@ -5,6 +5,8 @@ module.exports = function (api) {
         plugins: [
             // expo-routerに必須
             'expo-router/babel',
+            // react-native-vision-cameraのframe processorsに必須
+            'react-native-worklets-core/plugin',
         ],
     };
 };
