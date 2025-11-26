@@ -43,13 +43,13 @@ function generateMockWorkers(count: number): Worker[] {
       personId,
       name,
       ccusId,
+      ccusRegistered: Math.random() > 0.1, // 90%はCCUS登録済み
+      socialInsurance: Math.random() > 0.1, // 90%は社会保険加入
       company: companies[i % companies.length],
-      hasSocialInsurance: Math.random() > 0.1, // 90%は社会保険加入
       residencyExpiry: new Date(2025, 11, 31).toISOString(), // 2025年12月31日
       age: 25 + Math.floor(Math.random() * 40), // 25〜64歳
-      isHealthy: Math.random() > 0.05, // 95%は健康
       isSoleProprietor: Math.random() > 0.8, // 20%は一人親方
-      faceEmbedding: null, // 顔データは未登録
+      // faceEmbedding is optional and omitted here (no face data registered)
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });

@@ -17,7 +17,7 @@ import { useAppStore } from "../../store/appStore";
 import { router } from "expo-router";
 import { parseQRCode } from "@mc-gate/qr";
 import { useFaceDetection } from "../../hooks/useFaceDetection";
-import type { Face } from "vision-camera-face-detector";
+import type { Face } from "react-native-vision-camera-face-detector";
 import {
   RuleEngine,
   generateUUID,
@@ -71,7 +71,7 @@ export default function AuthScreen() {
   const { isReady: queueReady, addToQueue } = useQueue();
 
   // vision-camera device
-  const visionCameraDevice = useCameraDevice('front');
+  const visionCameraDevice = useCameraDevice('front') || undefined;
 
   // デバイス取得失敗時のエラーハンドリング
   useEffect(() => {
@@ -225,7 +225,7 @@ export default function AuthScreen() {
     return (
       <View style={styles.container}>
         <View style={styles.centerContent}>
-          <Ionicons name="alert-circle-outline" size={64} color={tokens.color.error} />
+          <Ionicons name="alert-circle-outline" size={64} color={tokens.color.danger} />
           <Text style={styles.message}>{initError}</Text>
           <Text style={[styles.message, { fontSize: 14, marginTop: 16 }]}>
             {"\n"}react-native-vision-cameraを使用するには、新しいビルドのAPKをインストールする必要があります。
@@ -345,7 +345,7 @@ export default function AuthScreen() {
 
       // 写真を撮影（vision-camera）
       const photo = await visionCameraRef.current.takePhoto({
-        qualityPrioritization: 'balanced',
+        flash: 'off',
         enableShutterSound: false,
       });
 
@@ -588,7 +588,7 @@ export default function AuthScreen() {
       {isFocused ? (
         <View style={styles.cameraContainer}>
           {/* Vision Camera - Face Detection */}
-          {activeDetector === 'face' && (
+          {activeDetector === 'face' && visionCameraDevice && (
             <Camera
               ref={visionCameraRef}
               style={StyleSheet.absoluteFill}
