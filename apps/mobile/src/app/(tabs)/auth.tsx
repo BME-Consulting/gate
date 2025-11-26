@@ -70,8 +70,7 @@ export default function AuthScreen() {
 
       // カメラ状態をリセット
       setIsProcessing(false);
-      setDetectionStatus("顔またはQRコードを検出中...");
-      setLastFaceDetection(null);
+      setDetectionStatus("QRコードを検出中...");
 
       // 処理ロックを解除
       processingLock.current = false;
@@ -289,7 +288,7 @@ export default function AuthScreen() {
     } finally {
       processingLock.current = false;
       setIsProcessing(false);
-      setDetectionStatus("顔またはQRコードを検出中...");
+      setDetectionStatus("QRコードを検出中...");
     }
   };
 
