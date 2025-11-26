@@ -1,7 +1,7 @@
-import { useRef, useCallback } from 'react';
+import { useCallback } from 'react';
 import { useFrameProcessor, Frame } from 'react-native-vision-camera';
 import { scanFaces, Face } from 'vision-camera-face-detector';
-import { runOnJS } from 'react-native-worklets-core';
+import { runOnJS, useSharedValue } from 'react-native-worklets-core';
 
 interface FaceDetectionOptions {
   enabled: boolean;
@@ -21,7 +21,7 @@ export function useFaceDetection(options: FaceDetectionOptions) {
 
   // フレームスキップカウンター（cooldownMsを30fpsで換算）
   const skipFrames = Math.floor((cooldownMs / 1000) * 30);
-  const frameCounter = useRef(0);
+  const frameCounter = useSharedValue(0);
 
   const frameProcessor = useFrameProcessor((frame: Frame) => {
     'worklet';
@@ -29,8 +29,8 @@ export function useFaceDetection(options: FaceDetectionOptions) {
     if (!enabled) return;
 
     // フレームスキップ（cooldown実装）
-    frameCounter.current++;
-    if (frameCounter.current % skipFrames !== 0) return;
+    frameCounter.value++;
+    if (frameCounter.value % skipFrames !== 0) return;
 
     try {
       const faces = scanFaces(frame, {
