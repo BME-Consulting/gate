@@ -18,15 +18,19 @@ interface FaceDetectionOptions {
  */
 export function useFaceDetection(options: FaceDetectionOptions) {
   const { enabled, onFacesDetected, minFaceSize = 20000, cooldownMs = 2000 } = options;
-  const lastProcessTime = useRef(0);
+
+  // フレームスキップカウンター（cooldownMsを30fpsで換算）
+  const skipFrames = Math.floor((cooldownMs / 1000) * 30);
+  const frameCounter = useRef(0);
 
   const frameProcessor = useFrameProcessor((frame: Frame) => {
     'worklet';
 
     if (!enabled) return;
 
-    const now = Date.now();
-    if (now - lastProcessTime.current < cooldownMs) return;
+    // フレームスキップ（cooldown実装）
+    frameCounter.current++;
+    if (frameCounter.current % skipFrames !== 0) return;
 
     try {
       const faces = scanFaces(frame, {
@@ -43,14 +47,13 @@ export function useFaceDetection(options: FaceDetectionOptions) {
         });
 
         if (largeFaces.length > 0) {
-          lastProcessTime.current = now;
           runOnJS(onFacesDetected)(largeFaces);
         }
       }
     } catch (error) {
       console.error('[FaceDetection] Error scanning faces:', error);
     }
-  }, [enabled, minFaceSize, cooldownMs]);
+  }, [enabled, minFaceSize, skipFrames]);
 
   return frameProcessor;
 }
