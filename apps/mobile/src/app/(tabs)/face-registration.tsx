@@ -94,6 +94,8 @@ export default function FaceRegistrationScreen() {
       setLastFaceDetection(null);
       if (selectedPersonId) {
         setDetectionStatus("顔をフレーム内に合わせてください");
+      } else {
+        setDetectionStatus("作業員を選択して顔をフレーム内に合わせてください");
       }
       return;
     }
@@ -122,16 +124,20 @@ export default function FaceRegistrationScreen() {
 
     if (isFaceQualityGood) {
       console.log(`[FaceReg] Face quality good - size: ${faceSize}`);
-      setDetectionStatus("✅ 顔を検出しました。写真を撮影してください");
+      if (selectedPersonId) {
+        setDetectionStatus("✅ 顔を検出しました。写真を撮影してください");
+      } else {
+        setDetectionStatus("✅ 顔を検出しました。作業員を選択してください");
+      }
     } else {
       console.log(`[FaceReg] Face quality poor - size: ${faceSize}`);
       setDetectionStatus("顔をまっすぐカメラに向けてください");
     }
   }, [selectedPersonId]);
 
-  // useFaceDetection hook を使用
+  // useFaceDetection hook を使用（作業員選択とは独立して常に動作）
   const frameProcessor = useFaceDetection({
-    enabled: !!selectedPersonId && !isProcessing,
+    enabled: !isProcessing, // 作業員選択に関係なく常に顔検出を実行
     onFacesDetected: handleFacesDetected,
     minFaceSize: 20000,
     cooldownMs: 500, // Registration allows more frequent updates for better UX
