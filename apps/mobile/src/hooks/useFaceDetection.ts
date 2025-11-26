@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { useFrameProcessor, Frame } from 'react-native-vision-camera';
-import { scanFaces, Face } from 'vision-camera-face-detector';
+import { scanFaces, Face } from 'react-native-vision-camera-face-detector';
 import { runOnJS, useSharedValue } from 'react-native-worklets-core';
 
 interface FaceDetectionOptions {
