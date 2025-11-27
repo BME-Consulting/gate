@@ -263,8 +263,8 @@ export default function FaceRegistrationScreen() {
           "x-api-key": apiFaceApiKey,
         },
         body: JSON.stringify({
-          person_id: selectedPersonId,
-          image_data: imageData,
+          personId: selectedPersonId,   // Face API expects camelCase
+          imageData: imageData,          // Face API expects camelCase
         }),
         timeoutMs: TIMEOUT.FACE_RECOGNITION, // 30秒
       });
