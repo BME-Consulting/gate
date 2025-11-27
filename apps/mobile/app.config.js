@@ -8,7 +8,7 @@ module.exports = ({ config }) => {
   // For development, fallback to hardcoded values
   const apiBaseGs = process.env.API_BASE_GS || "http://192.168.1.4:7070";
   const apiBaseCcus = process.env.API_BASE_CCUS || "http://192.168.1.4:7071";
-  const apiFaceApi = process.env.API_FACE_API || "http://192.168.1.4:8101";
+  const apiFaceApi = process.env.API_FACE_API || "http://192.168.1.4:8100";
   const authIssuer = process.env.AUTH_ISSUER || "http://192.168.1.4:8080/auth/realms/mcd3";
 
   // API Keys - MUST be set via environment variables in production
