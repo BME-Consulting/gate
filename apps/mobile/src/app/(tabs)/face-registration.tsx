@@ -274,6 +274,15 @@ export default function FaceRegistrationScreen() {
       if (!response.ok) {
         console.error(`[DEBUG] HTTP error! status: ${response.status}`);
 
+        // サーバーからのエラーメッセージを取得
+        let errorDetail = "";
+        try {
+          const errorData = await response.json();
+          errorDetail = errorData.error || errorData.message || JSON.stringify(errorData);
+        } catch {
+          // JSON パースに失敗した場合は無視
+        }
+
         if (response.status === 404) {
           throw new Error(
             "Face API サーバーのエンドポイントが見つかりません。\n\n" +
@@ -282,7 +291,26 @@ export default function FaceRegistrationScreen() {
           );
         }
 
-        throw new Error(`HTTP error! status: ${response.status}`);
+        if (response.status === 403) {
+          throw new Error(
+            "Face API サーバーへのアクセスが拒否されました。\n\n" +
+            (errorDetail ? `エラー: ${errorDetail}\n\n` : "") +
+            "APIキーが正しく設定されているか確認してください。"
+          );
+        }
+
+        if (response.status === 400) {
+          throw new Error(
+            "リクエストが不正です。\n\n" +
+            (errorDetail ? `エラー: ${errorDetail}` : "サーバーがリクエストを処理できませんでした。")
+          );
+        }
+
+        // その他のHTTPエラー
+        throw new Error(
+          `サーバーエラーが発生しました (${response.status})\n\n` +
+          (errorDetail ? `詳細: ${errorDetail}` : "")
+        );
       }
 
       const result = (await response.json()) as FaceRegistrationResponse;
