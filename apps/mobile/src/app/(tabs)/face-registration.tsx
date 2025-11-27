@@ -2,7 +2,7 @@
 // 顔登録画面（顔検出バリデーション付き）
 // ==========================================
 
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { View, Text, StyleSheet, Alert, TouchableOpacity, ActivityIndicator, Modal, FlatList } from "react-native";
 import { Camera, useCameraDevice, useCameraPermission } from "react-native-vision-camera";
 import { useFocusEffect } from "@react-navigation/native";
@@ -34,6 +34,7 @@ export default function FaceRegistrationScreen() {
   const [detectionStatus, setDetectionStatus] = useState<string>("作業員を選択して顔をフレーム内に合わせてください");
   const [lastFaceDetection, setLastFaceDetection] = useState<{
     timestamp: number;
+    confidence: number;
     size: number;
   } | null>(null);
   const [isFocused, setIsFocused] = useState(true);
@@ -41,6 +42,7 @@ export default function FaceRegistrationScreen() {
 
   const cameraRef = useRef<Camera>(null);
   const processingLock = useRef(false);
+  const lastProcessTime = useRef(0);
   const { workers, getAllWorkers, isReady } = useWorkers();
 
   // vision-camera device
@@ -75,11 +77,13 @@ export default function FaceRegistrationScreen() {
       setDetectionStatus("作業員を選択して顔をフレーム内に合わせてください");
       setLastFaceDetection(null);
       processingLock.current = false;
+      lastProcessTime.current = 0;
 
       return () => {
         console.log("[FaceReg] Tab unfocused - unmounting camera");
         setIsFocused(false);
         processingLock.current = false;
+        lastProcessTime.current = 0;
         setIsCameraReady(false);
       };
     }, [])
@@ -88,6 +92,13 @@ export default function FaceRegistrationScreen() {
   // 顔検出コールバック
   const handleFacesDetected = useCallback(async (faces: Face[]) => {
     console.log(`[FaceReg] handleFacesDetected called - faces count: ${faces.length}`);
+
+    // 処理中または最近処理した場合はスキップ
+    const now = Date.now();
+    if (processingLock.current || now - lastProcessTime.current < 1000) {
+      console.log(`[FaceReg] Skipping face detection - processing: ${processingLock.current}, cooldown: ${now - lastProcessTime.current}ms`);
+      return;
+    }
 
     // 顔が検出されていない場合
     if (faces.length === 0) {
@@ -116,9 +127,9 @@ export default function FaceRegistrationScreen() {
     const isFaceQualityGood = faceSize > 20000; // 顔のサイズが十分大きい
 
     // 顔検出情報を保存
-    const now = Date.now();
     setLastFaceDetection({
       timestamp: now,
+      confidence: 0.8, // vision-camera face detector の固定値
       size: faceSize,
     });
 
@@ -144,17 +155,6 @@ export default function FaceRegistrationScreen() {
   });
 
   // カメラ権限のチェック
-  if (!hasPermission) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.centerContent}>
-          <ActivityIndicator size="large" color={tokens.color.primary} />
-          <Text style={styles.message}>カメラの準備中...</Text>
-        </View>
-      </View>
-    );
-  }
-
   if (!hasPermission) {
     return (
       <View style={styles.container}>
@@ -406,10 +406,12 @@ export default function FaceRegistrationScreen() {
   // 選択された作業員情報を取得
   const selectedWorker = workers.find(w => w.personId === selectedPersonId);
 
-  // 顔が検出されているかチェック
-  const isFaceDetected = lastFaceDetection &&
-    (Date.now() - lastFaceDetection.timestamp < 2000) &&
-    lastFaceDetection.size >= 20000;
+  // 顔が検出されているかチェック (useMemo で最適化)
+  const isFaceDetected = useMemo(() => {
+    if (!lastFaceDetection) return false;
+    return (Date.now() - lastFaceDetection.timestamp < 2000) &&
+           lastFaceDetection.size >= 20000;
+  }, [lastFaceDetection]);
 
   return (
     <View style={styles.container}>
