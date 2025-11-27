@@ -2223,3 +2223,231 @@ if (i === 0) {
 **関連コミット**: 0d29391 "Fix: execAsync方式でダミーデータ生成エラーを解決"
 **EAS Update**: Update Group ID `2a53690b-a27a-4822-9c73-43b49fa9f3e2`
 
+---
+
+## 🎥 react-native-vision-camera Camera コンポーネントの正しい構造（2025-11-27 解決済み）
+
+### 問題: face-registration.tsxで顔検出が動作しない
+
+**症状**:
+- auth.tsxでは同じ `useFaceDetection` フックで顔検出が正常動作
+- face-registration.tsxでは顔検出コールバックが一切呼ばれない
+- ガイドフレームが緑色にならない
+- 検出ステータスメッセージが更新されない
+
+**根本原因**:
+`react-native-vision-camera` v4.7.3の`Camera`コンポーネントは**children（子要素）を持つことができない**。Frame Processorはカメラビューが自己完結型であることを前提としており、子要素を持つとframe processorの実行コンテキストが破壊される。
+
+### 🎯 正しいCamera構造パターン
+
+#### ❌ 誤った構造（face-registration.tsx修正前）
+
+```tsx
+<Camera ref={cameraRef} device={device} frameProcessor={frameProcessor}>
+  {/* ❌ Cameraの子要素としてオーバーレイを配置 - これが原因！ */}
+  <View style={styles.overlay}>
+    <View style={styles.topBar}>...</View>
+    <View style={styles.guideFrame}>...</View>
+  </View>
+</Camera>
+```
+
+**問題点**:
+- Camera コンポーネントが子要素を持っている
+- Frame Processor の実行が阻害される
+- 顔検出コールバックが呼ばれない
+- React Native 0.81 + New Architecture では特に厳格
+
+#### ✅ 正しい構造（auth.tsx / face-registration.tsx修正後）
+
+```tsx
+<View style={styles.cameraContainer}>
+  {/* Camera は自己完結型（self-closing tag） */}
+  <Camera
+    ref={cameraRef}
+    style={StyleSheet.absoluteFill}
+    device={device}
+    isActive={true}
+    photo={true}
+    frameProcessor={frameProcessor}
+    onInitialized={() => {
+      console.log("[Camera] initialized");
+      setIsCameraReady(true);
+    }}
+  />
+
+  {/* オーバーレイは Camera の兄弟要素として配置 */}
+  <View style={styles.overlay}>
+    <View style={styles.topBar}>...</View>
+    <View style={styles.guideFrame}>...</View>
+  </View>
+</View>
+```
+
+**ポイント**:
+1. **Camera は自己完結型タグ** (`<Camera />`) - 子要素を持たない
+2. **オーバーレイは Camera の兄弟要素** - 同じ親コンテナ内に並列配置
+3. **オーバーレイは absoluteFillObject で配置** - Camera の上に重なるレイヤーを実現
+
+### 📝 スタイル設定
+
+#### オーバーレイのスタイル
+
+```typescript
+overlay: {
+  ...StyleSheet.absoluteFillObject,  // ✅ 絶対配置でカメラ全体を覆う
+  backgroundColor: "transparent",
+},
+```
+
+#### カメラコンテナのスタイル
+
+```typescript
+cameraContainer: {
+  flex: 1,  // 親要素いっぱいに広がる
+},
+```
+
+### 🔧 修正手順
+
+#### ステップ1: Camera構造の修正
+
+```tsx
+// 修正前
+<Camera ...>
+  <View style={styles.overlay}>...</View>
+</Camera>
+
+// 修正後
+<Camera ... />
+<View style={styles.overlay}>...</View>
+```
+
+#### ステップ2: オーバーレイスタイルの修正
+
+```typescript
+// 修正前
+overlay: {
+  flex: 1,
+  backgroundColor: "transparent",
+},
+
+// 修正後
+overlay: {
+  ...StyleSheet.absoluteFillObject,
+  backgroundColor: "transparent",
+},
+```
+
+#### ステップ3: 構文チェック
+
+```bash
+npx tsc --noEmit  # TypeScript構文エラーがないことを確認
+```
+
+### ✅ 検証結果
+
+#### 期待される動作
+1. Camera コンポーネントが正常に初期化される
+2. `useFaceDetection` フックが frame processor を生成
+3. Frame processor が正常に実行される
+4. 顔検出時に `onFacesDetected` コールバックが呼ばれる
+5. `lastFaceDetection` 状態が更新される
+6. ガイドフレームが緑色に変わる
+7. 検出ステータスメッセージが更新される
+
+#### 修正前の失敗理由
+- Camera が子要素を持つ → frame processor の実行コンテキスト破壊
+- 顔検出コールバックが呼ばれない
+- `lastFaceDetection` が常に `null`
+- UI が更新されない
+
+### 💡 重要な教訓
+
+1. **react-native-vision-camera v4の制約**
+   - Camera コンポーネントは常に自己完結型タグにする
+   - UI オーバーレイは兄弟要素として配置
+   - `StyleSheet.absoluteFillObject` で重ねる
+
+2. **Frame Processor の要件**
+   - Camera が自己完結型でないと正常動作しない
+   - React Native 0.81 + New Architecture では特に厳格
+   - デバッグ時は console.log でコールバック呼び出しを確認
+
+3. **auth.tsx をリファレンス実装とする**
+   - 新しくカメラを使う画面を作る際は auth.tsx の構造を参照
+   - 同じパターンを踏襲すれば問題を回避できる
+
+### 🎯 ベストプラクティス
+
+#### パターン1: カメラ + オーバーレイ UI
+
+```tsx
+{isFocused && cameraDevice ? (
+  <View style={styles.cameraContainer}>
+    {/* 1. Camera は自己完結型 */}
+    <Camera
+      ref={cameraRef}
+      style={StyleSheet.absoluteFill}
+      device={cameraDevice}
+      isActive={true}
+      photo={true}
+      frameProcessor={frameProcessor}
+      onInitialized={() => setIsCameraReady(true)}
+    />
+
+    {/* 2. オーバーレイは兄弟要素 */}
+    <View style={styles.overlay}>
+      {/* UI コンポーネント */}
+    </View>
+  </View>
+) : null}
+```
+
+#### パターン2: 複数のオーバーレイレイヤー
+
+```tsx
+<View style={styles.cameraContainer}>
+  <Camera ... />
+
+  {/* 背景レイヤー（暗くする） */}
+  <View style={[styles.overlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]} />
+
+  {/* UI レイヤー */}
+  <View style={styles.overlay}>
+    <View style={styles.topBar}>...</View>
+    <View style={styles.bottomBar}>...</View>
+  </View>
+</View>
+```
+
+### 📋 チェックリスト: Camera実装時
+
+- [ ] Camera コンポーネントは自己完結型タグ (`<Camera />`)
+- [ ] オーバーレイは Camera の兄弟要素として配置
+- [ ] オーバーレイスタイルは `StyleSheet.absoluteFillObject`
+- [ ] `cameraDevice` が undefined でないことを確認
+- [ ] `isActive={true}` を設定
+- [ ] `frameProcessor` を正しく渡す
+- [ ] TypeScript コンパイルエラーがない
+- [ ] auth.tsx と構造が一致している
+
+### 📊 修正ファイル
+
+- **apps/mobile/src/app/(tabs)/face-registration.tsx**
+  - Lines 391-403: Camera を自己完結型に変更
+  - Lines 406-543: オーバーレイを Camera の外側に配置
+  - Lines 657-660: オーバーレイスタイルを `absoluteFillObject` に変更
+
+### 🔗 関連ファイル
+
+- **apps/mobile/src/app/(tabs)/auth.tsx**: リファレンス実装（正常動作）
+- **apps/mobile/src/hooks/useFaceDetection.ts**: Frame Processor フック
+
+---
+
+**最終更新**: 2025-11-27
+**作成者**: Claude (with user collaboration)
+**解決コミット**: 未コミット（次のステップで実施）
+**参照実装**: apps/mobile/src/app/(tabs)/auth.tsx:591-625
+**関連イシュー**: Build ID 1f3a6170, 86ee7443 で顔検出失敗

@@ -388,6 +388,7 @@ export default function FaceRegistrationScreen() {
       {/* Vision Camera - Face Detection */}
       {isFocused && cameraDevice ? (
         <View style={styles.cameraContainer}>
+          {/* Camera は自己完結型タグに変更（オーバーレイは外側に配置） */}
           <Camera
             ref={cameraRef}
             style={StyleSheet.absoluteFill}
@@ -399,9 +400,10 @@ export default function FaceRegistrationScreen() {
               console.log("[FaceReg] Vision Camera initialized");
               setIsCameraReady(true);
             }}
-          >
-            {/* カメラオーバーレイ */}
-            <View style={styles.overlay}>
+          />
+
+          {/* オーバーレイを Camera の外側に配置（auth.tsx と同じ構造） */}
+          <View style={styles.overlay}>
               {/* 上部バー */}
               <View style={styles.topBar}>
                 <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
@@ -539,8 +541,7 @@ export default function FaceRegistrationScreen() {
                 )}
               </View>
             </View>
-          </Camera>
-        </View>
+          </View>
       ) : null}
 
       {/* 作業員選択モーダル */}
@@ -653,7 +654,7 @@ const styles = StyleSheet.create({
   },
 
   overlay: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: "transparent",
   },
 
