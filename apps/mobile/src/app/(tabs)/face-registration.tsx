@@ -284,10 +284,10 @@ export default function FaceRegistrationScreen() {
         }
 
         if (response.status === 404) {
+          // 404の場合、サーバーからのエラーメッセージを表示
+          // (エンドポイントが存在しない場合とworkerが見つからない場合を区別)
           throw new Error(
-            "Face API サーバーのエンドポイントが見つかりません。\n\n" +
-            `URL: ${apiFaceApi}/api/face/register\n\n` +
-            "サーバーが正しく起動しているか確認してください。"
+            errorDetail || "指定された作業員が見つかりません。"
           );
         }
 
