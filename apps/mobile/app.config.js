@@ -119,7 +119,8 @@ Please set these environment variables before building.
       },
       // モック認証の使用（APP_ENVで強制制御）
       // 本番環境（APP_ENV=production）では絶対にfalse
-      useMockAuth: appEnv === "production" ? false : true,
+      // 開発環境でもWorker同期テストのため一時的にfalseに設定
+      useMockAuth: false,  // appEnv === "production" ? false : true,
       appEnv,  // アプリ内で環境判定に使用
 
       // アプリケーション定数（本番運用向け）
