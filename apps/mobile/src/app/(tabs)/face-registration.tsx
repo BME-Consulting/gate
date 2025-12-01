@@ -423,12 +423,15 @@ export default function FaceRegistrationScreen() {
             ref={cameraRef}
             style={StyleSheet.absoluteFill}
             device={cameraDevice}
-            isActive={true}
+            isActive={isFocused && !isProcessing}
             photo={true}
             frameProcessor={frameProcessor}
             onInitialized={() => {
               console.log("[FaceReg] Vision Camera initialized");
               setIsCameraReady(true);
+            }}
+            onError={(error) => {
+              console.error("[FaceReg] Vision Camera error:", error);
             }}
           />
 

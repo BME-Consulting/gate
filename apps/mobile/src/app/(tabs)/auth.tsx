@@ -593,12 +593,15 @@ export default function AuthScreen() {
               ref={visionCameraRef}
               style={StyleSheet.absoluteFill}
               device={visionCameraDevice}
-              isActive={true}
+              isActive={isFocused && activeDetector === 'face'}
               photo={true}
               frameProcessor={frameProcessor}
               onInitialized={() => {
                 console.log("[Auth] Vision Camera initialized");
                 setIsCameraReady(true);
+              }}
+              onError={(error) => {
+                console.error("[Auth] Vision Camera error:", error);
               }}
             />
           )}

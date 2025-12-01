@@ -1,6 +1,6 @@
-import { useCallback } from 'react';
+import { useEffect } from 'react';
 import { useFrameProcessor, Frame } from 'react-native-vision-camera';
-import { useFaceDetector, Face, FaceDetectionOptions as LibraryFaceDetectionOptions } from 'react-native-vision-camera-face-detector';
+import { useFaceDetector, Face } from 'react-native-vision-camera-face-detector';
 import { useSharedValue, useRunOnJS } from 'react-native-worklets-core';
 
 interface FaceDetectionOptions {
@@ -30,22 +30,33 @@ export function useFaceDetection(options: FaceDetectionOptions) {
   // フレームスキップカウンター（cooldownMsを30fpsで換算）
   const skipFrames = Math.floor((cooldownMs / 1000) * 30);
   const frameCounter = useSharedValue(0);
+  const isProcessing = useSharedValue(false);
 
   // Create a worklet-safe callback to run on JS thread
   const handleFacesOnJS = useRunOnJS((faces: Face[]) => {
     onFacesDetected(faces);
   }, [onFacesDetected]);
 
+  // Cleanup on unmount or when enabled changes
+  useEffect(() => {
+    return () => {
+      // Reset shared values on unmount
+      frameCounter.value = 0;
+      isProcessing.value = false;
+    };
+  }, [frameCounter, isProcessing]);
+
   const frameProcessor = useFrameProcessor((frame: Frame) => {
     'worklet';
 
-    if (!enabled) return;
+    if (!enabled || isProcessing.value) return;
 
     // フレームスキップ（cooldown実装）
     frameCounter.value++;
     if (frameCounter.value % skipFrames !== 0) return;
 
     try {
+      isProcessing.value = true;
       const faces = faceDetectorPlugin.detectFaces(frame);
 
       if (faces.length > 0) {
@@ -60,8 +71,10 @@ export function useFaceDetection(options: FaceDetectionOptions) {
       }
     } catch (error) {
       console.error('[FaceDetection] Error scanning faces:', error);
+    } finally {
+      isProcessing.value = false;
     }
-  }, [enabled, minFaceSize, skipFrames, faceDetectorPlugin, handleFacesOnJS]);
+  }, [enabled, minFaceSize, skipFrames, faceDetectorPlugin, handleFacesOnJS, frameCounter, isProcessing]);
 
   return frameProcessor;
 }

@@ -184,8 +184,8 @@ importers:
         specifier: ^4.7.3
         version: 4.7.3(react-native-worklets-core@1.6.2(react-native@0.81.5(@babel/core@7.28.5)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0))(react-native@0.81.5(@babel/core@7.28.5)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
       react-native-vision-camera-face-detector:
-        specifier: ^1.9.1
-        version: 1.9.1(react-native-vision-camera@4.7.3(react-native-worklets-core@1.6.2(react-native@0.81.5(@babel/core@7.28.5)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0))(react-native@0.81.5(@babel/core@7.28.5)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0))(react-native@0.81.5(@babel/core@7.28.5)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
+        specifier: ^1.10.1
+        version: 1.10.1(react-native-vision-camera@4.7.3(react-native-worklets-core@1.6.2(react-native@0.81.5(@babel/core@7.28.5)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0))(react-native@0.81.5(@babel/core@7.28.5)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0))(react-native@0.81.5(@babel/core@7.28.5)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
       react-native-web:
         specifier: ^0.21.2
         version: 0.21.2(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -4324,8 +4324,8 @@ packages:
       react: '*'
       react-native: '*'
 
-  react-native-vision-camera-face-detector@1.9.1:
-    resolution: {integrity: sha512-OsTe61R1+CyzZLp3xLI3PBMBGd3zEWbeHPgqZPOSbB0gEKWyIaTahBUCft47pVdi72onDlke//hPM+xyFOYBjQ==}
+  react-native-vision-camera-face-detector@1.10.1:
+    resolution: {integrity: sha512-KTGJNVh2KszeMnVs/QsSYyUIu2wmZA0H3cQLaOqNXDsc33HB32EPRhO/+A574GGw0/FuYEAnBp3+hFnMCSISGA==}
     peerDependencies:
       react: '>= 18'
       react-native: '>= 0.74'
@@ -10262,7 +10262,7 @@ snapshots:
       react-native-is-edge-to-edge: 1.2.1(react-native@0.81.5(@babel/core@7.28.5)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
       warn-once: 0.1.1
 
-  react-native-vision-camera-face-detector@1.9.1(react-native-vision-camera@4.7.3(react-native-worklets-core@1.6.2(react-native@0.81.5(@babel/core@7.28.5)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0))(react-native@0.81.5(@babel/core@7.28.5)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0))(react-native@0.81.5(@babel/core@7.28.5)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0):
+  react-native-vision-camera-face-detector@1.10.1(react-native-vision-camera@4.7.3(react-native-worklets-core@1.6.2(react-native@0.81.5(@babel/core@7.28.5)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0))(react-native@0.81.5(@babel/core@7.28.5)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0))(react-native@0.81.5(@babel/core@7.28.5)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0):
     dependencies:
       react: 19.1.0
       react-native: 0.81.5(@babel/core@7.28.5)(@types/react@19.1.17)(react@19.1.0)
