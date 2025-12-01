@@ -70,8 +70,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/utils
       '@react-native-community/datetimepicker':
-        specifier: ^8.4.4
-        version: 8.5.0(expo@54.0.23)(react-native@0.81.5(@babel/core@7.28.5)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
+        specifier: ^8.5.1
+        version: 8.5.1(expo@54.0.23)(react-native@0.81.5(@babel/core@7.28.5)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
       '@react-native-community/netinfo':
         specifier: ^11.4.1
         version: 11.4.1(react-native@0.81.5(@babel/core@7.28.5)(@types/react@19.1.17)(react@19.1.0))
@@ -1494,8 +1494,8 @@ packages:
       '@types/react':
         optional: true
 
-  '@react-native-community/datetimepicker@8.5.0':
-    resolution: {integrity: sha512-RMWll1aPppMtzdJz4we4poNzVj9WUw5URHID7D2ICjGZq3KjrwwexvBnzp75EIYE/ihHXCn/OvYKe73fws9Y/g==}
+  '@react-native-community/datetimepicker@8.5.1':
+    resolution: {integrity: sha512-TuwM1ORbxCjOp1GOtONj0QnpDpVfq0F4UlfKZYPxL/vmriaLHt2Kgvw63Bv0Bpep4eOkslVVSS1IRfRI6d392g==}
     peerDependencies:
       expo: '>=52.0.0'
       react: '*'
@@ -6224,7 +6224,7 @@ snapshots:
     optionalDependencies:
       '@types/react': 19.1.17
 
-  '@react-native-community/datetimepicker@8.5.0(expo@54.0.23)(react-native@0.81.5(@babel/core@7.28.5)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)':
+  '@react-native-community/datetimepicker@8.5.1(expo@54.0.23)(react-native@0.81.5(@babel/core@7.28.5)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)':
     dependencies:
       invariant: 2.2.4
       react: 19.1.0

@@ -21,7 +21,7 @@
     "@mc-gate/reader-bridge": "workspace:*",
     "@mc-gate/ui-kit": "workspace:*",
     "@mc-gate/utils": "workspace:*",
-    "@react-native-community/datetimepicker": "^8.4.4",
+    "@react-native-community/datetimepicker": "^8.5.1",
     "@react-native-community/netinfo": "^11.4.1",
     "@tanstack/react-query": "^5.90.5",
     "expo": "~54.0.20",
