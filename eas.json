@@ -30,6 +30,23 @@
         "buildType": "apk"
       }
     },
+    "oauth-test": {
+      "distribution": "internal",
+      "channel": "oauth-test",
+      "env": {
+        "APP_ENV": "preview",
+        "USE_MOCK_AUTH": "false",
+        "AUTH_ISSUER": "http://192.168.1.4:8081/realms/mcd3",
+        "AUTH_AUDIENCE": "mc-gate",
+        "AUTH_CLIENT_ID": "mc-gate-mobile"
+      },
+      "ios": {
+        "simulator": false
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    },
     "production": {
       "channel": "production",
       "env": {

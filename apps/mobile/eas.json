@@ -27,7 +27,29 @@
         "API_FACE_API": "http://192.168.1.4:8101",
         "API_BASE_GS": "http://192.168.1.4:7070",
         "API_BASE_CCUS": "http://192.168.1.4:7071",
-        "AUTH_ISSUER": "http://192.168.1.4:8080/auth/realms/mcd3",
+        "AUTH_ISSUER": "http://192.168.1.4:8081/realms/mcd3",
+        "AUTH_AUDIENCE": "mc-gate",
+        "AUTH_CLIENT_ID": "mc-gate-mobile",
+        "API_FACE_API_KEY": "development-api-key-12345"
+      },
+      "ios": {
+        "simulator": false
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "oauth-test": {
+      "distribution": "internal",
+      "channel": "oauth-test",
+      "node": "22.12.0",
+      "env": {
+        "APP_ENV": "preview",
+        "USE_MOCK_AUTH": "false",
+        "API_FACE_API": "http://192.168.1.4:8101",
+        "API_BASE_GS": "http://192.168.1.4:7070",
+        "API_BASE_CCUS": "http://192.168.1.4:7071",
+        "AUTH_ISSUER": "http://192.168.1.4:8081/realms/mcd3",
         "AUTH_AUDIENCE": "mc-gate",
         "AUTH_CLIENT_ID": "mc-gate-mobile",
         "API_FACE_API_KEY": "development-api-key-12345"
