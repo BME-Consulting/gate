@@ -20,7 +20,8 @@
       "distribution": "internal",
       "channel": "preview",
       "env": {
-        "APP_ENV": "preview"
+        "APP_ENV": "preview",
+        "AUTH_ISSUER": "http://192.168.1.4:8081/realms/mcd3"
       },
       "ios": {
         "simulator": false
