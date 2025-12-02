@@ -357,7 +357,7 @@ export default function SettingsScreen() {
 
     try {
       // Workers APIはGS API (port 7070) を使用
-      const gsApiUrl = Constants.expoConfig?.extra?.apiBaseGs || "http://localhost:7070";
+      const gsApiUrl = Constants.expoConfig?.extra?.apiBaseGs || "http://192.168.1.4:7070";
       const gsApiKey = Constants.expoConfig?.extra?.apiGsApiKey || "development-api-key-12345";
       const workersApiUrl = `${gsApiUrl}/api/workers`;
 

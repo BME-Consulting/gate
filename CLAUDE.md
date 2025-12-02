@@ -159,7 +159,110 @@ npx eas-cli update --branch preview --message "feat: usesCleartextTraffic追加"
 
 ---
 
-## 🔧 サーバー設定の重要事項（2025-11-13）
+## 🔧 サーバー設定の重要事項（2025-12-02更新）
+
+### 🚨 **絶対禁止: localhost の使用**
+
+**重要**: モバイルアプリと通信するサーバーやサービスで **`localhost` を使用してはいけない**
+
+#### ❌ 禁止される使用例
+
+1. **サーバーのバインドアドレス**
+   ```bash
+   # ❌ NG: localhostでバインド
+   uvicorn app:app --host localhost --port 8100
+   node server.js --host localhost
+
+   # ✅ OK: 0.0.0.0でバインド（全インターフェース）
+   uvicorn app:app --host 0.0.0.0 --port 8100
+   node server.js --host 0.0.0.0
+   ```
+
+2. **Dockerコンテナの環境変数**
+   ```yaml
+   # ❌ NG: KC_HOSTNAME=localhost
+   environment:
+     KC_HOSTNAME: localhost
+     KC_HTTP_PORT: 8080
+
+   # ✅ OK: LAN IPアドレスを使用
+   environment:
+     KC_HOSTNAME: 192.168.1.4
+     KC_HTTP_PORT: 8080
+   ```
+
+3. **設定ファイルのデフォルト値**
+   ```typescript
+   // ❌ NG
+   const apiUrl = process.env.API_URL || "http://localhost:7070";
+
+   // ✅ OK: 開発環境でもLAN IPを使用
+   const apiUrl = process.env.API_URL || "http://192.168.1.4:7070";
+   ```
+
+#### 💡 なぜlocalhostを使ってはいけないのか
+
+1. **モバイルデバイスからアクセス不可**
+   - `localhost` はそのデバイス自身を指す
+   - スマートフォンから `localhost:8081` にアクセスすると、**スマートフォン自身のポート8081**を探す
+   - サーバーが別のマシンで動作していても接続できない
+
+2. **Docker環境での問題**
+   - Keycloakなどで `KC_HOSTNAME=localhost` を設定すると、外部からのアクセスを受け付けない
+   - ホスト名検証により、LAN IPアドレスでのアクセスがタイムアウトする
+
+3. **デバッグが困難**
+   - サーバーは起動しているのに「接続できない」
+   - ポートも開いているのに「タイムアウト」
+   - 原因がlocalhostバインドだと気づきにくい
+
+#### ✅ 正しい設定方法
+
+**開発環境のベストプラクティス**:
+
+1. **LAN IPアドレスを使用**
+   ```bash
+   # 自分のマシンのLAN IPを確認
+   ip addr show | grep "inet 192.168"
+   # または
+   ifconfig | grep "inet 192.168"
+
+   # 例: 192.168.1.4
+   ```
+
+2. **サーバーは 0.0.0.0 でバインド**
+   ```bash
+   # すべてのネットワークインターフェースで待受
+   uvicorn app:app --host 0.0.0.0 --port 8100
+   ```
+
+3. **設定ファイルに実際のIPを記載**
+   ```typescript
+   // app.config.js
+   const authIssuer = process.env.AUTH_ISSUER || "http://192.168.1.4:8081/realms/mcd3";
+   ```
+
+4. **Docker環境変数にLAN IPを設定**
+   ```yaml
+   # docker-compose.yml
+   environment:
+     KC_HOSTNAME: 192.168.1.4
+   ```
+
+#### 🔍 横展開チェックコマンド
+
+```bash
+# localhostを使用している箇所を検索
+grep -r "localhost" --include="*.ts" --include="*.js" --include="*.yml" --include="*.yaml" .
+
+# 127.0.0.1を使用している箇所を検索
+grep -r "127.0.0.1" --include="*.ts" --include="*.js" --include="*.yml" --include="*.yaml" .
+
+# 0.0.0.0でバインドしているか確認（サーバー起動後）
+netstat -tuln | grep LISTEN
+```
+
+---
 
 ### 問題: モバイルアプリが同一LAN内のサーバーに接続できない
 
@@ -169,7 +272,7 @@ npx eas-cli update --branch preview --message "feat: usesCleartextTraffic追加"
 - アプリは「サーバーに接続できません」エラー
 
 **根本原因**:
-1. **サーバーが `localhost` でバインドしている**
+1. **サーバーが `localhost` でバインドしている** ← 🚨 絶対禁止
 2. **Android の平文HTTP制限**
 3. **iOS の ATS (App Transport Security)**
 

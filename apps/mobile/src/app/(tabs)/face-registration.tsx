@@ -241,7 +241,7 @@ export default function FaceRegistrationScreen() {
       const imageData = `data:image/jpeg;base64,${base64Image}`;
 
       // 環境変数からFace API URLとAPIキーを取得
-      const apiFaceApi = Constants.expoConfig?.extra?.apiFaceApi || "http://localhost:8100";
+      const apiFaceApi = Constants.expoConfig?.extra?.apiFaceApi || "http://192.168.1.4:8101";
       const apiFaceApiKey = Constants.expoConfig?.extra?.apiFaceApiKey || "development-api-key-12345";
 
       // デバッグログ: 接続先URL
