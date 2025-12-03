@@ -196,30 +196,13 @@ export class WorkerRepository {
 
   /**
    * 全作業員を取得
-   * Note: execAsyncを使用してprepareAsync NullPointerExceptionを回避
    */
   async findAll(): Promise<Worker[]> {
     try {
-      // getAllAsync() は内部でprepareAsync()を呼び、NullPointerExceptionが発生する
-      // execAsync()を使用して直接SQLを実行
-      const result: any = await this.db.execAsync(
-        `SELECT * FROM workers ORDER BY name ASC;`
+      // getAllAsync()でSELECTクエリを実行
+      const rows = await this.db.getAllAsync<any>(
+        `SELECT * FROM workers ORDER BY name ASC`
       );
-
-      // execAsync の戻り値の形式を確認してパース
-      // expo-sqlite のバージョンによって返却形式が異なる可能性がある
-      let rows: any[] = [];
-
-      if (Array.isArray(result)) {
-        rows = result;
-      } else if (result && Array.isArray(result.rows)) {
-        rows = result.rows;
-      } else if (result && result._array) {
-        rows = result._array;
-      } else if (result && result[0] && Array.isArray(result[0].rows)) {
-        // execAsync が [{rows: [...]}] 形式で返す場合
-        rows = result[0].rows;
-      }
 
       if (typeof __DEV__ !== "undefined" && __DEV__) {
         console.log(`[WorkerRepository.findAll] Loaded ${rows.length} workers`);

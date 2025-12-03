@@ -1,0 +1,27 @@
+tunnel: 77c5c965-df5e-4d76-9738-aaa9ad316ec8
+credentials-file: /etc/cloudflared/cred.json
+
+ingress:
+  # GS API Service
+  - hostname: api.mc-gate.yourdomain.com
+    service: http://192.168.1.4:7070
+    originRequest:
+      connectTimeout: 30s
+      noTLSVerify: false
+
+  # Face API Service
+  - hostname: face.mc-gate.yourdomain.com
+    service: http://192.168.1.4:8100
+    originRequest:
+      connectTimeout: 30s
+      noTLSVerify: false
+
+  # Keycloak Authentication Service
+  - hostname: auth.mc-gate.yourdomain.com
+    service: http://192.168.1.4:8081
+    originRequest:
+      connectTimeout: 30s
+      noTLSVerify: false
+
+  # Catch-all rule (must be last)
+  - service: http_status:404

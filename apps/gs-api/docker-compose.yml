@@ -74,11 +74,12 @@ services:
       KC_HTTP_ENABLED: "true"
       KC_HEALTH_ENABLED: "true"
       KC_METRICS_ENABLED: "true"
+      KC_HOSTNAME_STRICT: "false"
       # Enable transaction recovery to avoid warning
       JAVA_OPTS_APPEND: "-Dquarkus.transaction-manager.enable-recovery=true"
     command: start-dev
     ports:
-      - "8081:8080"
+      - "127.0.0.1:8081:8080"
     depends_on:
       keycloak-db:
         condition: service_healthy
@@ -127,6 +128,17 @@ services:
       - mc-gate-network
     profiles:
       - production
+
+  # Cloudflare Tunnel
+  cloudflare-tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: mc-gate-cloudflare-tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    networks:
+      - mc-gate-network
 
 volumes:
   postgres_data:
