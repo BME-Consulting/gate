@@ -110,7 +110,7 @@ export default function LoginScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.content}>
-        <Text style={styles.title}>通門管理システム</Text>
+        <Text style={styles.title}>MCD3 通門管理</Text>
         <Text style={styles.subtitle}>ログイン</Text>
 
         <View style={styles.form}>

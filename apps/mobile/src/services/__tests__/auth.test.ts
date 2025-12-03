@@ -16,15 +16,15 @@ jest.mock("expo-constants");
 
 describe("OAuth Authentication Service", () => {
   const mockConfig = {
-    issuer: "https://auth.gate.bme-service.monster/realms/mcgate",
+    issuer: "http://192.168.1.4:8080/auth/realms/mcd3",
     clientId: "mc-gate-mobile",
     audience: "mc-gate",
   };
 
   const mockDiscovery = {
-    authorizationEndpoint: "https://auth.gate.bme-service.monster/realms/mcgate/protocol/openid-connect/auth",
-    tokenEndpoint: "https://auth.gate.bme-service.monster/realms/mcgate/protocol/openid-connect/token",
-    endSessionEndpoint: "https://auth.gate.bme-service.monster/realms/mcgate/protocol/openid-connect/logout",
+    authorizationEndpoint: "http://192.168.1.4:8080/auth/realms/mcd3/protocol/openid-connect/auth",
+    tokenEndpoint: "http://192.168.1.4:8080/auth/realms/mcd3/protocol/openid-connect/token",
+    endSessionEndpoint: "http://192.168.1.4:8080/auth/realms/mcd3/protocol/openid-connect/logout",
   };
 
   beforeEach(() => {
@@ -95,7 +95,7 @@ describe("OAuth Authentication Service", () => {
       };
       (AuthSession.AuthRequest as jest.Mock).mockImplementation(() => mockAuthRequest);
 
-      await expect(loginWithKeycloak()).rejects.toThrow("ï¿½ï¿½ï¿½ï¿½Lï¿½ï¿½ï¿½ï¿½Uï¿½~W_");
+      await expect(loginWithKeycloak()).rejects.toThrow("í°¤óL­ãó»ëUŒ~W_");
     });
 
     it("should throw error when auth config is missing", async () => {
@@ -219,7 +219,7 @@ describe("OAuth Authentication Service", () => {
       };
       (AuthSession.AuthRequest as jest.Mock).mockImplementation(() => mockAuthRequest);
 
-      await expect(loginWithKeycloak()).rejects.toThrow("ï¿½<k1WW~W_");
+      await expect(loginWithKeycloak()).rejects.toThrow("<k1WW~W_");
     });
   });
 });
