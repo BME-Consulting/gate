@@ -6,6 +6,24 @@ import { useEffect, useMemo } from "react";
 import { Stack, useRouter, usePathname } from "expo-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import * as Linking from "expo-linking";
+import * as Sentry from "@sentry/react-native";
+import Constants from "expo-constants";
+
+// Sentry 初期化
+const sentryDsn = Constants.expoConfig?.extra?.sentryDsn;
+const appEnv = Constants.expoConfig?.extra?.appEnv || "development";
+
+if (sentryDsn) {
+  Sentry.init({
+    dsn: sentryDsn,
+    debug: appEnv !== "production", // 本番以外はデバッグログ有効
+    tracesSampleRate: 1.0, // パフォーマンストレーシング
+    environment: appEnv,
+  });
+  console.log(`[Sentry] Initialized for environment: ${appEnv}`);
+} else {
+  console.warn("[Sentry] SENTRY_DSN not configured. Error tracking disabled.");
+}
 
 export default function RootLayout() {
   const router = useRouter();

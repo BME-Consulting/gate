@@ -14,6 +14,7 @@ import { router } from "expo-router";
 import { TIMEOUT, fetchWithTimeout } from "@mc-gate/core";
 import { useFaceDetection } from "../../hooks/useFaceDetection";
 import type { Face } from "react-native-vision-camera-face-detector";
+import * as Sentry from "@sentry/react-native";
 
 // Face API レスポンス型定義（Face APIはsnake_caseを返す）
 interface FaceRegistrationResponse {
@@ -60,6 +61,14 @@ export default function FaceRegistrationScreen() {
       setInitError(null);
     }
   }, [cameraDevice]);
+
+  // 🔍 DEBUG: Sentry テスト - 顔登録タブマウント検出
+  useEffect(() => {
+    console.log("[FaceReg] 🔍 Sentry test: Sending mount event to Sentry");
+    Sentry.captureException(
+      new Error("🔍 Sentry test: FaceRegistrationScreen mounted successfully")
+    );
+  }, []);
 
   // 作業員一覧を取得
   useEffect(() => {

@@ -15,6 +15,9 @@ module.exports = ({ config }) => {
   const apiGsApiKey = process.env.API_GS_API_KEY || (isProduction ? null : "development-api-key-12345");
   const apiFaceApiKey = process.env.API_FACE_API_KEY || (isProduction ? null : "development-api-key-12345");
 
+  // Sentry DSN - Error tracking and monitoring
+  const sentryDsn = process.env.SENTRY_DSN || "";
+
   // Validation for production environment
   if (isProduction) {
     // 1. HTTPS enforcement
@@ -150,6 +153,9 @@ Please set these environment variables before building.
       // アプリケーション定数（本番運用向け）
       defaultProjectId: process.env.DEFAULT_PROJECT_ID || "PRJ001",
       dbName: "mc-gate.db",
+
+      // Sentry configuration
+      sentryDsn,
     },
     plugins: [
       "expo-updates",
