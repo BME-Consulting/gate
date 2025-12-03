@@ -5,11 +5,11 @@ module.exports = ({ config }) => {
   const isProduction = appEnv === "production";
 
   // API URLs - IMPORTANT: Use environment variables for production
-  // For development, fallback to hardcoded values
-  const apiBaseGs = process.env.API_BASE_GS || "http://192.168.1.4:7070";
-  const apiBaseCcus = process.env.API_BASE_CCUS || "http://192.168.1.4:7071";
-  const apiFaceApi = process.env.API_FACE_API || "http://192.168.1.4:8101";
-  const authIssuer = process.env.AUTH_ISSUER || "http://192.168.1.4:8081/realms/mcd3";
+  // For development, fallback to production URLs
+  const apiBaseGs = process.env.API_BASE_GS || "https://api.gate.bme-service.monster";
+  const apiBaseCcus = process.env.API_BASE_CCUS || "https://ccus.gate.bme-service.monster";
+  const apiFaceApi = process.env.API_FACE_API || "https://face.bme-service.monster";
+  const authIssuer = process.env.AUTH_ISSUER || "https://auth.gate.bme-service.monster/realms/mcgate";
 
   // API Keys - MUST be set via environment variables in production
   const apiGsApiKey = process.env.API_GS_API_KEY || (isProduction ? null : "development-api-key-12345");
