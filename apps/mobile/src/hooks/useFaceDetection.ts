@@ -59,6 +59,12 @@ export function useFaceDetection(options: FaceDetectionOptions) {
       isProcessing.value = true;
       const faces = faceDetectorPlugin.detectFaces(frame);
 
+      // Guard against undefined/null results
+      if (!faces || !Array.isArray(faces)) {
+        console.warn('[FaceDetection] detectFaces returned invalid result:', faces);
+        return;
+      }
+
       if (faces.length > 0) {
         const largeFaces = faces.filter((face: Face) => {
           const faceSize = face.bounds.width * face.bounds.height;

@@ -91,6 +91,12 @@ export default function FaceRegistrationScreen() {
 
   // 顔検出コールバック
   const handleFacesDetected = useCallback(async (faces: Face[]) => {
+    // Guard against invalid input
+    if (!faces || !Array.isArray(faces)) {
+      console.warn('[FaceReg] Invalid faces parameter:', faces);
+      return;
+    }
+
     console.log(`[FaceReg] handleFacesDetected called - faces count: ${faces.length}`);
 
     // 処理中または最近処理した場合はスキップ
