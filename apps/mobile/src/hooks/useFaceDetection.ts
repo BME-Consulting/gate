@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useCallback } from 'react';
 import { useFrameProcessor, Frame } from 'react-native-vision-camera';
 import { useFaceDetector, Face } from 'react-native-vision-camera-face-detector';
-import { useSharedValue } from 'react-native-worklets-core';
-import { runOnJS } from 'react-native-reanimated';
+import { useSharedValue, useRunOnJS } from 'react-native-worklets-core';
 
 interface FaceDetectionOptions {
   enabled: boolean;
@@ -33,8 +32,8 @@ export function useFaceDetection(options: FaceDetectionOptions) {
   const frameCounter = useSharedValue(0);
   const isProcessing = useSharedValue(false);
 
-  // Stable callback using useCallback
-  const handleFacesCallback = useCallback((faces: Face[]) => {
+  // Wrap the callback with useRunOnJS to make it callable from worklet
+  const handleFacesCallback = useRunOnJS((faces: Face[]) => {
     onFacesDetected(faces);
   }, [onFacesDetected]);
 
@@ -67,7 +66,7 @@ export function useFaceDetection(options: FaceDetectionOptions) {
         });
 
         if (largeFaces.length > 0) {
-          runOnJS(handleFacesCallback)(largeFaces);
+          handleFacesCallback(largeFaces);
         }
       }
     } catch (error) {
