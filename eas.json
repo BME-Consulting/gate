@@ -22,7 +22,7 @@
       "env": {
         "APP_ENV": "preview",
         "AUTH_ISSUER": "http://192.168.1.4:8081/realms/mcd3",
-        "SENTRY_DSN": ""
+        "SENTRY_DSN": "https://a78f6b7457e0eff34f464bc83a1a0885@o4509755717648384.ingest.us.sentry.io/4510471361265664"
       },
       "ios": {
         "simulator": false
