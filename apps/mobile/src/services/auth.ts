@@ -27,10 +27,19 @@ interface AuthConfig {
 function getAuthConfig(): AuthConfig {
   const { auth } = Constants.expoConfig?.extra || {};
 
+  // フォールバック値（開発環境用）
+  const fallbackConfig: AuthConfig = {
+    issuer: "http://192.168.1.4:8081/realms/mcd3",
+    clientId: "mc-gate-mobile",
+    audience: "mc-gate",
+  };
+
   if (!auth?.issuer || !auth?.clientId || !auth?.audience) {
-    throw new Error(
-      "Auth configuration is missing. Please check app.config.ts extra.auth settings."
+    console.warn(
+      "[auth.ts] Auth configuration is missing from Constants.expoConfig.extra.auth. Using fallback values."
     );
+    console.warn("[auth.ts] Fallback config:", fallbackConfig);
+    return fallbackConfig;
   }
 
   return {

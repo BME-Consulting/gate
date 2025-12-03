@@ -58,12 +58,23 @@ Please set these environment variables before building.
     }
   }
 
+  // Expo から渡される config.extra をベースにする（なければ {}）
+  const baseExtra = (config && config.extra) || {};
+
+  // デバッグ出力（ビルドログで確認用）
+  console.log("🔍 app.config.js Debug (before merge):");
+  console.log("  incoming config.extra:", JSON.stringify(baseExtra, null, 2));
+  console.log("  apiBaseGs:", apiBaseGs);
+  console.log("  apiBaseCcus:", apiBaseCcus);
+  console.log("  apiFaceApi:", apiFaceApi);
+  console.log("  authIssuer:", authIssuer);
+
   return {
     ...config,
     name: "mc-gate",
     slug: "mc-gate",
     owner: "bme_llc",
-    version: "1.0.26",
+    version: "1.0.27",
     orientation: "portrait",
     icon: "./assets/icon.png",
     userInterfaceStyle: "light",
@@ -85,7 +96,7 @@ Please set these environment variables before building.
     },
     android: {
       package: "com.bmeconsulting.mcgate",
-      versionCode: 27,
+      versionCode: 28,
       adaptiveIcon: {
         foregroundImage: "./assets/adaptive-icon.png",
         backgroundColor: "#ffffff",
@@ -104,18 +115,29 @@ Please set these environment variables before building.
       policy: "sdkVersion",
     },
     extra: {
+      // まず既存 extra を先に展開（後から上書きするため）
+      ...baseExtra,
+
+      // その上で「絶対こうであってほしい値」で上書き
       eas: {
+        ...(baseExtra.eas || {}),
         projectId: "0f0feec5-4f4b-4252-ad34-c1594238b4b8",
       },
+
+      // フラットキー（後方互換＆expo config 用）
       apiBaseGs,
       apiBaseCcus,
       apiFaceApi,
       apiGsApiKey,
       apiFaceApiKey,
+      authIssuer,  // フラットキーとしても保存
+
+      // ネストされた auth（実際にアプリが参照する想定）
       auth: {
+        ...(baseExtra.auth || {}),
         issuer: authIssuer,
-        audience: process.env.AUTH_AUDIENCE || "mc-gate",
-        clientId: process.env.AUTH_CLIENT_ID || "mc-gate-mobile",
+        audience: process.env.AUTH_AUDIENCE || baseExtra.auth?.audience || "mc-gate",
+        clientId: process.env.AUTH_CLIENT_ID || baseExtra.auth?.clientId || "mc-gate-mobile",
       },
       // モック認証の使用（APP_ENVで強制制御）
       // 本番環境（APP_ENV=production）では絶対にfalse
