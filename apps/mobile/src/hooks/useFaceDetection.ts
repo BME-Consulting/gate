@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo, useCallback } from 'react';
 import { useFrameProcessor, Frame } from 'react-native-vision-camera';
 import { useFaceDetector, Face } from 'react-native-vision-camera-face-detector';
-import { useSharedValue, useRunOnJS } from 'react-native-worklets-core';
+import { useSharedValue } from 'react-native-worklets-core';
+import { runOnJS } from 'react-native-reanimated';
 
 interface FaceDetectionOptions {
   enabled: boolean;
@@ -19,25 +20,25 @@ interface FaceDetectionOptions {
 export function useFaceDetection(options: FaceDetectionOptions) {
   const { enabled, onFacesDetected, minFaceSize = 20000, cooldownMs = 2000 } = options;
 
-  // Use the plugin from the library
-  const faceDetectorPlugin = useFaceDetector({
+  // Use the plugin from the library - memoize to prevent re-initialization
+  const faceDetectorPlugin = useMemo(() => useFaceDetector({
     performanceMode: 'fast',
     landmarkMode: 'none',
     contourMode: 'none',
     classificationMode: 'none',
-  });
+  }), []);
 
   // フレームスキップカウンター（cooldownMsを30fpsで換算）
-  const skipFrames = Math.floor((cooldownMs / 1000) * 30);
+  const skipFrames = useMemo(() => Math.floor((cooldownMs / 1000) * 30), [cooldownMs]);
   const frameCounter = useSharedValue(0);
   const isProcessing = useSharedValue(false);
 
-  // Create a worklet-safe callback to run on JS thread
-  const handleFacesOnJS = useRunOnJS((faces: Face[]) => {
+  // Stable callback using useCallback
+  const handleFacesCallback = useCallback((faces: Face[]) => {
     onFacesDetected(faces);
   }, [onFacesDetected]);
 
-  // Cleanup on unmount or when enabled changes
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
       // Reset shared values on unmount
@@ -66,7 +67,7 @@ export function useFaceDetection(options: FaceDetectionOptions) {
         });
 
         if (largeFaces.length > 0) {
-          handleFacesOnJS(largeFaces);
+          runOnJS(handleFacesCallback)(largeFaces);
         }
       }
     } catch (error) {
@@ -74,7 +75,7 @@ export function useFaceDetection(options: FaceDetectionOptions) {
     } finally {
       isProcessing.value = false;
     }
-  }, [enabled, minFaceSize, skipFrames, faceDetectorPlugin, handleFacesOnJS, frameCounter, isProcessing]);
+  }, [enabled, minFaceSize, skipFrames]);
 
   return frameProcessor;
 }
