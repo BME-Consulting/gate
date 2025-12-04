@@ -49,66 +49,74 @@ export function useFaceDetection(options: FaceDetectionOptions) {
   const frameProcessor = useFrameProcessor((frame: Frame) => {
     'worklet';
 
-    if (!enabled || isProcessing.value) return;
-
-    // フレームスキップ（cooldown実装）
-    frameCounter.value++;
-    if (frameCounter.value % skipFrames !== 0) return;
-
+    // 🔐 ワークレット全体を try/catch でラップ（ネイティブクラッシュ防止）
     try {
-      isProcessing.value = true;
+      if (!enabled || isProcessing.value) return;
 
-      // 🔐 防御的実装: detectFaces が何を返してきても落ちないようにする
-      let faces: any;
+      // フレームスキップ（cooldown実装）
+      frameCounter.value++;
+      if (frameCounter.value % skipFrames !== 0) return;
+
       try {
-        faces = faceDetectorPlugin.detectFaces(frame);
-      } catch (detectError) {
-        console.error('[FaceDetection] detectFaces threw error:', detectError);
-        return;
-      }
+        isProcessing.value = true;
 
-      // 🔐 防御的実装: undefined/null/非配列を厳密にガード
-      if (!faces) {
-        console.warn('[FaceDetection] detectFaces returned null/undefined');
-        return;
-      }
+        // 🔐 防御的実装: detectFaces が何を返してきても落ちないようにする
+        let faces: any;
+        try {
+          faces = faceDetectorPlugin.detectFaces(frame);
+        } catch (detectError) {
+          console.log('[FaceDetection] detectFaces threw error:', detectError);
+          return;
+        }
 
-      if (!Array.isArray(faces)) {
-        console.warn('[FaceDetection] detectFaces returned non-array:', typeof faces);
-        return;
-      }
+        // 🔐 防御的実装: undefined/null/非配列を厳密にガード
+        if (!faces) {
+          // 顔なし - 正常なケース、ログは不要
+          return;
+        }
 
-      if (faces.length === 0) {
-        // 顔なし - 正常なケース、ログは不要
-        return;
-      }
+        if (!Array.isArray(faces)) {
+          console.log('[FaceDetection] detectFaces returned non-array:', typeof faces);
+          return;
+        }
 
-      // 🔐 防御的実装: 各faceオブジェクトの構造を検証
-      const validFaces = faces.filter((face: any) => {
-        if (!face || typeof face !== 'object') return false;
-        if (!face.bounds || typeof face.bounds !== 'object') return false;
-        if (typeof face.bounds.width !== 'number' || typeof face.bounds.height !== 'number') return false;
-        return true;
-      });
+        if (faces.length === 0) {
+          // 顔なし - 正常なケース、ログは不要
+          return;
+        }
 
-      if (validFaces.length === 0) {
-        console.warn('[FaceDetection] No valid face objects found');
-        return;
-      }
+        // 🔐 防御的実装: 各faceオブジェクトの構造を検証（必要最小限）
+        const safeFaces = faces.filter((face: any) => {
+          if (!face || typeof face !== 'object') return false;
+          if (!face.bounds || typeof face.bounds !== 'object') return false;
+          // Number.isFinite でさらに厳密にチェック
+          if (!Number.isFinite(face.bounds.width) || !Number.isFinite(face.bounds.height)) return false;
+          return true;
+        });
 
-      // minFaceSize フィルタリング
-      const largeFaces = validFaces.filter((face: Face) => {
-        const faceSize = face.bounds.width * face.bounds.height;
-        return faceSize > minFaceSize;
-      });
+        if (safeFaces.length === 0) {
+          console.log('[FaceDetection] No valid face objects found');
+          return;
+        }
 
-      if (largeFaces.length > 0) {
-        handleFacesCallback(largeFaces);
+        // minFaceSize フィルタリング
+        const largeFaces = safeFaces.filter((face: Face) => {
+          const faceSize = face.bounds.width * face.bounds.height;
+          return Number.isFinite(faceSize) && faceSize > minFaceSize;
+        });
+
+        if (largeFaces.length > 0) {
+          // JS 側の handleFacesDetected でさらに防御しているので、とにかく落とさず渡す
+          handleFacesCallback(largeFaces);
+        }
+      } catch (error) {
+        console.log('[FaceDetection] Inner error in frame processor:', error);
+      } finally {
+        isProcessing.value = false;
       }
     } catch (error) {
-      console.error('[FaceDetection] Unexpected error in frame processor:', error);
-    } finally {
-      isProcessing.value = false;
+      // 🚨 重要: ワークレット内のエラーは絶対にネイティブに伝播させない
+      console.log('[FaceDetection] Outer worklet error:', error);
     }
   }, [enabled, minFaceSize, skipFrames]);
 
