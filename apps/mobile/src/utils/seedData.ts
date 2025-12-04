@@ -7,11 +7,11 @@ import { openDatabaseAsync } from "expo-sqlite";
 import Constants from "expo-constants";
 import type { ScanEvent, SQLiteDatabase } from "@mc-gate/core";
 
-// 定数取得用ヘルパー関数（トップレベルでのアクセスを回避）
-function getProjectId(): string {
-  const configProjectId = Constants.expoConfig?.extra?.defaultProjectId;
-  return (typeof configProjectId === "string" && configProjectId) ? configProjectId : "PRJ001";
-}
+// 定数: プロジェクトID（ハードコード）
+// 注: Constants.expoConfig?.extra?.defaultProjectId を使用すると、
+// EAS Update/Buildの間でモジュール解決エラーが発生し、[object Object] になる問題があるため、
+// 直接ハードコードして確実に文字列として扱う
+const PROJECT_ID = "PRJ001";
 
 function getDbName(): string {
   return Constants.expoConfig?.extra?.dbName || "mc-gate.db";
@@ -58,7 +58,7 @@ function generateScanEvent(index: number): ScanEvent {
   const personId = randomElement(PERSON_IDS);
   const method = Math.random() > 0.3 ? "QR" : "CARD";
   const decidedMode = Math.random() > 0.5 ? "IN" : "OUT";
-  const projectId = getProjectId();
+  const projectId = PROJECT_ID;
 
   // 今日(00:00:00)から現在時刻までのランダムな時刻を生成
   const today = new Date();
@@ -162,7 +162,7 @@ function generateInsertSQL(event: ScanEvent): string {
 export async function seedDummyData(count: number = 50) {
   console.log(`Seeding ${count} dummy scan events using execAsync...`);
   const dbName = getDbName();
-  const projectId = getProjectId();
+  const projectId = PROJECT_ID;
 
   try {
     const db = (await openDatabaseAsync(dbName)) as unknown as SQLiteDatabase;
