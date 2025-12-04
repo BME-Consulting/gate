@@ -12,8 +12,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { useWorkers } from "../../hooks/useWorkers";
 import { router } from "expo-router";
 import { TIMEOUT, fetchWithTimeout } from "@mc-gate/core";
-import { useFaceDetection } from "../../hooks/useFaceDetection";
-import type { Face } from "react-native-vision-camera-face-detector";
 import * as Sentry from "@sentry/react-native";
 
 // Face API レスポンス型定義（Face APIはsnake_caseを返す）
@@ -32,11 +30,6 @@ export default function FaceRegistrationScreen() {
   const [selectedPersonId, setSelectedPersonId] = useState<string>("");
   const [registrationResult, setRegistrationResult] = useState<FaceRegistrationResponse | null>(null);
   const [isWorkerModalVisible, setIsWorkerModalVisible] = useState(false);
-  const [lastFaceDetection, setLastFaceDetection] = useState<{
-    timestamp: number;
-    confidence: number;
-    size: number;
-  } | null>(null);
   const [isFocused, setIsFocused] = useState(true);
   const [initError, setInitError] = useState<string | null>(null);
 
@@ -74,7 +67,6 @@ export default function FaceRegistrationScreen() {
       console.log("[FaceReg] Tab focused - mounting camera");
       setIsFocused(true);
       setIsProcessing(false);
-      setLastFaceDetection(null);
       processingLock.current = false;
       lastProcessTime.current = 0;
 
@@ -88,68 +80,16 @@ export default function FaceRegistrationScreen() {
     }, [])
   );
 
-  // 🔥 顔検出コールバック（超軽量化 - setState は1回だけ、依存配列は空）
-  const handleFacesDetected = useCallback((faces: Face[]) => {
-    console.log(`[FaceReg] handleFacesDetected - faces: ${faces.length}`);
-
-    // 顔が検出されていない場合
-    if (faces.length === 0) {
-      setLastFaceDetection(null);
-      return;
-    }
-
-    // 処理中または最近処理した場合はスキップ
-    const now = Date.now();
-    if (processingLock.current || now - lastProcessTime.current < 1000) {
-      return;
-    }
-
-    // 最大の顔を取得
-    const largestFace = faces.reduce((prev, current) =>
-      current.bounds.width * current.bounds.height >
-      prev.bounds.width * prev.bounds.height
-        ? current
-        : prev
-    );
-
-    const faceSize = largestFace.bounds.width * largestFace.bounds.height;
-
-    // setState は1回だけ
-    setLastFaceDetection({
-      timestamp: now,
-      confidence: 0.8,
-      size: faceSize,
-    });
-  }, []); // 🔥 依存配列を空に固定！
-
-  // 🔥 frameProcessor を固定（isFocusedのみ）
-  const frameProcessor = useFaceDetection({
-    enabled: isFocused,
-    onFacesDetected: handleFacesDetected,
-    minFaceSize: 20000,
-    cooldownMs: 2000,
-  });
-
-  // 🔥 detectionStatus を useMemo で計算（state を削除）
+  // 🎯 シンプルなステータスメッセージ（サーバー側Face API専用）
   const detectionStatus = useMemo(() => {
     if (isProcessing) return "登録中...";
 
-    if (!lastFaceDetection) {
-      return selectedPersonId
-        ? "顔をフレーム内に合わせてください"
-        : "作業員を選択して顔をフレーム内に合わせてください";
+    if (!selectedPersonId) {
+      return "作業員を選択して、顔をフレーム内に合わせてから撮影ボタンをタップしてください";
     }
 
-    const isFaceQualityGood = lastFaceDetection.size > 20000;
-
-    if (isFaceQualityGood) {
-      return selectedPersonId
-        ? "✅ 顔を検出しました。写真を撮影してください"
-        : "✅ 顔を検出しました。作業員を選択してください";
-    }
-
-    return "顔をまっすぐカメラに向けてください";
-  }, [isProcessing, lastFaceDetection, selectedPersonId]);
+    return "顔をフレーム内に合わせて、撮影ボタンをタップしてください";
+  }, [isProcessing, selectedPersonId]);
 
   // カメラ権限のチェック
   if (!hasPermission) {
@@ -184,7 +124,7 @@ export default function FaceRegistrationScreen() {
     );
   }
 
-  // 写真を撮影してFace APIに送信
+  // 写真を撮影してFace APIに送信（サーバー側で顔検出）
   const handleTakePicture = async () => {
     if (!cameraRef.current || !isCameraReady || isProcessing || processingLock.current) {
       return;
@@ -193,26 +133,6 @@ export default function FaceRegistrationScreen() {
     // 作業員が選択されているか確認
     if (!selectedPersonId) {
       Alert.alert("エラー", "作業員を選択してください", [{ text: "OK" }]);
-      return;
-    }
-
-    // 顔が検出されているか確認
-    if (!lastFaceDetection) {
-      Alert.alert("エラー", "顔が検出されていません。\n顔をフレーム内に合わせてください", [{ text: "OK" }]);
-      return;
-    }
-
-    // 顔検出が古い場合は拒否
-    const now = Date.now();
-    if (now - lastFaceDetection.timestamp > 2000) {
-      Alert.alert("エラー", "顔の検出が古くなっています。\nもう一度顔をフレーム内に合わせてください", [{ text: "OK" }]);
-      setLastFaceDetection(null);
-      return;
-    }
-
-    // 顔のサイズが十分大きいか確認
-    if (lastFaceDetection.size < 20000) {
-      Alert.alert("エラー", "顔が小さすぎます。\nカメラに近づいてください", [{ text: "OK" }]);
       return;
     }
 
@@ -367,32 +287,23 @@ export default function FaceRegistrationScreen() {
     setSelectedPersonId(personId);
     setIsWorkerModalVisible(false);
     setRegistrationResult(null);
-    setLastFaceDetection(null);
   };
 
   // 選択された作業員情報を取得
   const selectedWorker = workers?.find(w => w.personId === selectedPersonId);
-
-  // 顔が検出されているかチェック (useMemo で最適化)
-  const isFaceDetected = useMemo(() => {
-    if (!lastFaceDetection) return false;
-    return (Date.now() - lastFaceDetection.timestamp < 2000) &&
-           lastFaceDetection.size >= 20000;
-  }, [lastFaceDetection]);
 
   // 🔥 Camera を安定領域に配置（isFocusedのみで制御、cameraDevice削除）
   return (
     <View style={styles.container}>
       {isFocused && cameraDevice && (
         <View style={styles.cameraContainer}>
-          {/* 🔥 Camera Core - 絶対に揺らさない */}
+          {/* Camera - frameProcessor削除（サーバー側Face API専用） */}
           <Camera
             ref={cameraRef}
             style={StyleSheet.absoluteFill}
             device={cameraDevice}
             isActive={isFocused}
             photo={true}
-            frameProcessor={frameProcessor}
             onInitialized={() => {
               console.log("[FaceReg] Camera initialized");
               setIsCameraReady(true);
@@ -446,37 +357,15 @@ export default function FaceRegistrationScreen() {
                 </TouchableOpacity>
               </View>
 
-              {/* ガイドフレーム */}
+              {/* ガイドフレーム（固定色・サーバー側判定） */}
               <View style={styles.guideContainer}>
-                <View style={[
-                  styles.guideFrame,
-                  isFaceDetected && styles.guideFrameDetected
-                ]}>
-                  <View style={[
-                    styles.guideCorner,
-                    styles.guideCornerTopLeft,
-                    isFaceDetected && styles.guideCornerDetected
-                  ]} />
-                  <View style={[
-                    styles.guideCorner,
-                    styles.guideCornerTopRight,
-                    isFaceDetected && styles.guideCornerDetected
-                  ]} />
-                  <View style={[
-                    styles.guideCorner,
-                    styles.guideCornerBottomLeft,
-                    isFaceDetected && styles.guideCornerDetected
-                  ]} />
-                  <View style={[
-                    styles.guideCorner,
-                    styles.guideCornerBottomRight,
-                    isFaceDetected && styles.guideCornerDetected
-                  ]} />
+                <View style={styles.guideFrame}>
+                  <View style={[styles.guideCorner, styles.guideCornerTopLeft]} />
+                  <View style={[styles.guideCorner, styles.guideCornerTopRight]} />
+                  <View style={[styles.guideCorner, styles.guideCornerBottomLeft]} />
+                  <View style={[styles.guideCorner, styles.guideCornerBottomRight]} />
                 </View>
-                <Text style={[
-                  styles.guideText,
-                  isFaceDetected && styles.guideTextDetected
-                ]}>
+                <Text style={styles.guideText}>
                   {detectionStatus}
                 </Text>
               </View>
@@ -527,16 +416,12 @@ export default function FaceRegistrationScreen() {
                   <TouchableOpacity
                     style={[
                       styles.captureButton,
-                      (!isCameraReady || !selectedPersonId || !isFaceDetected) && styles.captureButtonDisabled,
-                      isFaceDetected && styles.captureButtonActive,
+                      (!isCameraReady || !selectedPersonId) && styles.captureButtonDisabled,
                     ]}
                     onPress={handleTakePicture}
-                    disabled={!isCameraReady || isProcessing || !selectedPersonId || !isFaceDetected}
+                    disabled={!isCameraReady || isProcessing || !selectedPersonId}
                   >
-                    <View style={[
-                      styles.captureButtonInner,
-                      isFaceDetected && styles.captureButtonInnerActive,
-                    ]} />
+                    <View style={styles.captureButtonInner} />
                   </TouchableOpacity>
                 )}
             </View>
