@@ -32,7 +32,6 @@ export default function FaceRegistrationScreen() {
   const [selectedPersonId, setSelectedPersonId] = useState<string>("");
   const [registrationResult, setRegistrationResult] = useState<FaceRegistrationResponse | null>(null);
   const [isWorkerModalVisible, setIsWorkerModalVisible] = useState(false);
-  const [detectionStatus, setDetectionStatus] = useState<string>("作業員を選択して顔をフレーム内に合わせてください");
   const [lastFaceDetection, setLastFaceDetection] = useState<{
     timestamp: number;
     confidence: number;
@@ -75,7 +74,6 @@ export default function FaceRegistrationScreen() {
       console.log("[FaceReg] Tab focused - mounting camera");
       setIsFocused(true);
       setIsProcessing(false);
-      setDetectionStatus("作業員を選択して顔をフレーム内に合わせてください");
       setLastFaceDetection(null);
       processingLock.current = false;
       lastProcessTime.current = 0;
@@ -90,29 +88,21 @@ export default function FaceRegistrationScreen() {
     }, [])
   );
 
-  // 顔検出コールバック（auth.tsxと同じシンプルなパターン）
+  // 🔥 顔検出コールバック（超軽量化 - setState は1回だけ、依存配列は空）
   const handleFacesDetected = useCallback((faces: Face[]) => {
-    console.log(`[FaceReg] handleFacesDetected called - faces count: ${faces.length}`);
-
-    // 処理中または最近処理した場合はスキップ
-    const now = Date.now();
-    if (processingLock.current || now - lastProcessTime.current < 1000) {
-      console.log(`[FaceReg] Skipping face detection - processing: ${processingLock.current}, cooldown: ${now - lastProcessTime.current}ms`);
-      return;
-    }
+    console.log(`[FaceReg] handleFacesDetected - faces: ${faces.length}`);
 
     // 顔が検出されていない場合
     if (faces.length === 0) {
       setLastFaceDetection(null);
-      if (selectedPersonId) {
-        setDetectionStatus("顔をフレーム内に合わせてください");
-      } else {
-        setDetectionStatus("作業員を選択して顔をフレーム内に合わせてください");
-      }
       return;
     }
 
-    console.log(`[FaceReg] Face detected - processing...`);
+    // 処理中または最近処理した場合はスキップ
+    const now = Date.now();
+    if (processingLock.current || now - lastProcessTime.current < 1000) {
+      return;
+    }
 
     // 最大の顔を取得
     const largestFace = faces.reduce((prev, current) =>
@@ -124,36 +114,42 @@ export default function FaceRegistrationScreen() {
 
     const faceSize = largestFace.bounds.width * largestFace.bounds.height;
 
-    // 顔の品質チェック
-    const isFaceQualityGood = faceSize > 20000;
-
-    // 顔検出情報を保存
+    // setState は1回だけ
     setLastFaceDetection({
       timestamp: now,
       confidence: 0.8,
       size: faceSize,
     });
+  }, []); // 🔥 依存配列を空に固定！
 
-    if (isFaceQualityGood) {
-      console.log(`[FaceReg] Face quality good - size: ${faceSize}`);
-      if (selectedPersonId) {
-        setDetectionStatus("✅ 顔を検出しました。写真を撮影してください");
-      } else {
-        setDetectionStatus("✅ 顔を検出しました。作業員を選択してください");
-      }
-    } else {
-      console.log(`[FaceReg] Face quality poor - size: ${faceSize}`);
-      setDetectionStatus("顔をまっすぐカメラに向けてください");
-    }
-  }, [selectedPersonId]);
-
-  // useFaceDetection hook を使用（auth.tsxと同じシンプルな条件）
+  // 🔥 frameProcessor を固定（isFocusedのみ）
   const frameProcessor = useFaceDetection({
-    enabled: isFocused,  // isFocused のみに変更（isProcessing を削除）
+    enabled: isFocused,
     onFacesDetected: handleFacesDetected,
     minFaceSize: 20000,
-    cooldownMs: 2000,  // auth.tsxと同じ
+    cooldownMs: 2000,
   });
+
+  // 🔥 detectionStatus を useMemo で計算（state を削除）
+  const detectionStatus = useMemo(() => {
+    if (isProcessing) return "登録中...";
+
+    if (!lastFaceDetection) {
+      return selectedPersonId
+        ? "顔をフレーム内に合わせてください"
+        : "作業員を選択して顔をフレーム内に合わせてください";
+    }
+
+    const isFaceQualityGood = lastFaceDetection.size > 20000;
+
+    if (isFaceQualityGood) {
+      return selectedPersonId
+        ? "✅ 顔を検出しました。写真を撮影してください"
+        : "✅ 顔を検出しました。作業員を選択してください";
+    }
+
+    return "顔をまっすぐカメラに向けてください";
+  }, [isProcessing, lastFaceDetection, selectedPersonId]);
 
   // カメラ権限のチェック
   if (!hasPermission) {
@@ -224,7 +220,6 @@ export default function FaceRegistrationScreen() {
       processingLock.current = true;
       setIsProcessing(true);
       setRegistrationResult(null);
-      setDetectionStatus("登録中...");
 
       // 写真を撮影（vision-camera）
       const photo = await cameraRef.current.takePhoto({
@@ -245,18 +240,9 @@ export default function FaceRegistrationScreen() {
       const apiFaceApi = Constants.expoConfig?.extra?.apiFaceApi || "http://192.168.1.4:8101";
       const apiFaceApiKey = Constants.expoConfig?.extra?.apiFaceApiKey || "development-api-key-12345";
 
-      // デバッグログ: 接続先URL
-      console.log("==================== FACE REGISTRATION DEBUG ====================");
-      console.log(`[DEBUG] Face API URL: ${apiFaceApi}`);
-      console.log(`[DEBUG] API Key: ${apiFaceApiKey.substring(0, 10)}...`);
-      console.log(`[DEBUG] Full endpoint: ${apiFaceApi}/api/face/register`);
-      console.log(`[DEBUG] Selected Person ID: ${selectedPersonId}`);
-      console.log(`[DEBUG] Image data length: ${imageData.length} bytes`);
-      console.log(`[DEBUG] Timeout: ${TIMEOUT.FACE_RECOGNITION}ms`);
-      console.log("===============================================================");
+      console.log("[FaceReg] Sending to Face API:", apiFaceApi);
 
       // Face APIに送信（タイムアウト付き）
-      console.log("[DEBUG] Sending request to Face API...");
       const response = await fetchWithTimeout(`${apiFaceApi}/api/face/register`, {
         method: "POST",
         headers: {
@@ -264,18 +250,13 @@ export default function FaceRegistrationScreen() {
           "x-api-key": apiFaceApiKey,
         },
         body: JSON.stringify({
-          personId: selectedPersonId,   // Face API expects camelCase
-          imageData: imageData,          // Face API expects camelCase
+          personId: selectedPersonId,
+          imageData: imageData,
         }),
-        timeoutMs: TIMEOUT.FACE_RECOGNITION, // 30秒
+        timeoutMs: TIMEOUT.FACE_RECOGNITION,
       });
 
-      console.log(`[DEBUG] Response received! Status: ${response.status}`);
-
       if (!response.ok) {
-        console.error(`[DEBUG] HTTP error! status: ${response.status}`);
-
-        // サーバーからのエラーメッセージを取得
         let errorDetail = "";
         try {
           const errorData = await response.json();
@@ -285,11 +266,7 @@ export default function FaceRegistrationScreen() {
         }
 
         if (response.status === 404) {
-          // 404の場合、サーバーからのエラーメッセージを表示
-          // (エンドポイントが存在しない場合とworkerが見つからない場合を区別)
-          throw new Error(
-            errorDetail || "指定された作業員が見つかりません。"
-          );
+          throw new Error(errorDetail || "指定された作業員が見つかりません。");
         }
 
         if (response.status === 403) {
@@ -307,7 +284,6 @@ export default function FaceRegistrationScreen() {
           );
         }
 
-        // その他のHTTPエラー
         throw new Error(
           `サーバーエラーが発生しました (${response.status})\n\n` +
           (errorDetail ? `詳細: ${errorDetail}` : "")
@@ -315,19 +291,15 @@ export default function FaceRegistrationScreen() {
       }
 
       const result = (await response.json()) as FaceRegistrationResponse;
-      console.log("[DEBUG] Response body:", JSON.stringify(result, null, 2));
+      console.log("[FaceReg] Registration result:", result);
 
       // 登録結果を保存
       setRegistrationResult(result);
 
       // 結果を表示
       showResultAlert(result);
-      console.log("[DEBUG] Face registration completed successfully");
     } catch (error) {
-      console.error("==================== FACE REGISTRATION ERROR ====================");
-      console.error("[ERROR] Error type:", error?.constructor?.name);
-      console.error("[ERROR] Error message:", error instanceof Error ? error.message : String(error));
-      console.error("===============================================================");
+      console.error("[FaceReg] Registration error:", error);
 
       let errorMessage = "顔登録に失敗しました";
 
@@ -345,20 +317,17 @@ export default function FaceRegistrationScreen() {
     } finally {
       processingLock.current = false;
       setIsProcessing(false);
-      setDetectionStatus("作業員を選択して顔をフレーム内に合わせてください");
     }
   };
 
   // 登録結果をアラートで表示
   const showResultAlert = (result: FaceRegistrationResponse) => {
     if (result.error) {
-      // エラーメッセージを表示
       Alert.alert("登録失敗", result.error, [{ text: "OK" }]);
       return;
     }
 
     if (result.success && result.person_id) {
-      // 登録成功
       const selectedWorker = workers?.find(w => w.personId === result.person_id);
       const workerName = selectedWorker?.name || result.person_id;
 
@@ -371,7 +340,6 @@ export default function FaceRegistrationScreen() {
           {
             text: "OK",
             onPress: () => {
-              // 登録成功後、選択をクリア
               setSelectedPersonId("");
               setRegistrationResult(null);
               setLastFaceDetection(null);
@@ -382,7 +350,6 @@ export default function FaceRegistrationScreen() {
       return;
     }
 
-    // その他のエラー
     Alert.alert(
       "登録失敗",
       "顔の登録に失敗しました。もう一度お試しください。",
@@ -401,7 +368,6 @@ export default function FaceRegistrationScreen() {
     setIsWorkerModalVisible(false);
     setRegistrationResult(null);
     setLastFaceDetection(null);
-    setDetectionStatus("顔をフレーム内に合わせてください");
   };
 
   // 選択された作業員情報を取得
@@ -414,11 +380,12 @@ export default function FaceRegistrationScreen() {
            lastFaceDetection.size >= 20000;
   }, [lastFaceDetection]);
 
+  // 🔥 Camera を安定領域に配置（isFocusedのみで制御、cameraDevice削除）
   return (
     <View style={styles.container}>
-      {isFocused && cameraDevice ? (
+      {isFocused && cameraDevice && (
         <View style={styles.cameraContainer}>
-          {/* Camera は自己完結型タグに変更（オーバーレイは外側に配置） */}
+          {/* 🔥 Camera Core - 絶対に揺らさない */}
           <Camera
             ref={cameraRef}
             style={StyleSheet.absoluteFill}
@@ -427,15 +394,15 @@ export default function FaceRegistrationScreen() {
             photo={true}
             frameProcessor={frameProcessor}
             onInitialized={() => {
-              console.log("[FaceReg] Vision Camera initialized");
+              console.log("[FaceReg] Camera initialized");
               setIsCameraReady(true);
             }}
             onError={(error) => {
-              console.error("[FaceReg] Vision Camera error:", error);
+              console.error("[FaceReg] Camera error:", error);
             }}
           />
 
-          {/* オーバーレイを Camera の外側に配置（auth.tsx と同じ構造） */}
+          {/* オーバーレイ（Camera の外側に配置） */}
           <View style={styles.overlay}>
               {/* 上部バー */}
               <View style={styles.topBar}>
@@ -575,7 +542,7 @@ export default function FaceRegistrationScreen() {
             </View>
           </View>
         </View>
-      ) : null}
+      )}
 
       {/* 作業員選択モーダル */}
       <Modal
