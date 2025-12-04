@@ -21,7 +21,13 @@
       "channel": "preview",
       "env": {
         "APP_ENV": "preview",
+        "API_FACE_API": "http://192.168.1.4:8101",
+        "API_BASE_GS": "http://192.168.1.4:7070",
+        "API_BASE_CCUS": "http://192.168.1.4:7071",
         "AUTH_ISSUER": "http://192.168.1.4:8081/realms/mcd3",
+        "AUTH_AUDIENCE": "mc-gate",
+        "AUTH_CLIENT_ID": "mc-gate-mobile",
+        "API_FACE_API_KEY": "development-api-key-12345",
         "SENTRY_DSN": "https://a78f6b7457e0eff34f464bc83a1a0885@o4509755717648384.ingest.us.sentry.io/4510471361265664"
       },
       "ios": {
