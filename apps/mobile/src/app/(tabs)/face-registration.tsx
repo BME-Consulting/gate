@@ -193,15 +193,14 @@ export default function FaceRegistrationScreen() {
     }
   }, [selectedPersonId]);
 
-  // 顔検出フレームプロセッサー
-  // ✅ Step 3: フックを復活させる（Cameraにはまだ繋がない）
-  const frameProcessor = useFaceDetection({
-    enabled: isFocused && !!cameraDevice && hasPermission && !isProcessing,
-    onFacesDetected: handleFacesDetected,
-    minFaceSize: 20000,
-    cooldownMs: 500,
-  });
-  // ⚠️ Camera には frameProcessor をまだ渡さない（次のステップで接続）
+  // 🔍 Step 2: useFaceDetection フック自体を無効化してテスト
+  // const frameProcessor = useFaceDetection({
+  //   enabled: isFocused && !!cameraDevice && hasPermission && !isProcessing,
+  //   onFacesDetected: handleFacesDetected,
+  //   minFaceSize: 20000,
+  //   cooldownMs: 500,
+  // });
+  const frameProcessor = null; // ダミー
 
   // カメラ権限のチェック
   if (!hasPermission) {
