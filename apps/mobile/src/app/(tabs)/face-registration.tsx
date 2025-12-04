@@ -26,8 +26,6 @@ interface FaceRegistrationResponse {
 }
 
 export default function FaceRegistrationScreen() {
-  console.log("[FaceReg] 🔍 DEBUG: Component render start");
-
   const { hasPermission, requestPermission } = useCameraPermission();
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -61,14 +59,6 @@ export default function FaceRegistrationScreen() {
       setInitError(null);
     }
   }, [cameraDevice]);
-
-  // 🔍 DEBUG: Sentry テスト - 顔登録タブマウント検出
-  useEffect(() => {
-    console.log("[FaceReg] 🔍 Sentry test: Sending mount event to Sentry");
-    Sentry.captureException(
-      new Error("🔍 Sentry test: FaceRegistrationScreen mounted successfully")
-    );
-  }, []);
 
   // 作業員一覧を取得
   useEffect(() => {
@@ -163,20 +153,13 @@ export default function FaceRegistrationScreen() {
     }
   }, [selectedPersonId]);
 
-  // 🔍 DEBUG: useFaceDetection を一旦無効化してテスト
-  console.log("[FaceReg] 🔍 DEBUG: About to call useFaceDetection (commented out for debug)");
-
-  // const frameProcessor = useFaceDetection({
-  //   enabled: !isProcessing,
-  //   onFacesDetected: handleFacesDetected,
-  //   minFaceSize: 20000,
-  //   cooldownMs: 500,
-  // });
-
-  // ★ デバッグ用: frameProcessor を undefined に設定
-  const frameProcessor = undefined;
-
-  console.log("[FaceReg] 🔍 DEBUG: frameProcessor is now undefined (camera disabled)");
+  // 顔検出フレームプロセッサー
+  const frameProcessor = useFaceDetection({
+    enabled: !isProcessing,
+    onFacesDetected: handleFacesDetected,
+    minFaceSize: 20000,
+    cooldownMs: 500,
+  });
 
   // カメラ権限のチェック
   if (!hasPermission) {
@@ -437,12 +420,9 @@ export default function FaceRegistrationScreen() {
            lastFaceDetection.size >= 20000;
   }, [lastFaceDetection]);
 
-  console.log("[FaceReg] 🔍 DEBUG: About to render - isFocused:", isFocused, "cameraDevice:", !!cameraDevice);
-
   return (
     <View style={styles.container}>
-      {/* 🔍 DEBUG: Camera を一旦無効化してテスト */}
-      {false && isFocused && cameraDevice ? (
+      {isFocused && cameraDevice ? (
         <View style={styles.cameraContainer}>
           {/* Camera は自己完結型タグに変更（オーバーレイは外側に配置） */}
           <Camera
@@ -601,34 +581,7 @@ export default function FaceRegistrationScreen() {
               </View>
             </View>
           </View>
-      ) : (
-        // 🔍 DEBUG: Camera が無効化されている場合のメッセージ
-        <View style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center', backgroundColor: '#1a1a1a' }]}>
-          <Ionicons name="camera-off-outline" size={80} color="#ffffff" />
-          <Text style={{ color: "#ffffff", fontSize: 24, fontWeight: "600", marginTop: 24, textAlign: 'center', paddingHorizontal: 32 }}>
-            🔍 デバッグモード
-          </Text>
-          <Text style={{ color: "#cccccc", fontSize: 16, marginTop: 16, textAlign: 'center', paddingHorizontal: 32, lineHeight: 24 }}>
-            Camera と useFaceDetection を無効化しています
-          </Text>
-          <Text style={{ color: "#999999", fontSize: 14, marginTop: 12, textAlign: 'center', paddingHorizontal: 32, lineHeight: 20 }}>
-            この画面が表示されれば、{'\n'}
-            JSロジック自体は正常に動作しています。
-          </Text>
-          <TouchableOpacity
-            style={{
-              marginTop: 32,
-              backgroundColor: tokens.color.primary,
-              paddingHorizontal: 32,
-              paddingVertical: 16,
-              borderRadius: 12,
-            }}
-            onPress={handleGoBack}
-          >
-            <Text style={{ color: "#fff", fontSize: 16, fontWeight: "600" }}>戻る</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+      ) : null}
 
       {/* 作業員選択モーダル */}
       <Modal
