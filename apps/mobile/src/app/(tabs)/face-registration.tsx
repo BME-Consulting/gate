@@ -44,7 +44,11 @@ export default function FaceRegistrationScreen() {
   const cameraRef = useRef<Camera>(null);
   const processingLock = useRef(false);
   const lastProcessTime = useRef(0);
-  const { workers, getAllWorkers, isReady } = useWorkers();
+  // 🔍 Step 1: useWorkers を一時的に無効化してテスト
+  // const { workers, getAllWorkers, isReady } = useWorkers();
+  const workers = null;
+  const getAllWorkers = () => Promise.resolve();
+  const isReady = false;
 
   // vision-camera device
   const cameraDevice = useCameraDevice('front') || undefined;
