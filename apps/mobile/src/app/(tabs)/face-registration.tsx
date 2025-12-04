@@ -405,7 +405,7 @@ export default function FaceRegistrationScreen() {
 
     if (result.success && result.person_id) {
       // 登録成功
-      const selectedWorker = workers.find(w => w.personId === result.person_id);
+      const selectedWorker = workers?.find(w => w.personId === result.person_id);
       const workerName = selectedWorker?.name || result.person_id;
 
       Alert.alert(
@@ -451,7 +451,7 @@ export default function FaceRegistrationScreen() {
   };
 
   // 選択された作業員情報を取得
-  const selectedWorker = workers.find(w => w.personId === selectedPersonId);
+  const selectedWorker = workers?.find(w => w.personId === selectedPersonId);
 
   // 顔が検出されているかチェック (useMemo で最適化)
   const isFaceDetected = useMemo(() => {
@@ -571,7 +571,7 @@ export default function FaceRegistrationScreen() {
                         <Text style={styles.resultTitle}>登録完了</Text>
                       </View>
                       <Text style={styles.resultText}>
-                        {workers.find(w => w.personId === registrationResult.person_id)?.name || registrationResult.person_id}
+                        {workers?.find(w => w.personId === registrationResult.person_id)?.name || registrationResult.person_id}
                       </Text>
                       <Text style={styles.resultSubText}>
                         Person ID: {registrationResult.person_id}
@@ -643,7 +643,7 @@ export default function FaceRegistrationScreen() {
               </TouchableOpacity>
             </View>
 
-            {workers.length === 0 ? (
+            {(workers?.length ?? 0) === 0 ? (
               <View style={styles.modalEmptyState}>
                 <Ionicons
                   name="people-outline"
@@ -659,7 +659,7 @@ export default function FaceRegistrationScreen() {
               </View>
             ) : (
               <FlatList
-                data={workers}
+                data={workers ?? []}
                 keyExtractor={(item) => item.personId}
                 renderItem={({ item }) => (
                   <TouchableOpacity
