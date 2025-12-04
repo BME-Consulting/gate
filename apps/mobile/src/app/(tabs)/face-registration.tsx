@@ -44,11 +44,7 @@ export default function FaceRegistrationScreen() {
   const cameraRef = useRef<Camera>(null);
   const processingLock = useRef(false);
   const lastProcessTime = useRef(0);
-  // 🔍 Step 1: useWorkers を一時的に無効化してテスト
-  // const { workers, getAllWorkers, isReady } = useWorkers();
-  const workers = null;
-  const getAllWorkers = () => Promise.resolve();
-  const isReady = false;
+  const { workers, getAllWorkers, isReady } = useWorkers();
 
   // vision-camera device
   const cameraDevice = useCameraDevice('front') || undefined;
@@ -94,113 +90,70 @@ export default function FaceRegistrationScreen() {
     }, [])
   );
 
-  // 顔検出コールバック（超防御型実装 - 絶対に落ちない）
-  const handleFacesDetected = useCallback((facesRaw: any) => {
-    try {
-      // 🔐 防御1: null/undefined/非配列を全部はじく
-      if (!Array.isArray(facesRaw) || facesRaw.length === 0) {
-        console.log('[FaceReg] handleFacesDetected: no faces or invalid data', typeof facesRaw);
-        setLastFaceDetection(null);
-        if (selectedPersonId) {
-          setDetectionStatus("顔をフレーム内に合わせてください");
-        } else {
-          setDetectionStatus("作業員を選択して顔をフレーム内に合わせてください");
-        }
-        return;
-      }
+  // 顔検出コールバック（auth.tsxと同じシンプルなパターン）
+  const handleFacesDetected = useCallback((faces: Face[]) => {
+    console.log(`[FaceReg] handleFacesDetected called - faces count: ${faces.length}`);
 
-      console.log(`[FaceReg] handleFacesDetected called - raw faces count: ${facesRaw.length}`);
+    // 処理中または最近処理した場合はスキップ
+    const now = Date.now();
+    if (processingLock.current || now - lastProcessTime.current < 1000) {
+      console.log(`[FaceReg] Skipping face detection - processing: ${processingLock.current}, cooldown: ${now - lastProcessTime.current}ms`);
+      return;
+    }
 
-      // 🔐 防御2: 処理中または最近処理した場合はスキップ
-      const now = Date.now();
-      if (processingLock.current || now - lastProcessTime.current < 1000) {
-        console.log(`[FaceReg] Skipping face detection - processing: ${processingLock.current}, cooldown: ${now - lastProcessTime.current}ms`);
-        return;
-      }
-
-      // 🔐 防御3: 変なオブジェクトが来ても死なないように整形
-      const normalizedFaces = facesRaw
-        .filter((f) => f && typeof f === "object")
-        .map((f) => {
-          const bounds = (f as any).bounds ?? {};
-          return {
-            ...f,
-            bounds: {
-              x: Number.isFinite(bounds.x) ? bounds.x : 0,
-              y: Number.isFinite(bounds.y) ? bounds.y : 0,
-              width: Number.isFinite(bounds.width) ? bounds.width : 0,
-              height: Number.isFinite(bounds.height) ? bounds.height : 0,
-            },
-          };
-        });
-
-      if (normalizedFaces.length === 0) {
-        console.log("[FaceReg] handleFacesDetected: no valid faces after normalization");
-        setLastFaceDetection(null);
-        setDetectionStatus("顔の検出に失敗しました。もう一度お試しください");
-        return;
-      }
-
-      console.log(`[FaceReg] Normalized faces: ${normalizedFaces.length}`);
-
-      // 🔐 防御4: 最大の顔を選択（Number.isFinite でサイズ計算）
-      const primaryFace = normalizedFaces.reduce((prev, current) => {
-        const prevSize = Number.isFinite(prev.bounds.width) && Number.isFinite(prev.bounds.height)
-          ? prev.bounds.width * prev.bounds.height
-          : 0;
-        const currentSize = Number.isFinite(current.bounds.width) && Number.isFinite(current.bounds.height)
-          ? current.bounds.width * current.bounds.height
-          : 0;
-        return currentSize > prevSize ? current : prev;
-      });
-
-      // 🔐 防御5: サイズが有効な数値かチェック
-      const faceSize = primaryFace.bounds.width * primaryFace.bounds.height;
-      if (!Number.isFinite(faceSize) || faceSize < 20000) {
-        console.log("[FaceReg] handleFacesDetected: face too small or invalid size", faceSize);
-        setLastFaceDetection(null);
-        setDetectionStatus("顔が小さすぎます。カメラに近づいてください");
-        return;
-      }
-
-      const isFaceQualityGood = faceSize >= 20000;
-
-      console.log(`[FaceReg] Face detected - size: ${faceSize}, quality: ${isFaceQualityGood ? 'good' : 'poor'}`);
-
-      // 顔検出情報を保存
-      setLastFaceDetection({
-        timestamp: now,
-        confidence: 0.8,
-        size: faceSize,
-      });
-
-      if (isFaceQualityGood) {
-        if (selectedPersonId) {
-          setDetectionStatus("✅ 顔を検出しました。写真を撮影してください");
-        } else {
-          setDetectionStatus("✅ 顔を検出しました。作業員を選択してください");
-        }
+    // 顔が検出されていない場合
+    if (faces.length === 0) {
+      setLastFaceDetection(null);
+      if (selectedPersonId) {
+        setDetectionStatus("顔をフレーム内に合わせてください");
       } else {
-        setDetectionStatus("顔をまっすぐカメラに向けてください");
+        setDetectionStatus("作業員を選択して顔をフレーム内に合わせてください");
       }
+      return;
+    }
 
-    } catch (error) {
-      console.error('[FaceReg] handleFacesDetected error:', error);
-      // 🚨 重要: ここで throw しないことが超重要（絶対にクラッシュさせない）
-      if (Constants.expoConfig?.extra?.sentryDsn) {
-        Sentry.captureException(error);
+    console.log(`[FaceReg] Face detected - processing...`);
+
+    // 最大の顔を取得
+    const largestFace = faces.reduce((prev, current) =>
+      current.bounds.width * current.bounds.height >
+      prev.bounds.width * prev.bounds.height
+        ? current
+        : prev
+    );
+
+    const faceSize = largestFace.bounds.width * largestFace.bounds.height;
+
+    // 顔の品質チェック
+    const isFaceQualityGood = faceSize > 20000;
+
+    // 顔検出情報を保存
+    setLastFaceDetection({
+      timestamp: now,
+      confidence: 0.8,
+      size: faceSize,
+    });
+
+    if (isFaceQualityGood) {
+      console.log(`[FaceReg] Face quality good - size: ${faceSize}`);
+      if (selectedPersonId) {
+        setDetectionStatus("✅ 顔を検出しました。写真を撮影してください");
+      } else {
+        setDetectionStatus("✅ 顔を検出しました。作業員を選択してください");
       }
+    } else {
+      console.log(`[FaceReg] Face quality poor - size: ${faceSize}`);
+      setDetectionStatus("顔をまっすぐカメラに向けてください");
     }
   }, [selectedPersonId]);
 
-  // 🔍 Step 2: useFaceDetection フック自体を無効化してテスト
-  // const frameProcessor = useFaceDetection({
-  //   enabled: isFocused && !!cameraDevice && hasPermission && !isProcessing,
-  //   onFacesDetected: handleFacesDetected,
-  //   minFaceSize: 20000,
-  //   cooldownMs: 500,
-  // });
-  const frameProcessor = null; // ダミー
+  // useFaceDetection hook を使用（auth.tsxと同じシンプルな条件）
+  const frameProcessor = useFaceDetection({
+    enabled: !isProcessing,  // auth.tsxと同じシンプルな条件
+    onFacesDetected: handleFacesDetected,
+    minFaceSize: 20000,
+    cooldownMs: 2000,  // auth.tsxと同じ
+  });
 
   // カメラ権限のチェック
   if (!hasPermission) {
@@ -472,10 +425,9 @@ export default function FaceRegistrationScreen() {
             device={cameraDevice}
             isActive={isFocused && !isProcessing}
             photo={true}
-            // 🔍 一時的にframeProcessorを無効化してクラッシュ原因を特定
-            // frameProcessor={frameProcessor}
+            frameProcessor={frameProcessor}
             onInitialized={() => {
-              console.log("[FaceReg] Vision Camera initialized (frameProcessor disabled for testing)");
+              console.log("[FaceReg] Vision Camera initialized");
               setIsCameraReady(true);
             }}
             onError={(error) => {
