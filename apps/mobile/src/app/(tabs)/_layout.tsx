@@ -75,6 +75,15 @@ export default function TabsLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="vision-test"
+        options={{
+          title: "カメラテスト",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="camera" size={size} color={color} />
+          ),
+        }}
+      />
     </Tabs>
   );
 }
