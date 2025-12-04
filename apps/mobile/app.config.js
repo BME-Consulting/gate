@@ -81,7 +81,7 @@ Please set these environment variables before building.
     orientation: "portrait",
     icon: "./assets/icon.png",
     userInterfaceStyle: "light",
-    newArchEnabled: false,  // VisionCamera 4.7.3との互換性のため無効化
+    newArchEnabled: true,  // VisionCamera 4.7.3 Frame Processors requires New Architecture
     scheme: "mcgate",
     splash: {
       image: "./assets/splash-icon.png",
@@ -172,7 +172,7 @@ Please set these environment variables before building.
         "expo-build-properties",
         {
           ios: {
-            newArchEnabled: false,  // VisionCamera 4.7.3との互換性のため無効化
+            newArchEnabled: true,  // VisionCamera 4.7.3 Frame Processors requires New Architecture
             infoPlist: {
               NSAppTransportSecurity: {
                 NSAllowsArbitraryLoads: !isProduction,  // 開発中のみHTTP許可
@@ -180,7 +180,7 @@ Please set these environment variables before building.
             }
           },
           android: {
-            newArchEnabled: false,  // VisionCamera 4.7.3との互換性のため無効化
+            newArchEnabled: true,  // VisionCamera 4.7.3 Frame Processors requires New Architecture
             usesCleartextTraffic: !isProduction,  // 開発中のみHTTP許可
             minSdkVersion: 26,  // react-native-vision-camera-face-detector requires API 26+
           },
