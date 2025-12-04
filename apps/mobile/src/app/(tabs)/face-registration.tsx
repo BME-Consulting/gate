@@ -431,9 +431,10 @@ export default function FaceRegistrationScreen() {
             device={cameraDevice}
             isActive={isFocused && !isProcessing}
             photo={true}
-            frameProcessor={frameProcessor}
+            // 🔍 一時的にframeProcessorを無効化してクラッシュ原因を特定
+            // frameProcessor={frameProcessor}
             onInitialized={() => {
-              console.log("[FaceReg] Vision Camera initialized");
+              console.log("[FaceReg] Vision Camera initialized (frameProcessor disabled for testing)");
               setIsCameraReady(true);
             }}
             onError={(error) => {
