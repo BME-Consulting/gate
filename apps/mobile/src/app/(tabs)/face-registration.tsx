@@ -149,7 +149,7 @@ export default function FaceRegistrationScreen() {
 
   // useFaceDetection hook を使用（auth.tsxと同じシンプルな条件）
   const frameProcessor = useFaceDetection({
-    enabled: !isProcessing,  // auth.tsxと同じシンプルな条件
+    enabled: isFocused,  // isFocused のみに変更（isProcessing を削除）
     onFacesDetected: handleFacesDetected,
     minFaceSize: 20000,
     cooldownMs: 2000,  // auth.tsxと同じ
@@ -423,7 +423,7 @@ export default function FaceRegistrationScreen() {
             ref={cameraRef}
             style={StyleSheet.absoluteFill}
             device={cameraDevice}
-            isActive={isFocused && !isProcessing}
+            isActive={isFocused}
             photo={true}
             frameProcessor={frameProcessor}
             onInitialized={() => {
