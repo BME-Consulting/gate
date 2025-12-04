@@ -90,66 +90,104 @@ export default function FaceRegistrationScreen() {
     }, [])
   );
 
-  // 顔検出コールバック
-  const handleFacesDetected = useCallback(async (faces: Face[]) => {
-    // Guard against invalid input
-    if (!faces || !Array.isArray(faces)) {
-      console.warn('[FaceReg] Invalid faces parameter:', faces);
-      return;
-    }
-
-    console.log(`[FaceReg] handleFacesDetected called - faces count: ${faces.length}`);
-
-    // 処理中または最近処理した場合はスキップ
-    const now = Date.now();
-    if (processingLock.current || now - lastProcessTime.current < 1000) {
-      console.log(`[FaceReg] Skipping face detection - processing: ${processingLock.current}, cooldown: ${now - lastProcessTime.current}ms`);
-      return;
-    }
-
-    // 顔が検出されていない場合
-    if (faces.length === 0) {
-      setLastFaceDetection(null);
-      if (selectedPersonId) {
-        setDetectionStatus("顔をフレーム内に合わせてください");
-      } else {
-        setDetectionStatus("作業員を選択して顔をフレーム内に合わせてください");
+  // 顔検出コールバック（ガチガチ防御実装）
+  const handleFacesDetected = useCallback(async (facesRaw: any) => {
+    try {
+      // 🔐 防御1: 配列以外を全部はじく
+      if (!Array.isArray(facesRaw)) {
+        console.warn('[FaceReg] handleFacesDetected: facesRaw is not an array', typeof facesRaw);
+        return;
       }
-      return;
-    }
 
-    console.log(`[FaceReg] Face detected`);
+      const faces = facesRaw as Face[];
 
-    // 最大の顔を取得
-    const largestFace = faces.reduce((prev, current) =>
-      current.bounds.width * current.bounds.height >
-      prev.bounds.width * prev.bounds.height
-        ? current
-        : prev
-    );
-
-    const faceSize = largestFace.bounds.width * largestFace.bounds.height;
-
-    // 顔の品質チェック
-    const isFaceQualityGood = faceSize > 20000; // 顔のサイズが十分大きい
-
-    // 顔検出情報を保存
-    setLastFaceDetection({
-      timestamp: now,
-      confidence: 0.8, // vision-camera face detector の固定値
-      size: faceSize,
-    });
-
-    if (isFaceQualityGood) {
-      console.log(`[FaceReg] Face quality good - size: ${faceSize}`);
-      if (selectedPersonId) {
-        setDetectionStatus("✅ 顔を検出しました。写真を撮影してください");
-      } else {
-        setDetectionStatus("✅ 顔を検出しました。作業員を選択してください");
+      // 🔐 防御2: 顔なしは普通にスルー
+      if (faces.length === 0) {
+        setLastFaceDetection(null);
+        if (selectedPersonId) {
+          setDetectionStatus("顔をフレーム内に合わせてください");
+        } else {
+          setDetectionStatus("作業員を選択して顔をフレーム内に合わせてください");
+        }
+        return;
       }
-    } else {
-      console.log(`[FaceReg] Face quality poor - size: ${faceSize}`);
-      setDetectionStatus("顔をまっすぐカメラに向けてください");
+
+      console.log(`[FaceReg] handleFacesDetected called - faces count: ${faces.length}`);
+
+      // 🔐 防御3: 処理中または最近処理した場合はスキップ
+      const now = Date.now();
+      if (processingLock.current || now - lastProcessTime.current < 1000) {
+        console.log(`[FaceReg] Skipping face detection - processing: ${processingLock.current}, cooldown: ${now - lastProcessTime.current}ms`);
+        return;
+      }
+
+      // 🔐 防御4: 各faceオブジェクトのboundsを検証
+      const validFaces = faces.filter((face: any) => {
+        if (!face || typeof face !== 'object') {
+          console.warn('[FaceReg] Invalid face object:', face);
+          return false;
+        }
+        if (!face.bounds || typeof face.bounds !== 'object') {
+          console.warn('[FaceReg] face.bounds is missing or invalid:', face);
+          return false;
+        }
+        if (typeof face.bounds.width !== 'number' || typeof face.bounds.height !== 'number') {
+          console.warn('[FaceReg] face.bounds.width/height is not a number:', face.bounds);
+          return false;
+        }
+        return true;
+      });
+
+      if (validFaces.length === 0) {
+        console.warn('[FaceReg] No valid face objects found');
+        setLastFaceDetection(null);
+        setDetectionStatus("顔の検出に失敗しました。もう一度お試しください");
+        return;
+      }
+
+      console.log(`[FaceReg] Valid faces: ${validFaces.length}`);
+
+      // 🔐 防御5: 最大の顔を安全に取得
+      const largestFace = validFaces.reduce((prev, current) => {
+        const prevSize = (prev.bounds?.width || 0) * (prev.bounds?.height || 0);
+        const currentSize = (current.bounds?.width || 0) * (current.bounds?.height || 0);
+        return currentSize > prevSize ? current : prev;
+      });
+
+      // 🔐 防御6: boundsの再確認
+      if (!largestFace || !largestFace.bounds) {
+        console.warn('[FaceReg] largestFace or bounds is missing');
+        return;
+      }
+
+      const faceSize = largestFace.bounds.width * largestFace.bounds.height;
+      const isFaceQualityGood = faceSize > 20000;
+
+      console.log(`[FaceReg] Face detected - size: ${faceSize}, quality: ${isFaceQualityGood ? 'good' : 'poor'}`);
+
+      // 顔検出情報を保存
+      setLastFaceDetection({
+        timestamp: now,
+        confidence: 0.8,
+        size: faceSize,
+      });
+
+      if (isFaceQualityGood) {
+        if (selectedPersonId) {
+          setDetectionStatus("✅ 顔を検出しました。写真を撮影してください");
+        } else {
+          setDetectionStatus("✅ 顔を検出しました。作業員を選択してください");
+        }
+      } else {
+        setDetectionStatus("顔をまっすぐカメラに向けてください");
+      }
+
+    } catch (error) {
+      console.error('[FaceReg] handleFacesDetected error:', error);
+      // Sentry に送信（本番環境のみ）
+      if (Constants.expoConfig?.extra?.sentryDsn) {
+        Sentry.captureException(error);
+      }
     }
   }, [selectedPersonId]);
 
