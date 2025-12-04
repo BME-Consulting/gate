@@ -154,12 +154,14 @@ export default function FaceRegistrationScreen() {
   }, [selectedPersonId]);
 
   // 顔検出フレームプロセッサー
-  const frameProcessor = useFaceDetection({
-    enabled: !isProcessing,
-    onFacesDetected: handleFacesDetected,
-    minFaceSize: 20000,
-    cooldownMs: 500,
-  });
+  // 🔍 一時的にframeProcessorを無効化してクラッシュ原因を特定
+  // const frameProcessor = useFaceDetection({
+  //   enabled: !isProcessing,
+  //   onFacesDetected: handleFacesDetected,
+  //   minFaceSize: 20000,
+  //   cooldownMs: 500,
+  // });
+  const frameProcessor = undefined;
 
   // カメラ権限のチェック
   if (!hasPermission) {
