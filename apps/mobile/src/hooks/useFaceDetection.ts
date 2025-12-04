@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useCallback } from 'react';
-import { useFrameProcessor, Frame, runOnJS } from 'react-native-vision-camera';
+import { useFrameProcessor, Frame } from 'react-native-vision-camera';
 import { useFaceDetector, Face } from 'react-native-vision-camera-face-detector';
 import { useSharedValue } from 'react-native-worklets-core';
+import { runOnJS } from 'react-native-reanimated';
 
 interface FaceDetectionOptions {
   enabled: boolean;
