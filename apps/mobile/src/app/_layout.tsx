@@ -13,16 +13,22 @@ import Constants from "expo-constants";
 const sentryDsn = Constants.expoConfig?.extra?.sentryDsn;
 const appEnv = Constants.expoConfig?.extra?.appEnv || "development";
 
+// 🔍 デバッグ: Sentry DSN の確認
+console.log("[Sentry] Debug info:");
+console.log("  sentryDsn:", sentryDsn ? `${sentryDsn.substring(0, 50)}...` : "NOT SET");
+console.log("  appEnv:", appEnv);
+console.log("  Constants.expoConfig.extra keys:", Object.keys(Constants.expoConfig?.extra || {}));
+
 if (sentryDsn) {
   Sentry.init({
     dsn: sentryDsn,
-    debug: appEnv !== "production", // 本番以外はデバッグログ有効
+    debug: true, // 🔍 デバッグログを常に有効化
     tracesSampleRate: 1.0, // パフォーマンストレーシング
     environment: appEnv,
   });
-  console.log(`[Sentry] Initialized for environment: ${appEnv}`);
+  console.log(`[Sentry] ✅ Initialized successfully for environment: ${appEnv}`);
 } else {
-  console.warn("[Sentry] SENTRY_DSN not configured. Error tracking disabled.");
+  console.warn("[Sentry] ❌ SENTRY_DSN not configured. Error tracking disabled.");
 }
 
 export default function RootLayout() {
