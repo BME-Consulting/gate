@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useCallback } from 'react';
-import { useFrameProcessor, Frame } from 'react-native-vision-camera';
+import { useFrameProcessor, Frame, runOnJS } from 'react-native-vision-camera';
 import { useFaceDetector, Face } from 'react-native-vision-camera-face-detector';
-import { useSharedValue, useRunOnJS } from 'react-native-worklets-core';
+import { useSharedValue } from 'react-native-worklets-core';
 
 interface FaceDetectionOptions {
   enabled: boolean;
@@ -32,8 +32,8 @@ export function useFaceDetection(options: FaceDetectionOptions) {
   const frameCounter = useSharedValue(0);
   const isProcessing = useSharedValue(false);
 
-  // Wrap the callback with useRunOnJS to make it callable from worklet
-  const handleFacesCallback = useRunOnJS((faces: Face[]) => {
+  // Wrap the callback with useCallback
+  const handleFacesCallback = useCallback((faces: Face[]) => {
     onFacesDetected(faces);
   }, [onFacesDetected]);
 
@@ -107,7 +107,7 @@ export function useFaceDetection(options: FaceDetectionOptions) {
 
         if (largeFaces.length > 0) {
           // JS 側の handleFacesDetected でさらに防御しているので、とにかく落とさず渡す
-          handleFacesCallback(largeFaces);
+          runOnJS(handleFacesCallback)(largeFaces);
         }
       } catch (error) {
         console.log('[FaceDetection] Inner error in frame processor:', error);
