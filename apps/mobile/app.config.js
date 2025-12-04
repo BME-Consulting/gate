@@ -167,7 +167,7 @@ Please set these environment variables before building.
           enableCodeScanner: false  // expo-cameraをQRスキャンに使用
         }
       ],
-      "react-native-worklets-core",  // ✅ Frame Processor 用ネイティブモジュール初期化
+      // Note: react-native-worklets-core は自動リンクされるため、pluginsには不要
       [
         "expo-build-properties",
         {
