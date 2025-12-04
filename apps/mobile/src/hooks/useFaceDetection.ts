@@ -57,26 +57,56 @@ export function useFaceDetection(options: FaceDetectionOptions) {
 
     try {
       isProcessing.value = true;
-      const faces = faceDetectorPlugin.detectFaces(frame);
 
-      // Guard against undefined/null results
-      if (!faces || !Array.isArray(faces)) {
-        console.warn('[FaceDetection] detectFaces returned invalid result:', faces);
+      // 🔐 防御的実装: detectFaces が何を返してきても落ちないようにする
+      let faces: any;
+      try {
+        faces = faceDetectorPlugin.detectFaces(frame);
+      } catch (detectError) {
+        console.error('[FaceDetection] detectFaces threw error:', detectError);
         return;
       }
 
-      if (faces.length > 0) {
-        const largeFaces = faces.filter((face: Face) => {
-          const faceSize = face.bounds.width * face.bounds.height;
-          return faceSize > minFaceSize;
-        });
+      // 🔐 防御的実装: undefined/null/非配列を厳密にガード
+      if (!faces) {
+        console.warn('[FaceDetection] detectFaces returned null/undefined');
+        return;
+      }
 
-        if (largeFaces.length > 0) {
-          handleFacesCallback(largeFaces);
-        }
+      if (!Array.isArray(faces)) {
+        console.warn('[FaceDetection] detectFaces returned non-array:', typeof faces);
+        return;
+      }
+
+      if (faces.length === 0) {
+        // 顔なし - 正常なケース、ログは不要
+        return;
+      }
+
+      // 🔐 防御的実装: 各faceオブジェクトの構造を検証
+      const validFaces = faces.filter((face: any) => {
+        if (!face || typeof face !== 'object') return false;
+        if (!face.bounds || typeof face.bounds !== 'object') return false;
+        if (typeof face.bounds.width !== 'number' || typeof face.bounds.height !== 'number') return false;
+        return true;
+      });
+
+      if (validFaces.length === 0) {
+        console.warn('[FaceDetection] No valid face objects found');
+        return;
+      }
+
+      // minFaceSize フィルタリング
+      const largeFaces = validFaces.filter((face: Face) => {
+        const faceSize = face.bounds.width * face.bounds.height;
+        return faceSize > minFaceSize;
+      });
+
+      if (largeFaces.length > 0) {
+        handleFacesCallback(largeFaces);
       }
     } catch (error) {
-      console.error('[FaceDetection] Error scanning faces:', error);
+      console.error('[FaceDetection] Unexpected error in frame processor:', error);
     } finally {
       isProcessing.value = false;
     }
