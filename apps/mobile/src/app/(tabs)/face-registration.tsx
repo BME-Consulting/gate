@@ -617,9 +617,9 @@ export default function FaceRegistrationScreen() {
                     ]} />
                   </TouchableOpacity>
                 )}
-              </View>
             </View>
           </View>
+        </View>
       ) : null}
 
       {/* 作業員選択モーダル */}
