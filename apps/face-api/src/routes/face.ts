@@ -17,8 +17,12 @@ router.post('/register', async (req, res) => {
   try {
     const { personId, imageData } = req.body;
 
+    console.log(`[Face Register] Request received for personId: ${personId}`);
+    console.log(`[Face Register] Image data length: ${imageData?.length || 0} bytes`);
+
     // バリデーション
     if (!personId || typeof personId !== 'string') {
+      console.log('[Face Register] Error: personId missing or invalid');
       return res.status(400).json({
         success: false,
         error: 'personId is required and must be a string',
@@ -26,6 +30,7 @@ router.post('/register', async (req, res) => {
     }
 
     if (!imageData || typeof imageData !== 'string') {
+      console.log('[Face Register] Error: imageData missing or invalid');
       return res.status(400).json({
         success: false,
         error: 'imageData is required and must be a base64 string',
@@ -35,24 +40,33 @@ router.post('/register', async (req, res) => {
     // 作業員が存在するか確認
     const worker = getWorkerById(personId);
     if (!worker) {
+      console.log(`[Face Register] Error: Worker ${personId} not found in database`);
       return res.status(404).json({
         success: false,
         error: `Worker with personId '${personId}' not found`,
       });
     }
 
+    console.log(`[Face Register] Worker found: ${worker.name} (${worker.company})`);
+    console.log('[Face Register] Extracting face embedding...');
+
     // 顔エンコーディングを抽出
     const embedding = await extractFaceEmbedding(imageData);
 
     if (!embedding) {
+      console.log('[Face Register] Error: No face detected in the image');
       return res.status(400).json({
         success: false,
         error: 'No face detected in the image',
       });
     }
 
+    console.log(`[Face Register] Face embedding extracted: ${embedding.length} dimensions`);
+
     // データベースに保存
     updateFaceEmbedding(personId, embedding);
+
+    console.log(`[Face Register] ✅ Success: Face registered for ${personId}`);
 
     res.json({
       success: true,

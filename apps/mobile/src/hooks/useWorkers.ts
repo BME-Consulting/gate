@@ -28,9 +28,24 @@ if (Platform.OS !== "web") {
  */
 function generateMockWorkers(count: number): Worker[] {
   const workers: Worker[] = [];
-  const companies = ["大成建設", "鹿島建設", "清水建設", "竹中工務店", "大林組"];
+  const companies = ["大成建設", "鹿島建設", "清水建設", "竹中工務店", "大林組", "テスト建設株式会社"];
   const lastNames = ["田中", "佐藤", "鈴木", "高橋", "渡辺", "伊藤", "山本", "中村", "小林", "加藤"];
   const firstNames = ["太郎", "次郎", "三郎", "一郎", "健太", "大輔", "翔太", "拓也", "直樹", "和也"];
+
+  // P010005を確実に含める（E2Eテスト用）
+  workers.push({
+    personId: "P010005",
+    name: "テスト作業員 P010005",
+    ccusId: "CCUS000005",
+    ccusRegistered: false,
+    socialInsurance: false,
+    company: "テスト建設株式会社",
+    residencyExpiry: new Date(2025, 11, 31).toISOString(),
+    age: 30,
+    isSoleProprietor: false,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
 
   for (let i = 0; i < count; i++) {
     const lastName = lastNames[Math.floor(Math.random() * lastNames.length)];
