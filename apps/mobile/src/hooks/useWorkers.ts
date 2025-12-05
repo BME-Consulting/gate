@@ -184,6 +184,67 @@ export function useWorkers() {
   };
 
   /**
+   * サーバーから作業員を取得（実API実装）
+   */
+  const fetchWorkersFromServer = async (apiUrl: string, apiKey: string): Promise<Worker[]> => {
+    console.log("[Workers] Fetching from server:", apiUrl);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), TIMEOUT.BULK_FETCH);
+
+    try {
+      const response = await fetch(apiUrl, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+        },
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        console.error("[Workers] Failed to fetch workers:", response.status, response.statusText);
+        throw new Error(`Failed to fetch workers: ${response.status}`);
+      }
+
+      const json = await response.json();
+
+      // サーバーのレスポンス構造に合わせてパース
+      // { workers: [...] } または直接配列 の両方に対応
+      const rows = Array.isArray(json) ? json : json.workers;
+
+      if (!Array.isArray(rows)) {
+        throw new Error("Invalid workers payload - expected array");
+      }
+
+      // camelCase / snake_case 両対応でマッピング
+      const workers: Worker[] = rows.map((w: any) => ({
+        personId: w.personId ?? w.person_id,
+        name: w.name,
+        ccusId: w.ccusId ?? w.ccus_id ?? null,
+        ccusRegistered: !!(w.ccusRegistered ?? w.ccus_registered),
+        socialInsurance: !!(w.socialInsurance ?? w.social_insurance),
+        company: w.company ?? w.company_name,
+        residencyExpiry: w.residencyExpiry ?? w.residency_expiry ?? null,
+        age: w.age ?? null,
+        isSoleProprietor: !!(w.isSoleProprietor ?? w.is_sole_proprietor),
+        faceEmbedding: w.faceEmbedding ?? w.face_embedding ?? null,
+        createdAt: w.createdAt ?? w.created_at,
+        updatedAt: w.updatedAt ?? w.updated_at,
+      }));
+
+      console.log(`[Workers] Fetched ${workers.length} workers from server`);
+      return workers;
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      console.error("[Workers] Error fetching workers:", error);
+      throw error;
+    }
+  };
+
+  /**
    * サーバーから作業員マスタを同期
    */
   const syncFromServer = async (apiUrl: string, apiKey: string): Promise<void> => {
@@ -192,39 +253,23 @@ export function useWorkers() {
     }
 
     try {
-      // モック認証の判定（Constants経由）
+      // モック使用フラグの判定（Constants経由）
       const Constants = require("expo-constants").default;
-      const useMockAuth = Constants.expoConfig?.extra?.useMockAuth ?? true;
-      const appEnv = Constants.expoConfig?.extra?.appEnv || "development";
-      const shouldUseMock = appEnv !== "production" && useMockAuth;
+      const useMockWorkers = Constants.expoConfig?.extra?.useMockWorkers ?? false;
 
       let serverWorkers: Worker[];
 
-      if (shouldUseMock) {
-        // モック実装: ダミー作業員データを生成
-        console.log("🔄 Using mock worker sync (development mode)");
+      if (useMockWorkers) {
+        // モック実装: ダミー作業員データを生成（明示的にONにした場合のみ）
+        console.log("🔄 Using mock worker sync (useMockWorkers = true)");
         serverWorkers = generateMockWorkers(30); // 30人のダミーデータ
 
         // モック同期の遅延（サーバー接続を模擬）
         await new Promise(resolve => setTimeout(resolve, 1000));
       } else {
-        // 本番実装: 実際のサーバーから取得
-        console.log("🔄 Fetching workers from server:", apiUrl);
-        const response = await fetchWithTimeout(apiUrl, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": apiKey,
-          },
-          timeoutMs: TIMEOUT.BULK_FETCH, // 90秒（大量データ対応）
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = (await response.json()) as { workers: Worker[] };
-        serverWorkers = data.workers || [];
+        // 本番実装: 実際のサーバーから取得（デフォルト）
+        console.log("🔄 Fetching workers from server (useMockWorkers = false)");
+        serverWorkers = await fetchWorkersFromServer(apiUrl, apiKey);
       }
 
       // バッチでUPSERT

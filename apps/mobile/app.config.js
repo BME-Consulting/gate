@@ -148,6 +148,13 @@ Please set these environment variables before building.
       useMockAuth: appEnv === "production"
         ? false
         : (process.env.USE_MOCK_AUTH === "false" ? false : true),
+
+      // モック作業員データの使用（明示的にONにした場合のみ）
+      // 本番環境では絶対にfalse、それ以外も基本false（実DBを使う）
+      useMockWorkers: appEnv === "production"
+        ? false
+        : (process.env.USE_MOCK_WORKERS === "true" ? true : false),
+
       appEnv,  // アプリ内で環境判定に使用
 
       // アプリケーション定数（本番運用向け）
