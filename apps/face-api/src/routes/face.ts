@@ -82,6 +82,106 @@ router.post('/register', async (req, res) => {
   }
 });
 
+// POST /api/face/verify - 顔認証（1:1 Verify）
+router.post('/verify', async (req, res) => {
+  try {
+    const { personId, imageData } = req.body;
+
+    console.log(`[Face Verify] Request received for personId: ${personId}`);
+    console.log(`[Face Verify] Image data length: ${imageData?.length || 0} bytes`);
+
+    // バリデーション
+    if (!personId || typeof personId !== 'string') {
+      console.log('[Face Verify] Error: personId missing or invalid');
+      return res.status(400).json({
+        success: false,
+        error_code: 'INVALID_PERSON_ID',
+        error_message: 'personId is required and must be a string',
+      });
+    }
+
+    if (!imageData || typeof imageData !== 'string') {
+      console.log('[Face Verify] Error: imageData missing or invalid');
+      return res.status(400).json({
+        success: false,
+        error_code: 'INVALID_IMAGE_DATA',
+        error_message: 'imageData is required and must be a base64 string',
+      });
+    }
+
+    // 作業員が存在するか確認
+    const worker = getWorkerById(personId);
+    if (!worker) {
+      console.log(`[Face Verify] Error: Worker ${personId} not found in database`);
+      return res.status(404).json({
+        success: false,
+        error_code: 'WORKER_NOT_FOUND',
+        error_message: `Worker with person_id '${personId}' not found`,
+      });
+    }
+
+    console.log(`[Face Verify] Worker found: ${worker.name} (${worker.company})`);
+
+    // 既存の顔エンベディングがあるか確認
+    if (!worker.faceEmbedding || worker.faceEmbedding.length === 0) {
+      console.log(`[Face Verify] Error: Face embedding not registered for ${personId}`);
+      return res.status(404).json({
+        success: false,
+        error_code: 'FACE_EMBEDDING_NOT_FOUND',
+        error_message: `Face embedding for person_id '${personId}' not found`,
+      });
+    }
+
+    console.log(`[Face Verify] Stored embedding dimensions: ${worker.faceEmbedding.length}`);
+    console.log('[Face Verify] Extracting face embedding from input image...');
+
+    // 入力画像から顔エンベディングを抽出
+    const inputEmbedding = await extractFaceEmbedding(imageData);
+
+    if (!inputEmbedding) {
+      console.log('[Face Verify] Error: No face detected in the input image');
+      return res.status(400).json({
+        success: false,
+        error_code: 'FACE_NOT_DETECTED',
+        error_message: 'No face detected in the image',
+      });
+    }
+
+    console.log(`[Face Verify] Input embedding extracted: ${inputEmbedding.length} dimensions`);
+
+    // 距離計算
+    const distance = calculateDistance(worker.faceEmbedding, inputEmbedding);
+
+    // 閾値（環境変数 FACE_VERIFY_THRESHOLD または FACE_THRESHOLD）
+    const threshold = parseFloat(process.env.FACE_VERIFY_THRESHOLD || process.env.FACE_THRESHOLD || '0.6');
+    const matched = isSamePerson(distance, threshold);
+
+    console.log(
+      `[Face Verify] person_id=${personId} distance=${distance.toFixed(4)} threshold=${threshold} matched=${matched}`
+    );
+
+    // レスポンス（snake_case）
+    res.json({
+      success: true,
+      mode: 'verify',
+      person_id: personId,
+      distance: parseFloat(distance.toFixed(4)),
+      threshold,
+      matched,
+      embedding_dimensions: inputEmbedding.length,
+      model_version: 'face-api.js:v1',
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error: any) {
+    console.error('Error in /verify:', error);
+    res.status(500).json({
+      success: false,
+      error_code: 'INTERNAL_SERVER_ERROR',
+      error_message: error.message || 'Internal server error',
+    });
+  }
+});
+
 // POST /api/face/recognize - 顔認識
 router.post('/recognize', async (req, res) => {
   try {
