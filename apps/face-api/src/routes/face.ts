@@ -70,8 +70,8 @@ router.post('/register', async (req, res) => {
 
     res.json({
       success: true,
-      personId,
-      embeddingDimensions: embedding.length,
+      person_id: personId,  // モバイルアプリはsnake_caseを期待
+      embedding_dimensions: embedding.length,
     });
   } catch (error: any) {
     console.error('Error in /register:', error);
