@@ -142,9 +142,12 @@ export default function FaceRegistrationScreen() {
       setRegistrationResult(null);
 
       // 写真を撮影（vision-camera）
+      // P0: 画像品質最適化 - 1.5MB以下に抑える
       const photo = await cameraRef.current.takePhoto({
         flash: 'off',
         enableShutterSound: false,
+        qualityPrioritization: 'balanced', // バランス重視（品質とファイルサイズ）
+        quality: 80, // 80%品質で約1.4MBに抑える（2MB → 1.4MB）
       });
 
       if (!photo || !photo.path) {
@@ -155,6 +158,25 @@ export default function FaceRegistrationScreen() {
       const RNFS = require('react-native-fs');
       const base64Image = await RNFS.readFile(photo.path, 'base64');
       const imageData = `data:image/jpeg;base64,${base64Image}`;
+
+      // P0: 画像サイズチェック（1.5MB推奨、3MB上限）
+      const imageSizeKB = Math.round(imageData.length / 1024);
+      const imageSizeMB = (imageSizeKB / 1024).toFixed(2);
+      console.log(`[FaceReg] Image size: ${imageSizeKB} KB (${imageSizeMB} MB)`);
+
+      if (imageData.length > 3 * 1024 * 1024) {
+        // 3MB超過は送信拒否
+        throw new Error(
+          `画像サイズが大きすぎます (${imageSizeMB} MB)\n\n` +
+          `最大サイズ: 3 MB\n` +
+          `もう一度撮影してください。`
+        );
+      }
+
+      if (imageData.length > 1.5 * 1024 * 1024) {
+        // 1.5MB超過は警告のみ
+        console.warn(`[FaceReg] Image size exceeds recommended limit: ${imageSizeMB} MB (recommended: 1.5 MB)`);
+      }
 
       // 環境変数からFace API URLとAPIキーを取得
       const apiFaceApi = Constants.expoConfig?.extra?.apiFaceApi || "http://192.168.1.4:8101";
@@ -221,13 +243,28 @@ export default function FaceRegistrationScreen() {
     } catch (error) {
       console.error("[FaceReg] Registration error:", error);
 
+      // P0: 改善されたエラーメッセージ
       let errorMessage = "顔登録に失敗しました";
 
       if (error instanceof Error) {
         if (error.name === 'AbortError' || error.message.includes('タイムアウト')) {
-          errorMessage = "サーバーへの接続がタイムアウトしました。\n\nネットワーク接続を確認して、もう一度お試しください。";
+          // タイムアウトエラー（30秒）
+          errorMessage =
+            "サーバーへの接続がタイムアウトしました（30秒）\n\n" +
+            "以下を確認してください：\n" +
+            "• Wi-Fi または モバイルデータ通信が有効か\n" +
+            "• Face API サーバーが起動しているか\n" +
+            "• サーバーに過負荷がかかっていないか\n\n" +
+            "しばらく待ってから、もう一度お試しください。";
         } else if (error.message.includes('Failed to fetch') || error.message.includes('Network')) {
-          errorMessage = "サーバーに接続できません。\n\nネットワーク接続とサーバーの状態を確認してください。";
+          // ネットワークエラー
+          errorMessage =
+            "Face API サーバーに接続できません\n\n" +
+            "以下を確認してください：\n" +
+            "• ネットワーク接続が有効か\n" +
+            "• Face API サーバーが起動しているか\n" +
+            `• サーバーURL: ${apiFaceApi}\n\n` +
+            "サーバーの状態を確認してください。";
         } else {
           errorMessage = error.message;
         }
@@ -262,7 +299,6 @@ export default function FaceRegistrationScreen() {
             onPress: () => {
               setSelectedPersonId("");
               setRegistrationResult(null);
-              setLastFaceDetection(null);
             }
           }
         ]
@@ -368,6 +404,24 @@ export default function FaceRegistrationScreen() {
                 <Text style={styles.guideText}>
                   {detectionStatus}
                 </Text>
+
+                {/* P1: 撮影ガイドメッセージ */}
+                {!isProcessing && !registrationResult && (
+                  <View style={styles.guideMessageCard}>
+                    <View style={styles.guideMessageItem}>
+                      <Ionicons name="checkmark-circle" size={20} color={tokens.color.success} />
+                      <Text style={styles.guideMessageText}>帽子・ヘルメットはそのままでOK</Text>
+                    </View>
+                    <View style={styles.guideMessageItem}>
+                      <Ionicons name="close-circle" size={20} color={tokens.color.danger} />
+                      <Text style={styles.guideMessageText}>サングラス・マスクは外してください</Text>
+                    </View>
+                    <View style={styles.guideMessageItem}>
+                      <Ionicons name="eye" size={20} color="#fff" />
+                      <Text style={styles.guideMessageText}>正面を向いて、顔全体が枠の中に入るように</Text>
+                    </View>
+                  </View>
+                )}
               </View>
 
               {/* 結果表示エリア */}
@@ -859,5 +913,28 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: tokens.color.border.default,
     marginLeft: 16,
+  },
+
+  // P1: ガイドメッセージカード
+  guideMessageCard: {
+    marginTop: 16,
+    backgroundColor: "rgba(0, 0, 0, 0.75)",
+    borderRadius: 12,
+    padding: 16,
+    gap: 12,
+    maxWidth: 320,
+  },
+
+  guideMessageItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+
+  guideMessageText: {
+    flex: 1,
+    fontSize: 14,
+    color: "#fff",
+    lineHeight: 20,
   },
 });
