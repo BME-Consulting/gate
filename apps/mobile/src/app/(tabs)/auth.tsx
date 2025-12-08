@@ -578,7 +578,6 @@ export default function AuthScreen() {
               isActive={isFocused && activeDetector === 'face'}
               photo={true}
               frameProcessor={frameProcessor}
-              frameProcessorFps={5}
               onInitialized={() => {
                 console.log("[Auth] Vision Camera initialized");
                 setIsCameraReady(true);

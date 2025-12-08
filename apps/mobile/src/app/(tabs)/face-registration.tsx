@@ -167,8 +167,6 @@ export default function FaceRegistrationScreen() {
       const photo = await cameraRef.current.takePhoto({
         flash: 'off',
         enableShutterSound: false,
-        qualityPrioritization: 'balanced', // バランス重視（品質とファイルサイズ）
-        quality: 80, // 80%品質で約1.4MBに抑える（2MB → 1.4MB）
       });
 
       if (!photo || !photo.path) {
@@ -360,8 +358,6 @@ export default function FaceRegistrationScreen() {
       const photo = await cameraRef.current.takePhoto({
         flash: 'off',
         enableShutterSound: false,
-        qualityPrioritization: 'balanced',
-        quality: 80,
       });
 
       if (!photo || !photo.path) {
