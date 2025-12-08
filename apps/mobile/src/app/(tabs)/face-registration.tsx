@@ -23,15 +23,32 @@ interface FaceRegistrationResponse {
   error?: string;
 }
 
+// Face API Verify レスポンス型定義
+interface FaceVerifyResponse {
+  success: boolean;
+  mode: "verify";
+  person_id: string;
+  distance: number;
+  threshold: number;
+  matched: boolean;
+  embedding_dimensions: number;
+  model_version: string;
+  timestamp: string;
+  error_code?: string;
+  error_message?: string;
+}
+
 export default function FaceRegistrationScreen() {
   const { hasPermission, requestPermission } = useCameraPermission();
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedPersonId, setSelectedPersonId] = useState<string>("");
   const [registrationResult, setRegistrationResult] = useState<FaceRegistrationResponse | null>(null);
+  const [verifyResult, setVerifyResult] = useState<FaceVerifyResponse | null>(null);
   const [isWorkerModalVisible, setIsWorkerModalVisible] = useState(false);
   const [isFocused, setIsFocused] = useState(true);
   const [initError, setInitError] = useState<string | null>(null);
+  const [mode, setMode] = useState<"register" | "verify">("register");
 
   const cameraRef = useRef<Camera>(null);
   const processingLock = useRef(false);
@@ -82,14 +99,18 @@ export default function FaceRegistrationScreen() {
 
   // 🎯 シンプルなステータスメッセージ（サーバー側Face API専用）
   const detectionStatus = useMemo(() => {
-    if (isProcessing) return "登録中...";
-
-    if (!selectedPersonId) {
-      return "作業員を選択して、顔をフレーム内に合わせてから撮影ボタンをタップしてください";
+    if (isProcessing) {
+      return mode === "register" ? "登録中..." : "本人確認中...";
     }
 
-    return "顔をフレーム内に合わせて、撮影ボタンをタップしてください";
-  }, [isProcessing, selectedPersonId]);
+    if (!selectedPersonId) {
+      const action = mode === "register" ? "登録" : "本人確認";
+      return `作業員を選択して、顔をフレーム内に合わせてから${action}ボタンをタップしてください`;
+    }
+
+    const action = mode === "register" ? "撮影" : "本人確認";
+    return `顔をフレーム内に合わせて、${action}ボタンをタップしてください`;
+  }, [isProcessing, selectedPersonId, mode]);
 
   // カメラ権限のチェック
   if (!hasPermission) {
@@ -323,6 +344,115 @@ export default function FaceRegistrationScreen() {
     setSelectedPersonId(personId);
     setIsWorkerModalVisible(false);
     setRegistrationResult(null);
+    setVerifyResult(null);
+  };
+
+  // 本人確認ハンドラー
+  const handleVerify = async () => {
+    if (!cameraRef.current || !isCameraReady || isProcessing || processingLock.current) {
+      return;
+    }
+
+    // 作業員が選択されているか確認
+    if (!selectedPersonId) {
+      Alert.alert("エラー", "作業員を選択してください", [{ text: "OK" }]);
+      return;
+    }
+
+    try {
+      processingLock.current = true;
+      setIsProcessing(true);
+      setVerifyResult(null);
+
+      // 写真を撮影（vision-camera）
+      const photo = await cameraRef.current.takePhoto({
+        flash: 'off',
+        enableShutterSound: false,
+        qualityPrioritization: 'balanced',
+        quality: 80,
+      });
+
+      if (!photo || !photo.path) {
+        throw new Error("写真の撮影に失敗しました");
+      }
+
+      // Base64に変換
+      const RNFS = require('react-native-fs');
+      const base64Image = await RNFS.readFile(photo.path, 'base64');
+      const imageData = `data:image/jpeg;base64,${base64Image}`;
+
+      // 環境変数からFace API URLとAPIキーを取得
+      const apiFaceApi = Constants.expoConfig?.extra?.apiFaceApi || "http://192.168.1.4:8101";
+      const apiFaceApiKey = Constants.expoConfig?.extra?.apiFaceApiKey || "development-api-key-12345";
+
+      console.log("[FaceVerify] Sending to Face API:", apiFaceApi);
+
+      // Face API Verify エンドポイントに送信
+      const response = await fetchWithTimeout(`${apiFaceApi}/api/face/verify`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiFaceApiKey,
+        },
+        body: JSON.stringify({
+          personId: selectedPersonId,
+          imageData: imageData,
+        }),
+        timeoutMs: TIMEOUT.FACE_RECOGNITION,
+      });
+
+      if (!response.ok) {
+        let errorDetail = "";
+        try {
+          const errorData = await response.json();
+          errorDetail = errorData.error_message || errorData.error || JSON.stringify(errorData);
+        } catch {
+          // JSON パースに失敗した場合は無視
+        }
+
+        if (response.status === 404) {
+          throw new Error(errorDetail || "顔エンベディングが登録されていません。先に顔登録を行ってください。");
+        }
+
+        if (response.status === 400) {
+          throw new Error(errorDetail || "顔が検出できませんでした。もう一度お試しください。");
+        }
+
+        throw new Error(
+          `サーバーエラーが発生しました (${response.status})\n\n` +
+          (errorDetail ? `詳細: ${errorDetail}` : "")
+        );
+      }
+
+      const result = (await response.json()) as FaceVerifyResponse;
+      console.log("[FaceVerify] Verification result:", result);
+
+      // 本人確認結果を保存
+      setVerifyResult(result);
+    } catch (error) {
+      console.error("[FaceVerify] Verification error:", error);
+
+      let errorMessage = "本人確認に失敗しました";
+
+      if (error instanceof Error) {
+        if (error.name === 'AbortError' || error.message.includes('タイムアウト')) {
+          errorMessage =
+            "サーバーへの接続がタイムアウトしました（30秒）\n\n" +
+            "しばらく待ってから、もう一度お試しください。";
+        } else if (error.message.includes('Failed to fetch') || error.message.includes('Network')) {
+          errorMessage =
+            "Face API サーバーに接続できません\n\n" +
+            "ネットワーク接続とサーバーの状態を確認してください。";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+
+      Alert.alert("エラー", errorMessage, [{ text: "OK" }]);
+    } finally {
+      processingLock.current = false;
+      setIsProcessing(false);
+    }
   };
 
   // 選択された作業員情報を取得
@@ -459,24 +589,94 @@ export default function FaceRegistrationScreen() {
                 </View>
               )}
 
+              {/* 本人確認結果表示エリア */}
+              {verifyResult && (
+                <View
+                  style={[
+                    styles.resultCard,
+                    verifyResult.matched ? styles.resultCardMatched : styles.resultCardNotMatched,
+                  ]}
+                >
+                  <View>
+                    <View style={styles.resultHeader}>
+                      <Ionicons
+                        name={verifyResult.matched ? "checkmark-circle" : "close-circle"}
+                        size={24}
+                        color={verifyResult.matched ? tokens.color.success : tokens.color.danger}
+                      />
+                      <Text
+                        style={[
+                          styles.resultTitle,
+                          verifyResult.matched ? {} : styles.resultTitleError,
+                        ]}
+                      >
+                        {verifyResult.matched ? "本人確認 OK" : "本人確認 NG"}
+                      </Text>
+                    </View>
+                    <Text style={styles.resultText}>
+                      {workers?.find(w => w.personId === verifyResult.person_id)?.name || verifyResult.person_id}
+                    </Text>
+                    <Text style={styles.resultSubText}>
+                      Person ID: {verifyResult.person_id}
+                    </Text>
+                    <Text style={styles.resultSubText}>
+                      類似度スコア: {(1 - verifyResult.distance).toFixed(3)} (距離: {verifyResult.distance.toFixed(3)})
+                    </Text>
+                    <Text style={styles.resultSubText}>
+                      閾値: {verifyResult.threshold} {verifyResult.matched ? "以下" : "超過"}
+                    </Text>
+                  </View>
+                </View>
+              )}
+
               {/* ボトムバー */}
               <View style={styles.bottomBar}>
                 {isProcessing ? (
                   <View style={styles.processingContainer}>
                     <ActivityIndicator size="large" color="#fff" />
-                    <Text style={styles.processingText}>登録中...</Text>
+                    <Text style={styles.processingText}>
+                      {mode === "register" ? "登録中..." : "本人確認中..."}
+                    </Text>
                   </View>
                 ) : (
-                  <TouchableOpacity
-                    style={[
-                      styles.captureButton,
-                      (!isCameraReady || !selectedPersonId) && styles.captureButtonDisabled,
-                    ]}
-                    onPress={handleTakePicture}
-                    disabled={!isCameraReady || isProcessing || !selectedPersonId}
-                  >
-                    <View style={styles.captureButtonInner} />
-                  </TouchableOpacity>
+                  <View style={styles.buttonRow}>
+                    {/* 登録ボタン */}
+                    <TouchableOpacity
+                      style={[
+                        styles.actionButton,
+                        mode === "register" && styles.actionButtonActive,
+                        (!isCameraReady || !selectedPersonId) && styles.actionButtonDisabled,
+                      ]}
+                      onPress={() => {
+                        setMode("register");
+                        setVerifyResult(null);
+                        handleTakePicture();
+                      }}
+                      disabled={!isCameraReady || isProcessing || !selectedPersonId}
+                    >
+                      <Ionicons name="camera" size={24} color="#fff" />
+                      <Text style={styles.actionButtonText}>登録</Text>
+                    </TouchableOpacity>
+
+                    {/* 本人確認ボタン */}
+                    <TouchableOpacity
+                      style={[
+                        styles.actionButton,
+                        styles.actionButtonVerify,
+                        mode === "verify" && styles.actionButtonActive,
+                        (!isCameraReady || !selectedPersonId) && styles.actionButtonDisabled,
+                      ]}
+                      onPress={() => {
+                        setMode("verify");
+                        setRegistrationResult(null);
+                        handleVerify();
+                      }}
+                      disabled={!isCameraReady || isProcessing || !selectedPersonId}
+                    >
+                      <Ionicons name="shield-checkmark" size={24} color="#fff" />
+                      <Text style={styles.actionButtonText}>本人確認</Text>
+                    </TouchableOpacity>
+                  </View>
                 )}
             </View>
           </View>
@@ -936,5 +1136,53 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#fff",
     lineHeight: 20,
+  },
+
+  // 本人確認機能追加スタイル
+  buttonRow: {
+    flexDirection: "row",
+    gap: 16,
+    paddingHorizontal: 16,
+  },
+
+  actionButton: {
+    flex: 1,
+    backgroundColor: tokens.color.primary,
+    paddingVertical: 16,
+    borderRadius: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderWidth: 2,
+    borderColor: "transparent",
+  },
+
+  actionButtonVerify: {
+    backgroundColor: tokens.color.success,
+  },
+
+  actionButtonActive: {
+    borderColor: "#fff",
+  },
+
+  actionButtonDisabled: {
+    opacity: 0.5,
+  },
+
+  actionButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#fff",
+  },
+
+  resultCardMatched: {
+    borderWidth: 2,
+    borderColor: tokens.color.success,
+  },
+
+  resultCardNotMatched: {
+    borderWidth: 2,
+    borderColor: tokens.color.danger,
   },
 });
