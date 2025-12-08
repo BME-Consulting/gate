@@ -251,6 +251,9 @@ export default function AuthScreen() {
     }
 
     try {
+      // 🔍 デバッグ: 現在の checkConfig を出力
+      console.log("[Auth] Active checkConfig:", JSON.stringify(currentProject.checkConfig, null, 2));
+
       // ルールを適用
       const ruleResult = ruleEngine.evaluate(worker);
 
