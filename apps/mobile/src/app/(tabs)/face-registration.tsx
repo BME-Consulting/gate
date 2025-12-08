@@ -272,20 +272,12 @@ export default function FaceRegistrationScreen() {
           // タイムアウトエラー（30秒）
           errorMessage =
             "サーバーへの接続がタイムアウトしました（30秒）\n\n" +
-            "以下を確認してください：\n" +
-            "• Wi-Fi または モバイルデータ通信が有効か\n" +
-            "• Face API サーバーが起動しているか\n" +
-            "• サーバーに過負荷がかかっていないか\n\n" +
             "しばらく待ってから、もう一度お試しください。";
         } else if (error.message.includes('Failed to fetch') || error.message.includes('Network')) {
           // ネットワークエラー
           errorMessage =
             "Face API サーバーに接続できません\n\n" +
-            "以下を確認してください：\n" +
-            "• ネットワーク接続が有効か\n" +
-            "• Face API サーバーが起動しているか\n" +
-            `• サーバーURL: ${apiFaceApi}\n\n` +
-            "サーバーの状態を確認してください。";
+            "ネットワーク接続とサーバーの状態を確認してください。";
         } else {
           errorMessage = error.message;
         }
@@ -535,26 +527,17 @@ export default function FaceRegistrationScreen() {
                   {detectionStatus}
                 </Text>
 
-                {/* P1: 撮影ガイドメッセージ */}
-                {!isProcessing && !registrationResult && (
+                {/* シンプルなガイドメッセージ */}
+                {!isProcessing && !registrationResult && !verifyResult && (
                   <View style={styles.guideMessageCard}>
-                    <View style={styles.guideMessageItem}>
-                      <Ionicons name="checkmark-circle" size={20} color={tokens.color.success} />
-                      <Text style={styles.guideMessageText}>帽子・ヘルメットはそのままでOK</Text>
-                    </View>
-                    <View style={styles.guideMessageItem}>
-                      <Ionicons name="close-circle" size={20} color={tokens.color.danger} />
-                      <Text style={styles.guideMessageText}>サングラス・マスクは外してください</Text>
-                    </View>
-                    <View style={styles.guideMessageItem}>
-                      <Ionicons name="eye" size={20} color="#fff" />
-                      <Text style={styles.guideMessageText}>正面を向いて、顔全体が枠の中に入るように</Text>
-                    </View>
+                    <Text style={styles.guideMessageSimple}>
+                      正面を向いて、顔全体をフレーム内に入れてください
+                    </Text>
                   </View>
                 )}
               </View>
 
-              {/* 結果表示エリア */}
+              {/* 結果表示エリア（シンプル版） */}
               {registrationResult && (
                 <View style={styles.resultCard}>
                   {registrationResult.success ? (
@@ -565,12 +548,6 @@ export default function FaceRegistrationScreen() {
                       </View>
                       <Text style={styles.resultText}>
                         {workers?.find(w => w.personId === registrationResult.person_id)?.name || registrationResult.person_id}
-                      </Text>
-                      <Text style={styles.resultSubText}>
-                        Person ID: {registrationResult.person_id}
-                      </Text>
-                      <Text style={styles.resultSubText}>
-                        エンコーディング次元数: {registrationResult.embedding_dimensions || "N/A"}
                       </Text>
                     </View>
                   ) : (
@@ -589,7 +566,7 @@ export default function FaceRegistrationScreen() {
                 </View>
               )}
 
-              {/* 本人確認結果表示エリア */}
+              {/* 本人確認結果表示エリア（シンプル版） */}
               {verifyResult && (
                 <View
                   style={[
@@ -615,15 +592,6 @@ export default function FaceRegistrationScreen() {
                     </View>
                     <Text style={styles.resultText}>
                       {workers?.find(w => w.personId === verifyResult.person_id)?.name || verifyResult.person_id}
-                    </Text>
-                    <Text style={styles.resultSubText}>
-                      Person ID: {verifyResult.person_id}
-                    </Text>
-                    <Text style={styles.resultSubText}>
-                      類似度スコア: {(1 - verifyResult.distance).toFixed(3)} (距離: {verifyResult.distance.toFixed(3)})
-                    </Text>
-                    <Text style={styles.resultSubText}>
-                      閾値: {verifyResult.threshold} {verifyResult.matched ? "以下" : "超過"}
                     </Text>
                   </View>
                 </View>
@@ -1115,26 +1083,19 @@ const styles = StyleSheet.create({
     marginLeft: 16,
   },
 
-  // P1: ガイドメッセージカード
+  // シンプルなガイドメッセージ
   guideMessageCard: {
     marginTop: 16,
     backgroundColor: "rgba(0, 0, 0, 0.75)",
     borderRadius: 12,
-    padding: 16,
-    gap: 12,
+    padding: 12,
     maxWidth: 320,
   },
 
-  guideMessageItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-
-  guideMessageText: {
-    flex: 1,
+  guideMessageSimple: {
     fontSize: 14,
     color: "#fff",
+    textAlign: "center",
     lineHeight: 20,
   },
 
