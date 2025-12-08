@@ -18,7 +18,7 @@
 |--------|------|----------|--------|
 | `allow` | 入場許可（正常） | 「入場登録完了」 | ✅ 記録する |
 | `warn` | 入場許可（警告付き） | 「注意が必要です」 | ✅ 記録する |
-| `block` | 入場拒否 | 「入場できません」 | **❌ 記録しない**（現在の実装） |
+| `block` | 入場拒否 | 「入場できません」 | **✅ 記録する**（仕様変更） |
 
 ---
 
@@ -68,13 +68,26 @@
 |--------|------------|-------------------|------------------|
 | `allow` | ✅ 記録する | `{"action":"allow","messages":[],...}` | `"pending"` |
 | `warn` | ✅ 記録する | `{"action":"warn","messages":["msg.socialInsurance.none"],...}` | `"pending"` |
-| `block` | **❌ 記録しない** | - | - |
+| `block` | **✅ 記録する**（仕様変更） | `{"action":"block","messages":["msg.ccus.unregistered"],...}` | `"pending"` |
 
-**コード根拠**: `auth.tsx:258`
+**旧実装（廃止）**: `auth.tsx:258`
 ```typescript
+// ❌ 旧実装: BLOCKは記録しない（廃止）
 if (ruleResult.action === "block") {
   showResultAlert(worker, ruleResult, method);
   return; // イベント記録せずにリターン
+}
+```
+
+**新実装（確定）**: `auth.tsx:258付近`で実装予定
+```typescript
+// ✅ 新実装: BLOCKも記録する
+if (ruleResult.action === "block") {
+  // BLOCKの場合も記録する（仕様変更）
+  const scanEvent: ScanEvent = { /* ... */ };
+  await addToQueue(scanEvent);
+  showResultAlert(worker, ruleResult, method);
+  return;
 }
 ```
 
@@ -83,49 +96,83 @@ if (ruleResult.action === "block") {
 モバイルから同期されたイベントのみ記録される。
 - `allow` → 同期される
 - `warn` → 同期される
-- `block` → **同期されない**（モバイルで記録されないため）
+- `block` → **同期される**（仕様変更: モバイルで記録されるようになった）
 
 ---
 
-## 🚨 BLOCK時のDB挙動仕様（要決定）
+## 🚨 BLOCK時のDB挙動仕様（確定版）
 
-### オプションA: 現在の実装を継続（記録しない）
+### ✅ 仕様決定: BLOCKも記録する
 
-**メリット**:
-- 実装がシンプル
-- ストレージ容量の節約
-- 「入場していない人」のデータは残らない
+**結論**: BLOCK判定時も `scan_events` に記録する
 
-**デメリット**:
-- 監査証跡が残らない
-- 不正アクセス試行の記録がない
-- 統計分析に使えない（BLOCK回数など）
+**理由**:
+1. **監査・クレーム対応**: 「誰がいつ、なぜ現場に入れなかったか」のログは証拠として必須
+2. **なりすまし対策**: 不正アクセス試行の記録が残る
+3. **安全衛生・労務**: 労災・労務トラブル時の証拠として求められる可能性が高い
+4. **統計分析**: BLOCK回数、BLOCK理由の分析が可能
+5. **ゼネコン訴求**: 監査機能として強力なアピールポイント
 
-### オプションB: BLOCKも記録する（推奨）
+### 記録方式
 
-**メリット**:
-- 監査証跡が完全
-- セキュリティインシデントの追跡が可能
-- 統計分析に使える（「誰が何回BLOCKされたか」など）
-- ゼネコン向けデモで「監査機能」として訴求できる
+**DB記録内容**:
+- イベントは必ず `scan_events` に記録する
+- `rule_result.action = "block"` として格納
+- `rule_result.messages` にBLOCK理由を格納
+- `transport_status = "pending"` で記録（サーバーへ同期）
 
-**デメリット**:
-- ストレージ容量が増える（ただし軽微）
-- 実装の修正が必要
-
-**実装方針（オプションBの場合）**:
+**実装方針**:
 ```typescript
 // auth.tsx:258 付近を修正
 if (ruleResult.action === "block") {
-  // イベントを記録する（allow/warnと同じ処理）
-  await recordEntryEvent(workerInfo, "FACE");
+  // BLOCKの場合も記録する（仕様変更）
+  // 入退モードを決定
+  const decidedMode: DecidedMode = currentProject.gateMode;
+
+  // スキャンイベントを作成
+  const occurredAt = new Date().toISOString();
+  const scanEvent: ScanEvent = {
+    id: generateUUID(),
+    projectId: currentProject.projectId,
+    personId: worker.personId,
+    method,
+    gateMode: currentProject.gateMode,
+    decidedMode,
+    occurredAt,
+    ruleResult,  // action: "block" を含む
+    transport: {
+      status: "pending",
+      attempts: 0,
+      idempotencyKey: makeIdempotencyKey({
+        projectId: currentProject.projectId,
+        personId: worker.personId,
+        decidedMode,
+        occurredAt,
+      }),
+    },
+  };
+
+  // キューに追加
+  await addToQueue(scanEvent);
+
+  // 結果を表示
+  showResultAlert(worker, ruleResult, method);
   return;
 }
 ```
 
-**決定事項**:
-- [ ] オプションA（記録しない）を継続
-- [ ] オプションB（記録する）に変更
+### E2Eテストでの確認方法
+
+**シナリオ3（BLOCK）テスト後に確認**:
+```bash
+# BLOCKイベントが記録されていることを確認
+sqlite3 mc-gate.db "SELECT person_id, decided_mode, rule_result FROM scan_events WHERE person_id = 'E2E_BLOCK' ORDER BY occurred_at DESC LIMIT 1;"
+```
+
+**期待される結果**:
+- ✅ レコードが **1件以上**存在する
+- ✅ `person_id = "E2E_BLOCK"`
+- ✅ `rule_result` に `{"action":"block","messages":["msg.ccus.unregistered"],...}` が格納されている
 
 ---
 
@@ -167,8 +214,8 @@ if (ruleResult.action === "block") {
 7. RuleEngineでルール判定（ruleEngine.evaluate(worker)）
    ↓
 8. ruleResult.action で分岐:
-   - block → Alert表示してリターン（DB記録なし）
-   - allow/warn → scanEventを作成してキューに追加
+   - **すべてのaction（allow/warn/block）** → scanEventを作成してキューに追加
+   - 結果をUI表示（Alert または カード）
    ↓
 9. addToQueue(scanEvent)
    ↓
@@ -227,86 +274,91 @@ if (ruleResult.action === "block") {
 
 **期待される挙動**:
 - ✅ adbログ: `"action":"block"`
-- ✅ Alert: 「入場不可」「CCUS技能者登録がありません」
-- ❌ DB: `scan_events` に**レコードなし**（現在の実装）
-- ❌ `rule_result` は生成されるが、DBには記録されない
+- ✅ Alert（またはカード）: 「入場できません」「CCUS技能者登録が確認できません」
+- ✅ DB: `scan_events` に**レコードあり**（仕様変更）
+- ✅ `rule_result.action = "block"`
+- ✅ `rule_result.messages = ["msg.ccus.unregistered"]`
 
 **確認コマンド**:
 ```bash
-# BLOCKイベントが記録されていないことを確認
-sqlite3 mc-gate.db "SELECT * FROM scan_events WHERE person_id = 'E2E_BLOCK';"
-# → 0件
+# BLOCKイベントが記録されていることを確認
+sqlite3 mc-gate.db "SELECT person_id, decided_mode, rule_result FROM scan_events WHERE person_id = 'E2E_BLOCK' ORDER BY occurred_at DESC LIMIT 1;"
+# → 1件以上のレコードが表示される
+# → rule_result に {"action":"block",...} が含まれる
 ```
 
 ---
 
-## 🎯 Option B 実装時の方針（要決定）
+## 🎯 Option B 実装時の方針（確定版）
 
-### Alert使用ポリシー
+### ✅ Alert使用ポリシー
 
-#### オプション1: 致命的エラーのみAlert、それ以外はカード
+**結論**: 致命的エラーのみAlert、それ以外はカード表示
 
-**Alert使用箇所**:
-- カメラ権限NG
-- ネットワーク不通（Face APIサーバー接続失敗）
-- Face API 500系エラー
-- データベースエラー
+#### Alert使用箇所（システム的な致命的エラー）
 
-**カード表示箇所**:
-- 認識成功（allow / warn / block）
-- 認識失敗（マッチなし）
+1. **カメラ権限NG**
+   ```
+   タイトル: カメラアクセス権限が必要です
+   本文: カメラへのアクセス権限がありません。端末の設定から許可してください。
+   ```
 
-**推奨理由**:
+2. **ネットワーク不通**（Face APIサーバー接続失敗）
+   ```
+   タイトル: サーバー接続エラー
+   本文: サーバーに接続できません。ネットワーク設定を確認してください。
+   ```
+
+3. **Face API 500系エラー**
+   ```
+   タイトル: サーバーエラー
+   本文: 顔認証サーバーでエラーが発生しました。しばらくしてから再度お試しください。
+   ```
+
+#### カード表示箇所（ビジネスロジック系）
+
+1. **認識成功**（allow / warn / block）
+2. **認識失敗**（マッチなし）
+3. **ルール違反によるブロック**
+
+**運用上のメリット**:
+- 現場担当者は「カードだけ見ていれば良い」
+- 致命的エラーだけポップアップで気づける
 - UX的に一貫性がある
-- 認証結果は画面内カードで、致命的エラーのみモーダルAlert
 
-#### オプション2: すべてカード表示（Alert完全廃止）
+### ✅ WARN/BLOCK時の文言（確定版）
 
-**メリット**: UI/UX の完全統一
-**デメリット**: 致命的エラーも画面内カードになるため、見逃される可能性
+**結論**: 現場寄り文言を採用（固すぎず、でもそれっぽい）
 
-**決定事項**:
-- [ ] オプション1（致命的エラーのみAlert、推奨）
-- [ ] オプション2（Alert完全廃止）
+#### WARN時UI仕様
 
-### WARN/BLOCK時の文言レベル
+**タイトル**: `⚠️ 注意が必要です`
 
-#### 現場寄り文言（推奨）
-
-**WARN例**:
+**本文**:
 ```
-⚠️ 注意:
-社会保険未加入の可能性があります。
-所長に確認してください。
+この作業員は社会保険の加入状況に注意が必要です。
+現場事務所または所長に確認してください。
 ```
 
-**BLOCK例**:
+**文言設計のポイント**:
+- 「未加入です」と断定しない（データ誤差・反映遅れを考慮）
+- 「スルーしていい話ではない」ことはちゃんと伝える
+- 現場担当者が迷わない明確な指示
+
+#### BLOCK時UI仕様
+
+**タイトル**: `❌ 入場できません`
+
+**本文**:
 ```
-❌ 入場できません
-CCUS技能者登録が確認できません。
+この作業員のCCUS技能者登録が確認できません。
 現場事務所で確認を受けてください。
 ```
 
-#### 法令寄り文言
-
-**WARN例**:
-```
-⚠️ 注意:
-この作業員は社会保険加入状況が未確認です。
-労働安全衛生法に基づき確認が必要です。
-```
-
-**BLOCK例**:
-```
-❌ 入場不可
-建設キャリアアップシステム（CCUS）への
-技能者登録が確認できません。
-```
-
-**決定事項**:
-- [ ] 現場寄り文言（推奨）
-- [ ] 法令寄り文言
-- [ ] カスタム文言（個別に記載）
+**文言設計のポイント**:
+- 「入場できません」を先頭に置いて、現場担当が迷わないように
+- BLOCK理由も一行で明示
+- 次のアクション（現場事務所で確認）を具体的に指示
 
 ---
 
@@ -398,7 +450,8 @@ export interface RuleResult {
 
 #### シナリオ3のレコード確認
 ```
-[追記予定: BLOCK時にレコードが0件であることの確認]
+[追記予定: BLOCK時にレコードが1件以上存在することの確認]
+[追記予定: rule_result に {"action":"block",...} が含まれることの確認]
 ```
 
 ### 想定外の挙動
@@ -410,5 +463,17 @@ export interface RuleResult {
 ---
 
 **作成日**: 2025-12-08
+**最終更新**: 2025-12-08
 **作成者**: Claude (with user collaboration)
-**ステータス**: E2Eテスト完了後に実例データを追記予定
+**ステータス**: 仕様確定版（E2Eテスト実施待ち）
+
+---
+
+## 📝 変更履歴
+
+### 2025-12-08: 仕様確定（v1.0）
+- ✅ BLOCK時のDB挙動を確定（記録する方式に変更）
+- ✅ Option B実装方針を確定（Alert vs カード使い分け）
+- ✅ WARN/BLOCK時の文言を確定（現場寄り文言）
+- ✅ すべての仕様を「確定版」としてマーク
+- 次ステップ: auth.tsxの実装 → E2Eテスト → 実例データ追記
