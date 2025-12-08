@@ -3,7 +3,7 @@ module.exports = function (api) {
     return {
         presets: ['babel-preset-expo'],
         plugins: [
-            // worklets-core plugin removed - not using frame processors
+            'react-native-reanimated/plugin', // ★ 必ず最後に配置
         ],
     };
 };

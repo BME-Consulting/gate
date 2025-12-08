@@ -17,7 +17,6 @@ import { useAppStore } from "../../store/appStore";
 import { router } from "expo-router";
 import { parseQRCode } from "@mc-gate/qr";
 import { useFaceDetection } from "../../hooks/useFaceDetection";
-import type { Face } from "react-native-vision-camera-face-detector";
 import {
   RuleEngine,
   generateUUID,
@@ -123,68 +122,54 @@ export default function AuthScreen() {
     }, [])
   );
 
-  // 顔検出コールバック
-  const handleFacesDetected = useCallback(async (faces: Face[]) => {
-    // activeDetector が 'face' でない場合は早期リターン
+  // useFaceDetection hook を使用（新API）
+  const {
+    frameProcessor,
+    faces,
+    bestFace,
+    hasFace,
+    isFaceQualityEnough,
+  } = useFaceDetection({ minArea: 20000 });
+
+  // リアルタイム顔検出 → 自動キャプチャ
+  useEffect(() => {
+    // activeDetector が 'face' でない場合は何もしない
     if (activeDetector !== 'face') {
       return;
     }
 
-    console.log(`[Auth] handleFacesDetected called - faces count: ${faces.length}`);
-
     // 処理中または最近処理した場合はスキップ
     const now = Date.now();
     if (processingLock.current || now - lastProcessTime.current < 2000) {
-      console.log(`[Auth] Skipping face detection - processing: ${processingLock.current}, cooldown: ${now - lastProcessTime.current}ms`);
       return;
     }
 
     // 顔が検出されていない場合
-    if (faces.length === 0) {
+    if (!hasFace) {
       setLastFaceDetection(null);
       setDetectionStatus("顔またはQRコードを検出中...");
       return;
     }
 
-    console.log(`[Auth] Face detected - processing...`);
-
-    // 最大の顔を取得
-    const largestFace = faces.reduce((prev, current) =>
-      current.bounds.width * current.bounds.height >
-      prev.bounds.width * prev.bounds.height
-        ? current
-        : prev
-    );
-
-    const faceSize = largestFace.bounds.width * largestFace.bounds.height;
-
-    // 顔の品質チェック
-    const isFaceQualityGood = faceSize > 20000; // 顔のサイズが十分大きい
-
     // 顔検出情報を保存
-    setLastFaceDetection({
-      timestamp: now,
-      confidence: 0.8, // vision-camera face detector の固定値
-      size: faceSize,
-    });
+    if (bestFace) {
+      setLastFaceDetection({
+        timestamp: now,
+        confidence: 0.8,
+        size: bestFace.area,
+      });
+    }
 
-    if (isFaceQualityGood) {
-      console.log(`[Auth] Face quality good - size: ${faceSize}`);
+    // 顔の品質が十分な場合のみ認証を実行
+    if (isFaceQualityEnough) {
+      console.log(`[Auth] Face quality good - area: ${bestFace?.area}`);
       setDetectionStatus("顔を検出しました。認証中...");
-      await processFaceRecognition();
+      processFaceRecognition();
     } else {
-      console.log(`[Auth] Face quality poor - size: ${faceSize}`);
+      console.log(`[Auth] Face quality poor - area: ${bestFace?.area}`);
       setDetectionStatus("顔をまっすぐカメラに向けてください");
     }
-  }, [activeDetector]);
-
-  // useFaceDetection hook を使用
-  const frameProcessor = useFaceDetection({
-    enabled: activeDetector === 'face' && !isProcessing,
-    onFacesDetected: handleFacesDetected,
-    minFaceSize: 20000,
-    cooldownMs: 2000,
-  });
+  }, [activeDetector, hasFace, isFaceQualityEnough, bestFace]);
 
   // カメラ権限のチェック
   if (!expoCameraPermission || !hasVisionCameraPermission) {
@@ -593,6 +578,7 @@ export default function AuthScreen() {
               isActive={isFocused && activeDetector === 'face'}
               photo={true}
               frameProcessor={frameProcessor}
+              frameProcessorFps={5}
               onInitialized={() => {
                 console.log("[Auth] Vision Camera initialized");
                 setIsCameraReady(true);
