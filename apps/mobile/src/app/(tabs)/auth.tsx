@@ -257,12 +257,6 @@ export default function AuthScreen() {
       // ルールを適用
       const ruleResult = ruleEngine.evaluate(worker);
 
-      // blockの場合は登録しない
-      if (ruleResult.action === "block") {
-        showResultAlert(worker, ruleResult, method);
-        return;
-      }
-
       // 入退モードを決定（プロジェクト設定のgateModeをそのまま使用）
       const decidedMode: DecidedMode = currentProject.gateMode;
 
@@ -289,7 +283,7 @@ export default function AuthScreen() {
         },
       };
 
-      // キューに追加
+      // キューに追加（BLOCK含むすべてのactionを記録）
       await addToQueue(scanEvent);
 
       // 結果を表示
