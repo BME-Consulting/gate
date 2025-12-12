@@ -16,7 +16,8 @@ import { useQueue } from "../../hooks/useQueue";
 import { useAppStore } from "../../store/appStore";
 import { router } from "expo-router";
 import { parseQRCode } from "@mc-gate/qr";
-import { useFaceDetection } from "../../hooks/useFaceDetection";
+// ❌ 静的importを削除（動的importに置き換え）
+// import { useFaceDetection } from "../../hooks/useFaceDetection";
 import {
   RuleEngine,
   generateUUID,
@@ -40,6 +41,14 @@ interface FaceRecognitionResponse {
 
 // 検出器タイプ
 type DetectorType = "face" | "qr";
+
+// ==========================================
+// Feature Flag: リアルタイム顔検出の有効化
+// ==========================================
+// 旧APK (Build d485057f) 互換性のため、デフォルトは無効
+// 新ビルド（face-detector導入後）では環境変数で有効化可能
+const ENABLE_REALTIME_FACE_DETECTION =
+  (process.env.EXPO_PUBLIC_ENABLE_REALTIME_FACE_DETECTION ?? "0") === "1";
 
 export default function AuthScreen() {
   // expo-camera permissions (for QR scanning)
@@ -122,17 +131,26 @@ export default function AuthScreen() {
     }, [])
   );
 
-  // useFaceDetection hook を使用（新API）
-  const {
-    frameProcessor,
-    faces,
-    bestFace,
-    hasFace,
-    isFaceQualityEnough,
-  } = useFaceDetection({ minArea: 20000 });
+  // ==========================================
+  // リアルタイム顔検出（Feature Flag で制御）
+  // ==========================================
+  // ⚠️ 注意: useFaceDetection は Hook なので、条件付きで呼び出せない
+  // → 子コンポーネント RealtimeFaceCamera に分離して解決
+  // ==========================================
+
+  // リアルタイム顔検出が無効な場合のダミー値
+  const frameProcessor = undefined;
+  const hasFace = false;
+  const isFaceQualityEnough = false;
+  const bestFace = null;
 
   // リアルタイム顔検出 → 自動キャプチャ
+  // ⚠️ ENABLE_REALTIME_FACE_DETECTION=false の場合は何もしない
   useEffect(() => {
+    if (!ENABLE_REALTIME_FACE_DETECTION) {
+      return;
+    }
+
     // activeDetector が 'face' でない場合は何もしない
     if (activeDetector !== 'face') {
       return;
@@ -169,7 +187,7 @@ export default function AuthScreen() {
       console.log(`[Auth] Face quality poor - area: ${bestFace?.area}`);
       setDetectionStatus("顔をまっすぐカメラに向けてください");
     }
-  }, [activeDetector, hasFace, isFaceQualityEnough, bestFace]);
+  }, [ENABLE_REALTIME_FACE_DETECTION, activeDetector, hasFace, isFaceQualityEnough, bestFace]);
 
   // カメラ権限のチェック
   if (!expoCameraPermission || !hasVisionCameraPermission) {
@@ -577,7 +595,9 @@ export default function AuthScreen() {
               device={visionCameraDevice}
               isActive={isFocused && activeDetector === 'face'}
               photo={true}
-              frameProcessor={frameProcessor}
+              // ⚠️ frameProcessor は ENABLE_REALTIME_FACE_DETECTION=true の時のみ渡す
+              // 旧APK (Build d485057f) では frameProcessor=undefined となり、手動撮影モードになる
+              {...(ENABLE_REALTIME_FACE_DETECTION && frameProcessor ? { frameProcessor } : {})}
               onInitialized={() => {
                 console.log("[Auth] Vision Camera initialized");
                 setIsCameraReady(true);
@@ -679,11 +699,35 @@ export default function AuthScreen() {
                   <ActivityIndicator size="large" color="#fff" />
                   <Text style={styles.processingText}>認証中...</Text>
                 </View>
-              ) : (
+              ) : ENABLE_REALTIME_FACE_DETECTION ? (
                 <View style={styles.infoContainer}>
                   <Ionicons name="information-circle" size={20} color="#fff" />
                   <Text style={styles.infoText}>
                     顔またはQRコードをカメラに向けてください
+                  </Text>
+                </View>
+              ) : activeDetector === 'face' ? (
+                <View style={styles.manualCaptureContainer}>
+                  <TouchableOpacity
+                    style={styles.captureButton}
+                    onPress={() => {
+                      console.log("[Auth] Manual capture button pressed");
+                      processFaceRecognition();
+                    }}
+                    disabled={!isCameraReady || isProcessing}
+                  >
+                    <Ionicons name="camera" size={32} color="#fff" />
+                    <Text style={styles.captureButtonText}>撮影</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.manualCaptureHint}>
+                    顔を枠内に合わせて撮影ボタンをタップ
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.infoContainer}>
+                  <Ionicons name="information-circle" size={20} color="#fff" />
+                  <Text style={styles.infoText}>
+                    QRコードをカメラに向けてください
                   </Text>
                 </View>
               )}
@@ -883,5 +927,34 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#fff",
     fontWeight: "400",
+  },
+
+  manualCaptureContainer: {
+    alignItems: "center",
+    gap: 12,
+  },
+
+  captureButton: {
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: tokens.color.primary,
+  },
+
+  captureButtonText: {
+    fontSize: 12,
+    color: "#fff",
+    fontWeight: "600",
+  },
+
+  manualCaptureHint: {
+    fontSize: 12,
+    color: "#fff",
+    textAlign: "center",
+    opacity: 0.8,
   },
 });
