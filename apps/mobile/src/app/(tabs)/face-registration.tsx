@@ -167,6 +167,7 @@ export default function FaceRegistrationScreen() {
       const photo = await cameraRef.current.takePhoto({
         flash: 'off',
         enableShutterSound: false,
+        qualityPrioritization: 'speed', // 速度優先で画質を下げる（サイズ削減）
       });
 
       if (!photo || !photo.path) {
@@ -181,27 +182,38 @@ export default function FaceRegistrationScreen() {
       // P0: 画像サイズチェック（1.5MB推奨、3MB上限）
       const imageSizeKB = Math.round(imageData.length / 1024);
       const imageSizeMB = (imageSizeKB / 1024).toFixed(2);
-      console.log(`[FaceReg] Image size: ${imageSizeKB} KB (${imageSizeMB} MB)`);
+
+      console.log(`[FaceReg] 📸 Photo captured:`, {
+        path: photo.path,
+        width: photo.width,
+        height: photo.height,
+        base64Size: `${imageSizeKB} KB (${imageSizeMB} MB)`,
+      });
 
       if (imageData.length > 3 * 1024 * 1024) {
         // 3MB超過は送信拒否
         throw new Error(
           `画像サイズが大きすぎます (${imageSizeMB} MB)\n\n` +
           `最大サイズ: 3 MB\n` +
+          `解像度: ${photo.width}x${photo.height}\n` +
           `もう一度撮影してください。`
         );
       }
 
       if (imageData.length > 1.5 * 1024 * 1024) {
         // 1.5MB超過は警告のみ
-        console.warn(`[FaceReg] Image size exceeds recommended limit: ${imageSizeMB} MB (recommended: 1.5 MB)`);
+        console.warn(`[FaceReg] ⚠️ Image size exceeds recommended limit: ${imageSizeMB} MB (recommended: 1.5 MB)`);
       }
 
       // 環境変数からFace API URLとAPIキーを取得
       const apiFaceApi = Constants.expoConfig?.extra?.apiFaceApi || "http://192.168.1.4:8101";
       const apiFaceApiKey = Constants.expoConfig?.extra?.apiFaceApiKey || "development-api-key-12345";
 
-      console.log("[FaceReg] Sending to Face API:", apiFaceApi);
+      console.log(`[FaceReg] 🚀 Sending to Face API:`, {
+        url: `${apiFaceApi}/api/face/register`,
+        person_id: selectedPersonId,
+        imageDataPrefix: imageData.substring(0, 50),
+      });
 
       // Face APIに送信（タイムアウト付き）
       const response = await fetchWithTimeout(`${apiFaceApi}/api/face/register`, {
@@ -252,7 +264,16 @@ export default function FaceRegistrationScreen() {
       }
 
       const result = (await response.json()) as FaceRegistrationResponse;
-      console.log("[FaceReg] Registration result:", result);
+      console.log("[FaceReg] ✅ Registration result:", result);
+
+      // 顔検出できなかった場合の詳細ログ
+      if (result.face_count === 0) {
+        console.warn("[FaceReg] ⚠️ No face detected in the image", {
+          person_id: selectedPersonId,
+          image_size: `${imageSizeMB} MB`,
+          resolution: `${photo.width}x${photo.height}`,
+        });
+      }
 
       // 登録結果を保存
       setRegistrationResult(result);
@@ -358,6 +379,7 @@ export default function FaceRegistrationScreen() {
       const photo = await cameraRef.current.takePhoto({
         flash: 'off',
         enableShutterSound: false,
+        qualityPrioritization: 'speed', // 速度優先で画質を下げる（サイズ削減）
       });
 
       if (!photo || !photo.path) {
@@ -373,7 +395,16 @@ export default function FaceRegistrationScreen() {
       const apiFaceApi = Constants.expoConfig?.extra?.apiFaceApi || "http://192.168.1.4:8101";
       const apiFaceApiKey = Constants.expoConfig?.extra?.apiFaceApiKey || "development-api-key-12345";
 
-      console.log("[FaceVerify] Sending to Face API:", apiFaceApi);
+      // 画像サイズをログ出力
+      const imageSizeKB = Math.round(imageData.length / 1024);
+      const imageSizeMB = (imageSizeKB / 1024).toFixed(2);
+
+      console.log(`[FaceVerify] 🚀 Sending to Face API:`, {
+        url: `${apiFaceApi}/api/face/verify`,
+        person_id: selectedPersonId,
+        imageSize: `${imageSizeMB} MB`,
+        resolution: `${photo.width}x${photo.height}`,
+      });
 
       // Face API Verify エンドポイントに送信
       const response = await fetchWithTimeout(`${apiFaceApi}/api/face/verify`, {
@@ -413,7 +444,12 @@ export default function FaceRegistrationScreen() {
       }
 
       const result = (await response.json()) as FaceVerifyResponse;
-      console.log("[FaceVerify] Verification result:", result);
+      console.log(`[FaceVerify] ${result.matched ? '✅' : '❌'} Verification result:`, {
+        matched: result.matched,
+        distance: result.distance,
+        threshold: result.threshold,
+        person_id: result.person_id,
+      });
 
       // 本人確認結果を保存
       setVerifyResult(result);
