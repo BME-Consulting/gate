@@ -62,17 +62,17 @@ class FaceRecognitionService:
         return encodings[0]
     
     async def register_face(
-        self, 
-        person_id: str, 
+        self,
+        person_id: str,
         image_data: str
     ) -> Tuple[bool, Optional[str], Optional[int], Optional[int]]:
         """
         Register face from image
-        
+
         Args:
             person_id: Unique person identifier
             image_data: Base64 encoded image
-        
+
         Returns:
             (success, error_message, embedding_dimensions, face_count)
         """
@@ -80,11 +80,20 @@ class FaceRecognitionService:
             # Decode image
             logger.info(f"Registering face for person_id: {person_id}")
             image = decode_base64_image(image_data)
-            
+
+            # DEBUG: Save image to check orientation
+            from PIL import Image as PILImage
+            import os
+            debug_dir = "/tmp/face_debug"
+            os.makedirs(debug_dir, exist_ok=True)
+            debug_path = f"{debug_dir}/{person_id}_debug.jpg"
+            PILImage.fromarray(image).save(debug_path)
+            logger.info(f"DEBUG: Saved image to {debug_path} (shape: {image.shape})")
+
             # Detect faces
             face_locations = self.detect_faces(image)
             face_count = len(face_locations)
-            
+
             logger.info(f"Detected {face_count} face(s)")
             
             if face_count == 0:
