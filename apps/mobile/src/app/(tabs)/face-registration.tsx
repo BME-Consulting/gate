@@ -13,7 +13,6 @@ import { useWorkers } from "../../hooks/useWorkers";
 import { router } from "expo-router";
 import { TIMEOUT, fetchWithTimeout } from "@mc-gate/core";
 import * as Sentry from "@sentry/react-native";
-import * as ImageManipulator from "expo-image-manipulator";
 
 // Face API レスポンス型定義（Face APIはsnake_caseを返す）
 interface FaceRegistrationResponse {
@@ -164,56 +163,47 @@ export default function FaceRegistrationScreen() {
       setRegistrationResult(null);
 
       // 写真を撮影（vision-camera）
+      // P0: 画像品質最適化 - 1.5MB以下に抑える
       const photo = await cameraRef.current.takePhoto({
         flash: 'off',
         enableShutterSound: false,
-        qualityPrioritization: 'speed',
+        qualityPrioritization: 'speed', // 速度優先で画質を下げる（サイズ削減）
       });
 
       if (!photo || !photo.path) {
         throw new Error("写真の撮影に失敗しました");
       }
 
-      console.log(`[FaceReg] 📸 Original photo:`, {
-        path: photo.path,
-        width: photo.width,
-        height: photo.height,
-      });
+      // Base64に変換（react-native-fs を使用）
+      const RNFS = require('react-native-fs');
+      const base64Image = await RNFS.readFile(photo.path, 'base64');
+      const imageData = `data:image/jpeg;base64,${base64Image}`;
 
-      // 🔥 画像を回転補正 + リサイズ + JPEG圧縮 + Base64化
-      // - EXIF情報を焼き込んで向きを修正（フロントカメラの横倒し問題を解決）
-      // - 640px幅にリサイズ（顔認証には十分、サイズ削減）
-      // - JPEG圧縮率0.8（品質と容量のバランス）
-      // - base64: true で直接Base64取得（react-native-fsのreadFileを使わない）
-      const manipulated = await ImageManipulator.manipulateAsync(
-        photo.path,
-        [
-          { rotate: 0 }, // EXIF情報を焼き込む（向き補正）
-          { resize: { width: 640 } }, // 640px幅にリサイズ（アスペクト比維持）
-        ],
-        {
-          compress: 0.8, // JPEG圧縮率（0〜1、1が最高品質）
-          format: ImageManipulator.SaveFormat.JPEG,
-          base64: true, // Base64を直接取得
-        }
-      );
-
-      if (!manipulated.base64) {
-        throw new Error("画像の処理に失敗しました");
-      }
-
-      const imageData = `data:image/jpeg;base64,${manipulated.base64}`;
-
-      // 画像サイズチェック
+      // P0: 画像サイズチェック（1.5MB推奨、3MB上限）
       const imageSizeKB = Math.round(imageData.length / 1024);
       const imageSizeMB = (imageSizeKB / 1024).toFixed(2);
 
-      console.log(`[FaceReg] ✅ Processed image:`, {
-        originalSize: `${photo.width}x${photo.height}`,
-        processedSize: `${manipulated.width}x${manipulated.height}`,
+      console.log(`[FaceReg] 📸 Photo captured:`, {
+        path: photo.path,
+        width: photo.width,
+        height: photo.height,
         base64Size: `${imageSizeKB} KB (${imageSizeMB} MB)`,
-        uri: manipulated.uri,
       });
+
+      if (imageData.length > 3 * 1024 * 1024) {
+        // 3MB超過は送信拒否
+        throw new Error(
+          `画像サイズが大きすぎます (${imageSizeMB} MB)\n\n` +
+          `最大サイズ: 3 MB\n` +
+          `解像度: ${photo.width}x${photo.height}\n` +
+          `もう一度撮影してください。`
+        );
+      }
+
+      if (imageData.length > 1.5 * 1024 * 1024) {
+        // 1.5MB超過は警告のみ
+        console.warn(`[FaceReg] ⚠️ Image size exceeds recommended limit: ${imageSizeMB} MB (recommended: 1.5 MB)`);
+      }
 
       // 環境変数からFace API URLとAPIキーを取得
       const apiFaceApi = Constants.expoConfig?.extra?.apiFaceApi || "http://192.168.1.4:8101";
@@ -389,38 +379,17 @@ export default function FaceRegistrationScreen() {
       const photo = await cameraRef.current.takePhoto({
         flash: 'off',
         enableShutterSound: false,
-        qualityPrioritization: 'speed',
+        qualityPrioritization: 'speed', // 速度優先で画質を下げる（サイズ削減）
       });
 
       if (!photo || !photo.path) {
         throw new Error("写真の撮影に失敗しました");
       }
 
-      console.log(`[FaceVerify] 📸 Original photo:`, {
-        path: photo.path,
-        width: photo.width,
-        height: photo.height,
-      });
-
-      // 🔥 画像を回転補正 + リサイズ + JPEG圧縮 + Base64化
-      const manipulated = await ImageManipulator.manipulateAsync(
-        photo.path,
-        [
-          { rotate: 0 }, // EXIF情報を焼き込む（向き補正）
-          { resize: { width: 640 } }, // 640px幅にリサイズ
-        ],
-        {
-          compress: 0.8,
-          format: ImageManipulator.SaveFormat.JPEG,
-          base64: true,
-        }
-      );
-
-      if (!manipulated.base64) {
-        throw new Error("画像の処理に失敗しました");
-      }
-
-      const imageData = `data:image/jpeg;base64,${manipulated.base64}`;
+      // Base64に変換
+      const RNFS = require('react-native-fs');
+      const base64Image = await RNFS.readFile(photo.path, 'base64');
+      const imageData = `data:image/jpeg;base64,${base64Image}`;
 
       // 環境変数からFace API URLとAPIキーを取得
       const apiFaceApi = Constants.expoConfig?.extra?.apiFaceApi || "http://192.168.1.4:8101";
@@ -430,15 +399,11 @@ export default function FaceRegistrationScreen() {
       const imageSizeKB = Math.round(imageData.length / 1024);
       const imageSizeMB = (imageSizeKB / 1024).toFixed(2);
 
-      console.log(`[FaceVerify] ✅ Processed image:`, {
-        originalSize: `${photo.width}x${photo.height}`,
-        processedSize: `${manipulated.width}x${manipulated.height}`,
-        base64Size: `${imageSizeKB} KB (${imageSizeMB} MB)`,
-      });
-
       console.log(`[FaceVerify] 🚀 Sending to Face API:`, {
         url: `${apiFaceApi}/api/face/verify`,
         person_id: selectedPersonId,
+        imageSize: `${imageSizeMB} MB`,
+        resolution: `${photo.width}x${photo.height}`,
       });
 
       // Face API Verify エンドポイントに送信
