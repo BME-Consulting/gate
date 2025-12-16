@@ -115,9 +115,7 @@ Please set these environment variables before building.
     updates: {
       url: "https://u.expo.dev/0f0feec5-4f4b-4252-ad34-c1594238b4b8",
     },
-    runtimeVersion: {
-      policy: "sdkVersion",
-    },
+    runtimeVersion: "exposdk:54.0.0",
     extra: {
       // まず既存 extra を先に展開（後から上書きするため）
       ...baseExtra,

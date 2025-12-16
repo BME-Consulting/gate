@@ -356,20 +356,20 @@ export default function SettingsScreen() {
     setIsSyncing(true);
 
     try {
-      // Workers APIはFace API (port 8101) を使用
-      const apiFaceApi = Constants.expoConfig?.extra?.apiFaceApi || "http://192.168.1.4:8101";
-      const apiFaceApiKey = Constants.expoConfig?.extra?.apiFaceApiKey || "development-api-key-12345";
-      const workersApiUrl = `${apiFaceApi}/api/workers`;
+      // Workers APIはGS API を使用
+      const apiBaseGs = Constants.expoConfig?.extra?.apiBaseGs || "http://192.168.1.4:7070";
+      const apiGsApiKey = Constants.expoConfig?.extra?.apiGsApiKey || "development-api-key-12345";
+      const workersApiUrl = `${apiBaseGs}/api/workers`;
 
       // デバッグログ: 接続先URL
       console.log("==================== WORKER SYNC DEBUG ====================");
-      console.log(`[DEBUG] Face API URL: ${apiFaceApi}`);
+      console.log(`[DEBUG] GS API URL: ${apiBaseGs}`);
       console.log(`[DEBUG] Workers API URL: ${workersApiUrl}`);
-      console.log(`[DEBUG] API Key: ${apiFaceApiKey.substring(0, 20)}...`);
+      console.log(`[DEBUG] API Key: ${apiGsApiKey.substring(0, 20)}...`);
       console.log("===========================================================");
 
       console.log("[DEBUG] Starting worker sync...");
-      await syncFromServer(workersApiUrl, apiFaceApiKey);
+      await syncFromServer(workersApiUrl, apiGsApiKey);
       console.log("[DEBUG] Worker sync completed successfully");
 
       // 同期後に作業員数を再取得
