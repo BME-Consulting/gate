@@ -641,7 +641,7 @@ export default function AuthScreen() {
             </View>
 
             {/* ガイドフレーム */}
-            <View style={styles.guideContainer} pointerEvents="none">
+            <View style={styles.guideContainer}>
               <View style={styles.guideFrame}>
                 <View style={[styles.guideCorner, styles.guideCornerTopLeft]} />
                 <View style={[styles.guideCorner, styles.guideCornerTopRight]} />
