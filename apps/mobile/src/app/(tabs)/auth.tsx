@@ -337,7 +337,15 @@ export default function AuthScreen() {
 
   // 顔認証処理
   const processFaceRecognition = async () => {
-    if (!visionCameraRef.current || !isCameraReady || processingLock.current) {
+    // 🔥 Complete guard (user's requirement)
+    if (
+      !visionCameraRef.current ||
+      !visionCameraDevice ||  // Add device check
+      !isFocused ||
+      !isCameraReady ||
+      processingLock.current
+    ) {
+      console.warn("[Auth] Camera not ready - skipping photo capture");
       return;
     }
 
@@ -585,49 +593,58 @@ export default function AuthScreen() {
     router.back();
   };
 
+  // 🚨 フォールバックUI: cameraDevice未取得時
+  if (!visionCameraDevice) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.centerContent}>
+          <ActivityIndicator size="large" color={tokens.color.primary} />
+          <Text style={styles.message}>カメラを初期化中...</Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       {/* Dual Camera Approach: vision-camera for face, expo-camera for QR */}
-      {isFocused ? (
-        <View style={styles.cameraContainer}>
-          {/* Vision Camera - Face Detection */}
-          {activeDetector === 'face' && visionCameraDevice && (
-            <Camera
-              ref={visionCameraRef}
-              style={StyleSheet.absoluteFill}
-              device={visionCameraDevice}
-              isActive={isFocused && activeDetector === 'face'}
-              photo={true}
-              // ⚠️ frameProcessor は ENABLE_REALTIME_FACE_DETECTION=true の時のみ渡す
-              // 旧APK (Build d485057f) では frameProcessor=undefined となり、手動撮影モードになる
-              {...(ENABLE_REALTIME_FACE_DETECTION && frameProcessor ? { frameProcessor } : {})}
-              onInitialized={() => {
-                console.log("[Auth] Vision Camera initialized");
-                setIsCameraReady(true);
-              }}
-              onError={(error) => {
-                console.error("[Auth] Vision Camera error:", error);
-              }}
-            />
-          )}
+      <View style={styles.cameraContainer}>
+        {/* Vision Camera - Face Detection */}
+        {/* 🔥 常に存在、isActiveで動作制御（条件レンダリング廃止） */}
+        <Camera
+          ref={visionCameraRef}
+          style={[StyleSheet.absoluteFill, activeDetector !== 'face' && { opacity: 0 }]}
+          device={visionCameraDevice}
+          isActive={isFocused && activeDetector === 'face'}
+          photo={true}
+          // ⚠️ frameProcessor は ENABLE_REALTIME_FACE_DETECTION=true の時のみ渡す
+          {...(ENABLE_REALTIME_FACE_DETECTION && frameProcessor ? { frameProcessor } : {})}
+          onInitialized={() => {
+            console.log("[Auth] Vision Camera initialized");
+            setIsCameraReady(true);
+          }}
+          onError={(error) => {
+            console.error("[Auth] Vision Camera error:", error);
+          }}
+        />
 
-          {/* Expo Camera - QR Scanning */}
-          {activeDetector === 'qr' && (
-            <CameraView
-              ref={expoCameraRef}
-              style={StyleSheet.absoluteFill}
-              facing="front"
-              mirror={true}
-              onCameraReady={() => {
-                console.log("[Auth] Expo Camera ready");
-                setIsCameraReady(true);
-              }}
-              onBarcodeScanned={handleBarcodeScanned}
-              barcodeScannerSettings={{
-                barcodeTypes: ["qr"],
-              }}
-            />
-          )}
+        {/* Expo Camera - QR Scanning */}
+        {activeDetector === 'qr' && (
+          <CameraView
+            ref={expoCameraRef}
+            style={StyleSheet.absoluteFill}
+            facing="front"
+            mirror={true}
+            onCameraReady={() => {
+              console.log("[Auth] Expo Camera ready");
+              setIsCameraReady(true);
+            }}
+            onBarcodeScanned={handleBarcodeScanned}
+            barcodeScannerSettings={{
+              barcodeTypes: ["qr"],
+            }}
+          />
+        )}
 
           {/* カメラオーバーレイ */}
           <View style={styles.overlay} pointerEvents="box-none">
@@ -737,7 +754,6 @@ export default function AuthScreen() {
             </View>
           </View>
         </View>
-      ) : null}
     </View>
   );
 }

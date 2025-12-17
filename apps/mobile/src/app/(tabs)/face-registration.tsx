@@ -157,7 +157,15 @@ export default function FaceRegistrationScreen() {
 
   // 写真を撮影してFace APIに送信（サーバー側で顔検出）
   const handleTakePicture = async () => {
-    if (!cameraRef.current || !isCameraReady || isProcessing || processingLock.current) {
+    // 🔥 Complete guard (user's requirement)
+    if (
+      !cameraRef.current ||
+      !cameraDevice ||  // Add device check
+      !isCameraReady ||
+      isProcessing ||
+      processingLock.current
+    ) {
+      console.warn("[FaceReg] Camera not ready - skipping photo capture");
       return;
     }
 
@@ -599,30 +607,36 @@ export default function FaceRegistrationScreen() {
   // 選択された作業員情報を取得
   const selectedWorker = workers?.find(w => w.personId === selectedPersonId);
 
+  // 🚨 フォールバックUI: cameraDevice未取得時
+  if (!cameraDevice) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.centerContent}>
+          <ActivityIndicator size="large" color={tokens.color.primary} />
+          <Text style={styles.message}>カメラを初期化中...</Text>
+        </View>
+      </View>
+    );
+  }
+
   // 🔥 Camera を常に配置（条件レンダリングで消さない）
   return (
     <View style={styles.container}>
       <View style={styles.cameraContainer}>
-        {cameraDevice ? (
-          <Camera
-            ref={cameraRef}
-            style={StyleSheet.absoluteFill}
-            device={cameraDevice}
-            isActive={isCameraActive}
-            photo={true}
-            onInitialized={() => {
-              console.log("[FaceReg] Camera initialized");
-              setIsCameraReady(true);
-            }}
-            onError={(error) => {
-              console.error("[FaceReg] Camera error:", error);
-            }}
-          />
-        ) : (
-          <View style={styles.cameraFallback}>
-            <Text style={styles.cameraFallbackText}>カメラデバイスを取得中...</Text>
-          </View>
-        )}
+        <Camera
+          ref={cameraRef}
+          style={StyleSheet.absoluteFill}
+          device={cameraDevice}
+          isActive={isCameraActive}
+          photo={true}
+          onInitialized={() => {
+            console.log("[FaceReg] Camera initialized");
+            setIsCameraReady(true);
+          }}
+          onError={(error) => {
+            console.error("[FaceReg] Camera error:", error);
+          }}
+        />
 
         {/* オーバーレイ（Camera の外側に配置） */}
         <View style={styles.overlay} pointerEvents="box-none">
