@@ -29,6 +29,7 @@ import {
   type DecidedMode,
   TIMEOUT,
   fetchWithTimeout,
+  validateApiUrl,
 } from "@mc-gate/core";
 
 // Face API のレスポンス型定義（Face APIはsnake_caseを返す）
@@ -381,8 +382,16 @@ export default function AuthScreen() {
       const imageData = `data:image/jpeg;base64,${base64Image}`;
 
       // 環境変数からFace API URLとAPIキーを取得
-      const apiFaceApi = Constants.expoConfig?.extra?.apiFaceApi || "http://192.168.1.4:8101";
-      const apiFaceApiKey = Constants.expoConfig?.extra?.apiFaceApiKey || "development-api-key-12345";
+      const appEnv = Constants.expoConfig?.extra?.appEnv || "development";
+      const apiFaceApi = Constants.expoConfig?.extra?.apiFaceApi;
+      const apiFaceApiKey = Constants.expoConfig?.extra?.apiFaceApiKey;
+
+      // 🔴 P0: URL検証 - preview/productionでLAN IP検出時は即クラッシュ
+      validateApiUrl(apiFaceApi, appEnv, "Face API");
+
+      if (!apiFaceApiKey) {
+        throw new Error("Face API Key設定が見つかりません。アプリの再ビルドが必要です。");
+      }
 
       console.log("[Auth] Sending face recognition request to:", apiFaceApi);
 

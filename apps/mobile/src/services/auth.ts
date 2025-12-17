@@ -27,19 +27,26 @@ interface AuthConfig {
 function getAuthConfig(): AuthConfig {
   const { auth } = Constants.expoConfig?.extra || {};
 
-  // フォールバック値（開発環境用）
-  const fallbackConfig: AuthConfig = {
-    issuer: "http://192.168.1.4:8081/realms/mcd3",
-    clientId: "mc-gate-mobile",
-    audience: "mc-gate",
-  };
+  // 開発環境のみフォールバック許可
+  const appEnv = Constants.expoConfig?.extra?.appEnv || "development";
+  const isDevelopment = appEnv === "development";
 
   if (!auth?.issuer || !auth?.clientId || !auth?.audience) {
-    console.warn(
-      "[auth.ts] Auth configuration is missing from Constants.expoConfig.extra.auth. Using fallback values."
-    );
-    console.warn("[auth.ts] Fallback config:", fallbackConfig);
-    return fallbackConfig;
+    if (isDevelopment) {
+      // 開発環境のみフォールバック値を使用
+      const fallbackConfig: AuthConfig = {
+        issuer: "http://192.168.1.4:8081/realms/mcd3",
+        clientId: "mc-gate-mobile",
+        audience: "mc-gate",
+      };
+      console.warn(
+        "[auth.ts] Auth configuration is missing. Using development fallback values."
+      );
+      return fallbackConfig;
+    }
+
+    // 本番/プレビュー環境ではエラー
+    throw new Error("認証設定が見つかりません。アプリの再ビルドが必要です。");
   }
 
   return {

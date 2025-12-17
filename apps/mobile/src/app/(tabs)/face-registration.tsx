@@ -11,7 +11,7 @@ import { Button, tokens } from "@mc-gate/ui-kit";
 import { Ionicons } from "@expo/vector-icons";
 import { useWorkers } from "../../hooks/useWorkers";
 import { router } from "expo-router";
-import { TIMEOUT, fetchWithTimeout } from "@mc-gate/core";
+import { TIMEOUT, fetchWithTimeout, validateApiUrl } from "@mc-gate/core";
 import * as Sentry from "@sentry/react-native";
 import { ErrorGuidanceCard } from "../../components/ErrorGuidanceCard";
 import { ErrorType } from "../../constants/errorMessages";
@@ -210,7 +210,11 @@ export default function FaceRegistrationScreen() {
       }
 
       const startTime = Date.now();
-      const apiFaceApi = Constants.expoConfig?.extra?.apiFaceApi || "http://192.168.1.4:8100";
+      const appEnv = Constants.expoConfig?.extra?.appEnv || "development";
+      const apiFaceApi = Constants.expoConfig?.extra?.apiFaceApi;
+
+      // 🔴 P0: URL検証 - preview/productionでLAN IP検出時は即クラッシュ
+      validateApiUrl(apiFaceApi, appEnv, "Face API");
 
       if (brightness.label === 'DARK') {
         console.warn('[FaceReg] ⚠️ Image too dark, rejecting before API call');
@@ -285,7 +289,11 @@ export default function FaceRegistrationScreen() {
       }
 
       // APIキーを取得（apiFaceApiは既に上で宣言済み）
-      const apiFaceApiKey = Constants.expoConfig?.extra?.apiFaceApiKey || "development-api-key-12345";
+      const apiFaceApiKey = Constants.expoConfig?.extra?.apiFaceApiKey;
+
+      if (!apiFaceApiKey) {
+        throw new Error("Face API Key設定が見つかりません。アプリの再ビルドが必要です。");
+      }
 
       if (__DEV__) {
         console.log(`[FaceReg] 🚀 Sending to Face API:`, {
@@ -505,8 +513,16 @@ export default function FaceRegistrationScreen() {
       const imageData = `data:image/jpeg;base64,${base64Image}`;
 
       // 環境変数からFace API URLとAPIキーを取得
-      const apiFaceApi = Constants.expoConfig?.extra?.apiFaceApi || "http://192.168.1.4:8100";
-      const apiFaceApiKey = Constants.expoConfig?.extra?.apiFaceApiKey || "development-api-key-12345";
+      const appEnv = Constants.expoConfig?.extra?.appEnv || "development";
+      const apiFaceApi = Constants.expoConfig?.extra?.apiFaceApi;
+      const apiFaceApiKey = Constants.expoConfig?.extra?.apiFaceApiKey;
+
+      // 🔴 P0: URL検証 - preview/productionでLAN IP検出時は即クラッシュ
+      validateApiUrl(apiFaceApi, appEnv, "Face API");
+
+      if (!apiFaceApiKey) {
+        throw new Error("Face API Key設定が見つかりません。アプリの再ビルドが必要です。");
+      }
 
       // 画像サイズをログ出力
       const imageSizeKB = Math.round(imageData.length / 1024);

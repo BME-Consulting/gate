@@ -72,7 +72,13 @@ export async function sendUxMetricEvent(
   >
 ): Promise<void> {
   try {
-    const gsApiBaseUrl = Constants.expoConfig?.extra?.apiBaseGs || "http://192.168.1.4:7070";
+    const gsApiBaseUrl = Constants.expoConfig?.extra?.apiBaseGs;
+
+    // UX計測は必須機能ではないため、設定がない場合は静かに失敗
+    if (!gsApiBaseUrl) {
+      console.warn("[UxMetrics] GS API設定が見つかりません。計測をスキップします。");
+      return;
+    }
 
     // デバイス情報を自動補完
     const payload: UxMetricEventPayload = {
@@ -88,12 +94,19 @@ export async function sendUxMetricEvent(
 
     console.log(`[UxMetrics] Sending event: ${payload.eventType}/${payload.result}`);
 
+    const apiGsApiKey = Constants.expoConfig?.extra?.apiGsApiKey;
+
+    // UX計測は必須機能ではないため、API Keyがない場合は静かに失敗
+    if (!apiGsApiKey) {
+      console.warn("[UxMetrics] GS API Key設定が見つかりません。計測をスキップします。");
+      return;
+    }
+
     const response = await fetch(`${gsApiBaseUrl}/api/ux-metrics`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        // 開発環境では認証を緩和（要調整）
-        "X-API-Key": "development-api-key-12345",
+        "X-API-Key": apiGsApiKey,
       },
       body: JSON.stringify(payload),
     });

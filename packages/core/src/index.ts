@@ -28,6 +28,10 @@ export * from "./constants/auth";
 export * from "./constants/database";
 export * from "./constants/timeout";
 
+// ユーティリティ
+export { validateApiUrl, validateAllApiUrls } from "./utils/urlValidator";
+export type { UrlValidationResult } from "./utils/urlValidator";
+
 // リポジトリ
 export { WorkerRepository } from "./repository/worker-repository";
 export type { SQLiteDatabase as WorkerRepositorySQLiteDatabase } from "./repository/worker-repository";

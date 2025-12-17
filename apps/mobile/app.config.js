@@ -4,24 +4,29 @@ module.exports = ({ config }) => {
   const appEnv = process.env.APP_ENV || process.env.ENV || "development";
   const isProduction = appEnv === "production";
 
-  // API URLs - IMPORTANT: Use environment variables for production
-  // ローカル開発用デフォルト（開発中はローカルIPを使用）
-  // 本番環境では環境変数で上書き: API_BASE_GS=https://api-gate.bme-service.monster
-  const apiBaseGs = process.env.API_BASE_GS || "http://192.168.1.4:7070";
-  const apiBaseCcus = process.env.API_BASE_CCUS || "http://192.168.1.4:7071";
-  const apiFaceApi = process.env.API_FACE_API || "http://192.168.1.4:8100";
-  const authIssuer = process.env.AUTH_ISSUER || "http://192.168.1.4:8081/realms/mcd3";
+  // API URLs - IMPORTANT: Use environment variables for production/preview
+  // development環境のみLAN IPをフォールバック許可、それ以外はnull（ビルドエラーで検出）
+  // ⚠️ Face APIポート: 8101に統一（Cloudflare Tunnel対応）
+  const apiBaseGs = process.env.API_BASE_GS ||
+    (appEnv === "development" ? "http://192.168.1.4:7070" : null);
+  const apiBaseCcus = process.env.API_BASE_CCUS ||
+    (appEnv === "development" ? "http://192.168.1.4:7071" : null);
+  const apiFaceApi = process.env.API_FACE_API ||
+    (appEnv === "development" ? "http://192.168.1.4:8101" : null);  // ✅ 8100 → 8101
+  const authIssuer = process.env.AUTH_ISSUER ||
+    (appEnv === "development" ? "http://192.168.1.4:8081/realms/mcd3" : null);
 
-  // API Keys - MUST be set via environment variables in production
-  const apiGsApiKey = process.env.API_GS_API_KEY || (isProduction ? null : "development-api-key-12345");
-  const apiFaceApiKey = process.env.API_FACE_API_KEY || (isProduction ? null : "development-api-key-12345");
+  // API Keys - MUST be set via environment variables
+  // ハードコード削除: 全環境で環境変数から取得
+  const apiGsApiKey = process.env.API_GS_API_KEY || null;
+  const apiFaceApiKey = process.env.API_FACE_API_KEY || null;
 
   // Sentry DSN - Error tracking and monitoring
   const sentryDsn = process.env.SENTRY_DSN || "";
 
-  // Validation for production environment
-  if (isProduction) {
-    // 1. HTTPS enforcement
+  // Validation for non-development environments (preview/production)
+  if (appEnv !== "development") {
+    // 1. URL必須チェック（未設定はビルドエラー）
     const urls = [
       { name: "API_BASE_GS", value: apiBaseGs },
       { name: "API_BASE_CCUS", value: apiBaseCcus },
@@ -29,19 +34,36 @@ module.exports = ({ config }) => {
       { name: "AUTH_ISSUER", value: authIssuer },
     ];
 
+    const missingUrls = urls.filter(url => !url.value);
+    if (missingUrls.length > 0) {
+      throw new Error(`
+========================================
+❌ BUILD ERROR - Missing API URLs (${appEnv})
+========================================
+
+The following URLs are required:
+
+${missingUrls.map(url => `  - ${url.name}`).join("\n")}
+
+Set these in eas.json under "${appEnv}" profile.
+========================================
+`);
+    }
+
+    // 2. HTTPS enforcement
     const httpUrls = urls.filter(url => url.value && url.value.startsWith("http://"));
 
     if (httpUrls.length > 0) {
       throw new Error(`
 ========================================
-❌ PRODUCTION BUILD ERROR - HTTP URLs
+❌ BUILD ERROR - HTTP URLs (${appEnv})
 ========================================
 
-The following URLs must use HTTPS in production:
+The following URLs must use HTTPS:
 
 ${httpUrls.map(url => `  - ${url.name}: ${url.value}`).join("\n")}
 
-Please update your environment variables.
+LAN IP addresses are only allowed in development.
 ========================================
 `);
     }

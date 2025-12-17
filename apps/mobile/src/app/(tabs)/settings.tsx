@@ -357,8 +357,13 @@ export default function SettingsScreen() {
 
     try {
       // Workers APIはGS API を使用
-      const apiBaseGs = Constants.expoConfig?.extra?.apiBaseGs || "http://192.168.1.4:7070";
-      const apiGsApiKey = Constants.expoConfig?.extra?.apiGsApiKey || "development-api-key-12345";
+      const apiBaseGs = Constants.expoConfig?.extra?.apiBaseGs;
+      const apiGsApiKey = Constants.expoConfig?.extra?.apiGsApiKey;
+
+      if (!apiBaseGs || !apiGsApiKey) {
+        throw new Error("GS API設定が見つかりません。アプリの再ビルドが必要です。");
+      }
+
       const workersApiUrl = `${apiBaseGs}/api/workers`;
 
       // デバッグログ: 接続先URL
