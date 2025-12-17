@@ -23,19 +23,12 @@ interface FaceRegistrationResponse {
   error?: string;
 }
 
-// Face API Verify レスポンス型定義
-interface FaceVerifyResponse {
-  success: boolean;
-  mode: "verify";
-  person_id: string;
+// Face API Recognize レスポンス型定義
+interface FaceRecognizeResponse {
+  person_id: string | null;
+  confidence: number;
   distance: number;
-  threshold: number;
-  matched: boolean;
-  embedding_dimensions: number;
-  model_version: string;
-  timestamp: string;
-  error_code?: string;
-  error_message?: string;
+  error?: string;
 }
 
 export default function FaceRegistrationScreen() {
@@ -44,7 +37,7 @@ export default function FaceRegistrationScreen() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedPersonId, setSelectedPersonId] = useState<string>("");
   const [registrationResult, setRegistrationResult] = useState<FaceRegistrationResponse | null>(null);
-  const [verifyResult, setVerifyResult] = useState<FaceVerifyResponse | null>(null);
+  const [recognizeResult, setRecognizeResult] = useState<FaceRecognizeResponse | null>(null);
   const [isWorkerModalVisible, setIsWorkerModalVisible] = useState(false);
   const [isFocused, setIsFocused] = useState(true);
   const [initError, setInitError] = useState<string | null>(null);
@@ -400,14 +393,14 @@ export default function FaceRegistrationScreen() {
       const imageSizeMB = (imageSizeKB / 1024).toFixed(2);
 
       console.log(`[FaceVerify] 🚀 Sending to Face API:`, {
-        url: `${apiFaceApi}/api/face/verify`,
+        url: `${apiFaceApi}/api/face/recognize`,
         person_id: selectedPersonId,
         imageSize: `${imageSizeMB} MB`,
         resolution: `${photo.width}x${photo.height}`,
       });
 
-      // Face API Verify エンドポイントに送信
-      const response = await fetchWithTimeout(`${apiFaceApi}/api/face/verify`, {
+      // Face API Recognize エンドポイントに送信
+      const response = await fetchWithTimeout(`${apiFaceApi}/api/face/recognize`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -560,7 +553,7 @@ export default function FaceRegistrationScreen() {
                 </Text>
 
                 {/* シンプルなガイドメッセージ */}
-                {!isProcessing && !registrationResult && !verifyResult && (
+                {!isProcessing && !registrationResult && !recognizeResult && (
                   <View style={styles.guideMessageCard}>
                     <Text style={styles.guideMessageSimple}>
                       正面を向いて、顔全体をフレーム内に入れてください
@@ -599,31 +592,31 @@ export default function FaceRegistrationScreen() {
               )}
 
               {/* 本人確認結果表示エリア（シンプル版） */}
-              {verifyResult && (
+              {recognizeResult && (
                 <View
                   style={[
                     styles.resultCard,
-                    verifyResult.matched ? styles.resultCardMatched : styles.resultCardNotMatched,
+                    recognizeResult.matched ? styles.resultCardMatched : styles.resultCardNotMatched,
                   ]}
                 >
                   <View>
                     <View style={styles.resultHeader}>
                       <Ionicons
-                        name={verifyResult.matched ? "checkmark-circle" : "close-circle"}
+                        name={recognizeResult.matched ? "checkmark-circle" : "close-circle"}
                         size={24}
-                        color={verifyResult.matched ? tokens.color.success : tokens.color.danger}
+                        color={recognizeResult.matched ? tokens.color.success : tokens.color.danger}
                       />
                       <Text
                         style={[
                           styles.resultTitle,
-                          verifyResult.matched ? {} : styles.resultTitleError,
+                          recognizeResult.matched ? {} : styles.resultTitleError,
                         ]}
                       >
-                        {verifyResult.matched ? "本人確認 OK" : "本人確認 NG"}
+                        {recognizeResult.matched ? "本人確認 OK" : "本人確認 NG"}
                       </Text>
                     </View>
                     <Text style={styles.resultText}>
-                      {workers?.find(w => w.personId === verifyResult.person_id)?.name || verifyResult.person_id}
+                      {workers?.find(w => w.personId === recognizeResult.person_id)?.name || recognizeResult.person_id}
                     </Text>
                   </View>
                 </View>
