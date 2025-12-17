@@ -625,7 +625,7 @@ export default function FaceRegistrationScreen() {
         )}
 
         {/* オーバーレイ（Camera の外側に配置） */}
-        <View style={styles.overlay}>
+        <View style={styles.overlay} pointerEvents="box-none">
               {/* 上部バー */}
               <View style={styles.topBar}>
                 <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
@@ -931,7 +931,6 @@ const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "transparent",
-    pointerEvents: "box-none", // オーバーレイ自体はタッチを受け付けない（子要素のみ）
   },
 
   topBar: {

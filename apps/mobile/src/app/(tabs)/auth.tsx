@@ -630,7 +630,7 @@ export default function AuthScreen() {
           )}
 
           {/* カメラオーバーレイ */}
-          <View style={styles.overlay}>
+          <View style={styles.overlay} pointerEvents="box-none">
             {/* 上部バー */}
             <View style={styles.topBar}>
               <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
