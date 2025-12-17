@@ -455,6 +455,7 @@ export default function FaceRegistrationScreen() {
         ...result,
         matched
       } as any);
+    } catch (error) {
       console.error("[FaceVerify] Verification error:", error);
 
       let errorMessage = "本人確認に失敗しました";
