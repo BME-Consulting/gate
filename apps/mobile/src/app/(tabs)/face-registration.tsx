@@ -3,7 +3,7 @@
 // ==========================================
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { View, Text, StyleSheet, Alert, TouchableOpacity, ActivityIndicator, Modal, FlatList, AppState } from "react-native";
+import { View, Text, StyleSheet, Alert, TouchableOpacity, ActivityIndicator, Modal, FlatList, AppState, Pressable } from "react-native";
 import { Camera, useCameraDevice, useCameraPermission } from "react-native-vision-camera";
 import { useFocusEffect } from "@react-navigation/native";
 import Constants from "expo-constants";
@@ -824,8 +824,15 @@ export default function FaceRegistrationScreen() {
         animationType="slide"
         onRequestClose={() => setIsWorkerModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+        {/* 背景（押したら閉じる） */}
+        <Pressable
+          style={StyleSheet.absoluteFillObject}
+          onPress={() => setIsWorkerModalVisible(false)}
+        />
+
+        {/* 中身コンテナ（タッチを通す） */}
+        <View style={styles.modalOverlay} pointerEvents="box-none">
+          <View style={styles.modalContent} pointerEvents="auto">
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>作業員を選択</Text>
               <TouchableOpacity
