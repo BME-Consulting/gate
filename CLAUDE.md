@@ -26,6 +26,58 @@
 
 ---
 
+#### 2. **ネットワークエラー時の「設定逃げ」を禁止する**
+
+以下は **重大な設計違反** とする。
+
+❌ **禁止行動**:
+- Face API が応答しないためポートを変更する
+- Tunnel が通らないため LAN IP に切り替える
+- 「テストが通る」ことを理由に URL を変更する
+- Docker実測値に合わせて app.config.js を変更する（逆）
+
+✅ **正しい対応手順**:
+
+1. **Cloudflare Dashboard を確認する（SSOT: Single Source of Truth）**
+   - `face-gate.bme-service.monster → 127.0.0.1:8101`
+   - `api-gate.bme-service.monster → 127.0.0.1:7070`
+   - `auth-gate.bme-service.monster → 127.0.0.1:8081`
+
+2. **Docker の待受ポートを SSOT に合わせる**
+   - `apps/face-api/docker-compose.yml` のポート設定を変更
+   - コンテナ再起動: `docker compose down && docker compose up -d`
+   - 実測確認: `ss -lntp | grep 8101`
+
+3. **App / eas.json は参照のみ修正する**
+   - app.config.js: SSOT のポートに合わせる
+   - eas.json: SSOT のポートに合わせる
+   - **注意**: Docker側を修正せずに App側だけ変更するのは厳禁
+
+4. **それでも通らない場合は「原因未解決」として停止する**
+   - 「動かすための変更」は禁止
+   - ユーザーに状況報告し、指示を仰ぐ
+
+**3点整合チェック（必須）**:
+```bash
+# 1. Cloudflare Dashboard（SSOT）
+# face-gate → 127.0.0.1:8101
+
+# 2. Docker実測
+docker ps --filter "name=face" --format "{{.Ports}}"
+# 期待値: 0.0.0.0:8101->8101/tcp
+
+# 3. ローカル待受
+ss -lntp | grep 8101
+# 期待値: 0.0.0.0:8101  LISTEN
+```
+
+**教訓**:
+- **SSOT（Cloudflare Dashboard）の設定が唯一の真実**
+- Docker側を合わせるのが正解（逆は困難かつ危険）
+- 「見かけ上動いた」は成功ではない
+
+---
+
 ### 📋 Claude Code の行動ルール
 
 #### ネイティブ変更が必要な場合
