@@ -19,46 +19,59 @@ export default function LoginScreen() {
 
   // 環境変数のデバッグログ（開発時のみ）
   React.useEffect(() => {
-    if (__DEV__) {
-      const useMockAuth = Constants.expoConfig?.extra?.useMockAuth;
-      const authIssuer = Constants.expoConfig?.extra?.auth?.issuer;
+    const appEnv = Constants.expoConfig?.extra?.appEnv || "development";
+    const useMockAuth = Constants.expoConfig?.extra?.useMockAuth;
+    const authIssuer = Constants.expoConfig?.extra?.auth?.issuer;
 
+    // 開発モードまたはpreview環境で自動ログインを有効化
+    const shouldAutoLogin = __DEV__ || appEnv === "development" || appEnv === "preview";
+
+    if (shouldAutoLogin) {
       console.log("🔧 App Configuration:");
+      console.log("  __DEV__:", __DEV__);
+      console.log("  appEnv:", appEnv);
       console.log("  useMockAuth:", useMockAuth);
       console.log("  AUTH_ISSUER:", authIssuer);
-      console.log("  Full extra:", JSON.stringify(Constants.expoConfig?.extra, null, 2));
 
       // 🚨 開発中の自動ログイン（adbテスト用）
       const autoLogin = async () => {
-        console.log("🔧 Auto-login enabled for ADB testing");
-        const { setCurrentProject } = useAppStore.getState();
+        try {
+          console.log("🔧 Auto-login starting for", appEnv, "environment");
+          const { setCurrentProject } = useAppStore.getState();
 
-        await login({
-          id: "dev-user-1",
-          name: "admin",
-          token: "dev-token-" + Date.now(),
-          refreshToken: "dev-refresh-" + Date.now(),
-        }, true);
+          await login({
+            id: "dev-user-1",
+            name: "admin",
+            token: "dev-token-" + Date.now(),
+            refreshToken: "dev-refresh-" + Date.now(),
+          }, true);
 
-        setCurrentProject({
-          projectId: "PRJ001",
-          name: "東京建設現場A",
-          gateMode: "IN",
-          checkConfig: {
-            ccusIdCheck: false,
-            socialInsuranceCheck: false,
-            residencyCheck: false,
-            ageCheck: false,
-            healthCheck: false,
-            soleProprietorCheck: false,
-          },
-          serverLock: false,
-        });
+          setCurrentProject({
+            projectId: "PRJ001",
+            name: "東京建設現場A",
+            gateMode: "IN",
+            checkConfig: {
+              ccusIdCheck: false,
+              socialInsuranceCheck: false,
+              residencyCheck: false,
+              ageCheck: false,
+              healthCheck: false,
+              soleProprietorCheck: false,
+            },
+            serverLock: false,
+          });
 
-        router.replace("/(tabs)/home");
+          console.log("✅ Auto-login successful, navigating to home");
+          router.replace("/(tabs)/home");
+        } catch (error) {
+          console.error("❌ Auto-login failed:", error);
+        }
       };
 
-      setTimeout(autoLogin, 1000);
+      // より早く実行（100ms）
+      setTimeout(autoLogin, 100);
+    } else {
+      console.log("⚠️ Auto-login disabled for production environment");
     }
   }, []);
 
