@@ -348,7 +348,7 @@ export default function FaceRegistrationScreen() {
     setSelectedPersonId(personId);
     setIsWorkerModalVisible(false);
     setRegistrationResult(null);
-    setVerifyResult(null);
+    setRecognizeResult(null);
   };
 
   // 本人確認ハンドラー
@@ -366,7 +366,7 @@ export default function FaceRegistrationScreen() {
     try {
       processingLock.current = true;
       setIsProcessing(true);
-      setVerifyResult(null);
+      setRecognizeResult(null);
 
       // 写真を撮影（vision-camera）
       const photo = await cameraRef.current.takePhoto({
@@ -407,8 +407,8 @@ export default function FaceRegistrationScreen() {
           "x-api-key": apiFaceApiKey,
         },
         body: JSON.stringify({
-          person_id: selectedPersonId,
           image_data: imageData,
+          threshold: 0.6,
         }),
         timeoutMs: TIMEOUT.FACE_RECOGNITION,
       });
@@ -436,17 +436,25 @@ export default function FaceRegistrationScreen() {
         );
       }
 
-      const result = (await response.json()) as FaceVerifyResponse;
-      console.log(`[FaceVerify] ${result.matched ? '✅' : '❌'} Verification result:`, {
-        matched: result.matched,
-        distance: result.distance,
-        threshold: result.threshold,
-        person_id: result.person_id,
-      });
 
-      // 本人確認結果を保存
-      setVerifyResult(result);
-    } catch (error) {
+      const result = (await response.json()) as FaceRecognizeResponse;
+      
+      // 本人確認：登録済み顔と選択した作業員が一致するか判定
+      const matched = result.person_id === selectedPersonId;
+      
+      console.log(`[FaceVerify] ${matched ? '✅' : '❌'} Recognition result:`, {
+        matched,
+        recognized_person_id: result.person_id,
+        expected_person_id: selectedPersonId,
+        distance: result.distance,
+        confidence: result.confidence,
+      });
+      
+      // 本人確認結果を保存（matchedフィールドを追加）
+      setRecognizeResult({
+        ...result,
+        matched
+      } as any);
       console.error("[FaceVerify] Verification error:", error);
 
       let errorMessage = "本人確認に失敗しました";
@@ -642,7 +650,7 @@ export default function FaceRegistrationScreen() {
                       ]}
                       onPress={() => {
                         setMode("register");
-                        setVerifyResult(null);
+                        setRecognizeResult(null);
                         handleTakePicture();
                       }}
                       disabled={!isCameraReady || isProcessing || !selectedPersonId}
