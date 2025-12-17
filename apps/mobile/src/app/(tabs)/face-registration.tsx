@@ -669,7 +669,7 @@ export default function FaceRegistrationScreen() {
               </View>
 
               {/* ガイドフレーム（固定色・サーバー側判定） */}
-              <View style={styles.guideContainer}>
+              <View style={styles.guideContainer} pointerEvents="none">
                 <View style={styles.guideFrame}>
                   <View style={[styles.guideCorner, styles.guideCornerTopLeft]} />
                   <View style={[styles.guideCorner, styles.guideCornerTopRight]} />
