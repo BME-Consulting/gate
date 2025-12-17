@@ -685,6 +685,13 @@ export default function SettingsScreen() {
               </Text>
             </View>
 
+            <View style={styles.row}>
+              <Text style={styles.label}>Auth URL</Text>
+              <Text style={[styles.value, styles.monospace]} numberOfLines={2}>
+                {Constants.expoConfig?.extra?.authIssuer || "未設定"}
+              </Text>
+            </View>
+
             {Updates.isEnabled ? (
               <>
                 <View style={styles.row}>

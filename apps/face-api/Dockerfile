@@ -26,7 +26,7 @@ COPY . .
 RUN mkdir -p /app/data /app/logs
 
 # Expose port
-EXPOSE 8100
+EXPOSE 8101
 
 # Run the application
-CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8100"]
+CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8101}
