@@ -8,6 +8,7 @@ import { authMiddleware } from './middleware/auth';
 import workersRoutes from './routes/workers';
 import eventsRoutes from './routes/events';
 import statsRoutes from './routes/stats';
+import uxMetricsRoutes from './routes/ux-metrics';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 7070;
@@ -107,6 +108,7 @@ app.get('/health', async (req, res) => {
 app.use('/api', authMiddleware, workersRoutes);
 app.use('/api', authMiddleware, eventsRoutes);
 app.use('/api', authMiddleware, statsRoutes);
+app.use('/api', authMiddleware, uxMetricsRoutes);
 
 // 404 ハンドラー
 app.use((req, res) => {
@@ -142,6 +144,8 @@ const server = app.listen(PORT, '0.0.0.0', () => {
   console.log('  POST /api/events                       - スキャンイベント受信');
   console.log('  GET  /api/projects/:id/events          - イベント履歴取得');
   console.log('  GET  /api/projects/:id/stats           - 統計情報取得');
+  console.log('  POST /api/ux-metrics                   - UX計測イベント受信');
+  console.log('  GET  /api/ux-metrics/stats             - UX計測統計取得');
   console.log('');
 });
 

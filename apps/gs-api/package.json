@@ -18,7 +18,11 @@
   "prisma": {
     "seed": "tsx prisma/seed.ts"
   },
-  "keywords": ["api", "gate-service", "mcd3"],
+  "keywords": [
+    "api",
+    "gate-service",
+    "mcd3"
+  ],
   "author": "BME LLC",
   "license": "UNLICENSED",
   "dependencies": {
@@ -32,7 +36,8 @@
     "ioredis": "^5.4.1",
     "joi": "^17.13.3",
     "jsonwebtoken": "^9.0.2",
-    "jwks-rsa": "^3.1.0"
+    "jwks-rsa": "^3.1.0",
+    "zod": "^4.2.1"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.8",

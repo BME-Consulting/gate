@@ -17,6 +17,7 @@ import { ErrorGuidanceCard } from "../../components/ErrorGuidanceCard";
 import { ErrorType } from "../../constants/errorMessages";
 import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 import { analyzeBrightness, analyzeSharpness } from "../../utils/imageQuality";
+import { sendFaceRegisterSuccess, sendFaceRegisterFail, sendFaceVerifySuccess, sendFaceVerifyFail } from "../../services/uxMetrics";
 
 // Face API レスポンス型定義（Face APIはsnake_caseを返す）
 interface FaceRegistrationResponse {
@@ -198,9 +199,22 @@ export default function FaceRegistrationScreen() {
       const brightness = analyzeBrightness(tinyBase64);
       console.log(`[FaceReg] 💡 Brightness: ${brightness.label} (score: ${brightness.score.toFixed(2)})`);
 
+      const startTime = Date.now();
+      const apiFaceApi = Constants.expoConfig?.extra?.apiFaceApi || "http://192.168.1.4:8100";
+
       if (brightness.label === 'DARK') {
         console.warn('[FaceReg] ⚠️ Image too dark, rejecting before API call');
         setErrorType('quality_dark');
+
+        // 【UX計測】品質エラーを記録
+        sendFaceRegisterFail({
+          projectId: "PRJ001",
+          failReason: "quality_dark",
+          brightnessScore: brightness.score,
+          apiRoute: apiFaceApi.includes("tunnel") ? "tunnel_url" : "lan_url",
+          faceApiBaseUrl: apiFaceApi,
+        });
+
         return; // Face API送信しない
       }
 
@@ -211,6 +225,17 @@ export default function FaceRegistrationScreen() {
       if (sharpness.label === 'BLURRED') {
         console.warn('[FaceReg] ⚠️ Image blurred, rejecting before API call');
         setErrorType('quality_blurred');
+
+        // 【UX計測】品質エラーを記録
+        sendFaceRegisterFail({
+          projectId: "PRJ001",
+          failReason: "quality_blurred",
+          brightnessScore: brightness.score,
+          sharpnessScore: sharpness.score,
+          apiRoute: apiFaceApi.includes("tunnel") ? "tunnel_url" : "lan_url",
+          faceApiBaseUrl: apiFaceApi,
+        });
+
         return; // Face API送信しない
       }
 

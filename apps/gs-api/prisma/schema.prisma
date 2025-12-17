@@ -86,3 +86,79 @@ model ScanEvent {
   @@index([occurredAt], type: Brin)
   @@map("scan_events")
 }
+
+// ==========================================
+// UX Metrics Table
+// ==========================================
+model UxMetricEvent {
+  id             String   @id @default(cuid())
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  // ✅ 誰が/どの現場か（任意だが、後で死ぬほど効く）
+  projectId      String?  @map("project_id")
+  tenantId       String?  @map("tenant_id")
+
+  // ✅ イベント本体
+  eventType      UxEventType @map("event_type")
+  result         UxResult
+  failReason     UxFailReason? @map("fail_reason")
+
+  // ✅ UX-2の数値（無いときはnull）
+  brightnessScore Float?  @map("brightness_score")
+  sharpnessScore  Float?  @map("sharpness_score")
+
+  // ✅ 実行環境
+  deviceModel    String?  @map("device_model")
+  os             String?  // "android" | "ios" を想定（自由文字列でOK）
+  osVersion      String?  @map("os_version")
+  appVersion     String?  @map("app_version")
+  buildId        String?  @map("build_id")
+  runtimeVersion String?  @map("runtime_version")
+
+  // ✅ 通信経路の切り分け（これ重要）
+  apiRoute       UxApiRoute @map("api_route")
+  faceApiBaseUrl String?  @map("face_api_base_url")
+  gsApiBaseUrl   String?  @map("gs_api_base_url")
+
+  // ✅ デバッグ最小（後で原因追跡に使える）
+  durationMs     Int?     @map("duration_ms")
+  httpStatus     Int?     @map("http_status")
+  errorMessage   String?  @map("error_message") @db.Text
+
+  // ✅ 1リクエスト単位の相関ID（mobileでUUID生成推奨）
+  sessionId      String?  @map("session_id")
+  requestId      String?  @map("request_id")
+
+  @@index([createdAt])
+  @@index([projectId, createdAt])
+  @@index([tenantId, createdAt])
+  @@index([eventType, result, createdAt])
+  @@index([failReason, createdAt])
+  @@index([apiRoute, createdAt])
+  @@map("ux_metric_events")
+}
+
+enum UxEventType {
+  FACE_REGISTER
+  FACE_VERIFY
+}
+
+enum UxResult {
+  success
+  fail
+}
+
+enum UxFailReason {
+  quality_dark
+  quality_blurred
+  no_face
+  network
+  server
+  camera
+  not_registered
+}
+
+enum UxApiRoute {
+  tunnel_url
+  lan_url
+}
