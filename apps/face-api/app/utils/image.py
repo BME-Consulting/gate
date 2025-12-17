@@ -11,49 +11,21 @@ def fix_image_orientation(image: Image.Image) -> Image.Image:
     """
     Fix image orientation based on EXIF data
 
-    Fixes the common issue where front camera images are rotated incorrectly
-    due to EXIF orientation metadata not being applied.
+    Uses PIL's built-in exif_transpose() which correctly handles all EXIF orientations.
+    This is more reliable than manual rotation.
 
     Args:
         image: PIL Image
 
     Returns:
-        Rotated PIL Image
+        Correctly oriented PIL Image
     """
     try:
-        # Find the orientation tag
-        for orientation_key in ExifTags.TAGS.keys():
-            if ExifTags.TAGS[orientation_key] == 'Orientation':
-                break
-        else:
-            # No orientation tag found
-            return image
-
-        # Get EXIF data
-        exif = image._getexif()
-        if exif is None:
-            return image
-
-        # Get orientation value
-        orientation_value = exif.get(orientation_key)
-        if orientation_value is None:
-            return image
-
-        # Apply rotation based on EXIF orientation
-        if orientation_value == 3:
-            # 180 degrees
-            image = image.rotate(180, expand=True)
-        elif orientation_value == 6:
-            # 270 degrees (rotate right)
-            image = image.rotate(270, expand=True)
-        elif orientation_value == 8:
-            # 90 degrees (rotate left)
-            image = image.rotate(90, expand=True)
-
-        return image
-
-    except (AttributeError, KeyError, IndexError):
-        # No EXIF data or orientation tag
+        from PIL import ImageOps
+        # ImageOps.exif_transpose() automatically handles all EXIF orientations
+        return ImageOps.exif_transpose(image) or image
+    except Exception:
+        # Fallback: return original image if exif_transpose fails
         return image
 
 
