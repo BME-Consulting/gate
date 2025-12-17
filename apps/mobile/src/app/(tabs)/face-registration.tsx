@@ -13,6 +13,8 @@ import { useWorkers } from "../../hooks/useWorkers";
 import { router } from "expo-router";
 import { TIMEOUT, fetchWithTimeout } from "@mc-gate/core";
 import * as Sentry from "@sentry/react-native";
+import { ErrorGuidanceCard } from "../../components/ErrorGuidanceCard";
+import { ErrorType } from "../../constants/errorMessages";
 
 // Face API レスポンス型定義（Face APIはsnake_caseを返す）
 interface FaceRegistrationResponse {
@@ -42,6 +44,7 @@ export default function FaceRegistrationScreen() {
   const [isFocused, setIsFocused] = useState(true);
   const [initError, setInitError] = useState<string | null>(null);
   const [mode, setMode] = useState<"register" | "verify">("register");
+  const [errorType, setErrorType] = useState<ErrorType | null>(null);
 
   const cameraRef = useRef<Camera>(null);
   const processingLock = useRef(false);
@@ -287,26 +290,22 @@ export default function FaceRegistrationScreen() {
     } catch (error) {
       console.error("[FaceReg] Registration error:", error);
 
-      // P0: 改善されたエラーメッセージ
-      let errorMessage = "顔登録に失敗しました";
-
+      // UX-1: エラー分類
       if (error instanceof Error) {
-        if (error.name === 'AbortError' || error.message.includes('タイムアウト')) {
-          // タイムアウトエラー（30秒）
-          errorMessage =
-            "サーバーへの接続がタイムアウトしました（30秒）\n\n" +
-            "しばらく待ってから、もう一度お試しください。";
+        if (error.message.includes('Camera is closed')) {
+          setErrorType('camera_error');
+        } else if (error.name === 'AbortError' || error.message.includes('タイムアウト')) {
+          setErrorType('server_error');
         } else if (error.message.includes('Failed to fetch') || error.message.includes('Network')) {
-          // ネットワークエラー
-          errorMessage =
-            "Face API サーバーに接続できません\n\n" +
-            "ネットワーク接続とサーバーの状態を確認してください。";
+          setErrorType('network_error');
+        } else if (error.message.includes('顔が検出できませんでした')) {
+          setErrorType('no_face');
         } else {
-          errorMessage = error.message;
+          setErrorType('server_error');
         }
+      } else {
+        setErrorType('server_error');
       }
-
-      Alert.alert("エラー", errorMessage, [{ text: "OK" }]);
     } finally {
       processingLock.current = false;
       setIsProcessing(false);
@@ -316,37 +315,22 @@ export default function FaceRegistrationScreen() {
   // 登録結果をアラートで表示
   const showResultAlert = (result: FaceRegistrationResponse) => {
     if (result.error) {
-      Alert.alert("登録失敗", result.error, [{ text: "OK" }]);
+      // UX-1: サーバーエラーとして表示
+      setErrorType('server_error');
       return;
     }
 
-    if (result.success && result.person_id) {
-      const selectedWorker = workers?.find(w => w.personId === result.person_id);
-      const workerName = selectedWorker?.name || result.person_id;
-
-      Alert.alert(
-        "登録完了",
-        `作業員: ${workerName}\n` +
-          `Person ID: ${result.person_id}\n` +
-          `エンコーディング次元数: ${result.embedding_dimensions || "N/A"}`,
-        [
-          {
-            text: "OK",
-            onPress: () => {
-              setSelectedPersonId("");
-              setRegistrationResult(null);
-            }
-          }
-        ]
-      );
+    // face_count === 0 の場合は顔検出失敗
+    if (result.face_count === 0) {
+      setErrorType('no_face');
       return;
     }
 
-    Alert.alert(
-      "登録失敗",
-      "顔の登録に失敗しました。もう一度お試しください。",
-      [{ text: "OK" }]
-    );
+    // 成功時はresultCardで表示されるため、Alert不要
+    // （registrationResult stateで管理）
+    if (!result.success) {
+      setErrorType('server_error');
+    }
   };
 
   // 戻るボタン
@@ -485,23 +469,24 @@ export default function FaceRegistrationScreen() {
     } catch (error) {
       console.error("[FaceVerify] Verification error:", error);
 
-      let errorMessage = "本人確認に失敗しました";
-
+      // UX-1: エラー分類
       if (error instanceof Error) {
-        if (error.name === 'AbortError' || error.message.includes('タイムアウト')) {
-          errorMessage =
-            "サーバーへの接続がタイムアウトしました（30秒）\n\n" +
-            "しばらく待ってから、もう一度お試しください。";
+        if (error.message.includes('Camera is closed')) {
+          setErrorType('camera_error');
+        } else if (error.name === 'AbortError' || error.message.includes('タイムアウト')) {
+          setErrorType('server_error');
         } else if (error.message.includes('Failed to fetch') || error.message.includes('Network')) {
-          errorMessage =
-            "Face API サーバーに接続できません\n\n" +
-            "ネットワーク接続とサーバーの状態を確認してください。";
+          setErrorType('network_error');
+        } else if (error.message.includes('顔が検出できませんでした')) {
+          setErrorType('no_face');
+        } else if (error.message.includes('登録されていません')) {
+          setErrorType('not_registered');
         } else {
-          errorMessage = error.message;
+          setErrorType('server_error');
         }
+      } else {
+        setErrorType('server_error');
       }
-
-      Alert.alert("エラー", errorMessage, [{ text: "OK" }]);
     } finally {
       processingLock.current = false;
       setIsProcessing(false);
@@ -781,6 +766,22 @@ export default function FaceRegistrationScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* UX-1: エラーガイダンスカード */}
+      {errorType && (
+        <ErrorGuidanceCard
+          type={errorType}
+          onRetry={() => {
+            setErrorType(null);
+            if (mode === 'register') {
+              handleTakePicture();
+            } else {
+              handleVerify();
+            }
+          }}
+          onDismiss={() => setErrorType(null)}
+        />
+      )}
     </View>
   );
 }
