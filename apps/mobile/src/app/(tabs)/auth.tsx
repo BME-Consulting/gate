@@ -785,6 +785,7 @@ const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "transparent",
+    pointerEvents: "box-none", // オーバーレイ自体はタッチを受け付けない（子要素のみ）
   },
 
   topBar: {
