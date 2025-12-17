@@ -641,7 +641,7 @@ export default function FaceRegistrationScreen() {
         {/* オーバーレイ（Camera の外側に配置） */}
         <View style={styles.overlay} pointerEvents="box-none">
               {/* 上部バー */}
-              <View style={styles.topBar}>
+              <View style={styles.topBar} pointerEvents="auto">
                 <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
                   <Ionicons name="arrow-back" size={28} color="#fff" />
                 </TouchableOpacity>
@@ -650,7 +650,7 @@ export default function FaceRegistrationScreen() {
               </View>
 
               {/* ワーカー選択UI */}
-              <View style={styles.workerSelectContainer}>
+              <View style={styles.workerSelectContainer} pointerEvents="auto">
                 <TouchableOpacity
                   style={styles.workerSelectButton}
                   onPress={() => setIsWorkerModalVisible(true)}
@@ -683,7 +683,7 @@ export default function FaceRegistrationScreen() {
               </View>
 
               {/* ガイドフレーム（固定色・サーバー側判定） */}
-              <View style={styles.guideContainer}>
+              <View style={styles.guideContainer} pointerEvents="none">
                 <View style={styles.guideFrame}>
                   <View style={[styles.guideCorner, styles.guideCornerTopLeft]} />
                   <View style={[styles.guideCorner, styles.guideCornerTopRight]} />
@@ -765,7 +765,7 @@ export default function FaceRegistrationScreen() {
               )}
 
               {/* ボトムバー */}
-              <View style={styles.bottomBar}>
+              <View style={styles.bottomBar} pointerEvents="auto">
                 {isProcessing ? (
                   <View style={styles.processingContainer}>
                     <ActivityIndicator size="large" color="#fff" />
