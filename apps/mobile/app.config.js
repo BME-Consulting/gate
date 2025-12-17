@@ -5,12 +5,12 @@ module.exports = ({ config }) => {
   const isProduction = appEnv === "production";
 
   // API URLs - IMPORTANT: Use environment variables for production
-  // Cloudflare Tunnel domains for external access (お客様アクセス用)
-  // ローカル開発時は環境変数で上書き可能: API_BASE_GS=http://192.168.1.4:7070
-  const apiBaseGs = process.env.API_BASE_GS || "https://api-gate.bme-service.monster";
-  const apiBaseCcus = process.env.API_BASE_CCUS || "https://api-gate.bme-service.monster"; // CCUS用エンドポイントは未実装のためGSと同じ
-  const apiFaceApi = process.env.API_FACE_API || "https://face-gate.bme-service.monster";
-  const authIssuer = process.env.AUTH_ISSUER || "https://auth-gate.bme-service.monster/realms/mcd3";
+  // ローカル開発用デフォルト（開発中はローカルIPを使用）
+  // 本番環境では環境変数で上書き: API_BASE_GS=https://api-gate.bme-service.monster
+  const apiBaseGs = process.env.API_BASE_GS || "http://192.168.1.4:7070";
+  const apiBaseCcus = process.env.API_BASE_CCUS || "http://192.168.1.4:7071";
+  const apiFaceApi = process.env.API_FACE_API || "http://192.168.1.4:8100";
+  const authIssuer = process.env.AUTH_ISSUER || "http://192.168.1.4:8081/realms/mcd3";
 
   // API Keys - MUST be set via environment variables in production
   const apiGsApiKey = process.env.API_GS_API_KEY || (isProduction ? null : "development-api-key-12345");
