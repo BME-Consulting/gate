@@ -6,13 +6,13 @@ module.exports = ({ config }) => {
 
   // API URLs - IMPORTANT: Use environment variables for production/preview
   // development環境のみLAN IPをフォールバック許可、それ以外はnull（ビルドエラーで検出）
-  // ⚠️ Face APIポート: 8100（Docker実測値に統一）
+  // ⚠️ Face APIポート: 8101（Cloudflare Dashboard設定に統一）
   const apiBaseGs = process.env.API_BASE_GS ||
     (appEnv === "development" ? "http://192.168.1.4:7070" : null);
   const apiBaseCcus = process.env.API_BASE_CCUS ||
     (appEnv === "development" ? "http://192.168.1.4:7071" : null);
   const apiFaceApi = process.env.API_FACE_API ||
-    (appEnv === "development" ? "http://192.168.1.4:8100" : null);  // ✅ Docker真実値（8100）に統一
+    (appEnv === "development" ? "http://192.168.1.4:8101" : null);  // ✅ Cloudflare Dashboard（8101）に統一
   const authIssuer = process.env.AUTH_ISSUER ||
     (appEnv === "development" ? "http://192.168.1.4:8081/realms/mcd3" : null);
 

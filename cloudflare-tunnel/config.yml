@@ -11,7 +11,7 @@ ingress:
 
   # Face API Service
   - hostname: face-gate.bme-service.monster
-    service: http://192.168.1.4:8100
+    service: http://192.168.1.4:8101
     originRequest:
       connectTimeout: 30s
       noTLSVerify: false

@@ -5,10 +5,10 @@ services:
     build: .
     container_name: mc-gate-face-api
     ports:
-      - "8100:8100"
+      - "8101:8101"
     environment:
       - HOST=0.0.0.0
-      - PORT=8100
+      - PORT=8101
       - API_KEY=development-api-key-12345
       - CORS_ORIGINS=http://localhost:3000,http://192.168.1.4:8081
       - DATABASE_PATH=/app/data/embeddings.db
