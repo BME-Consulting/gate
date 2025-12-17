@@ -4,7 +4,7 @@
 // ==========================================
 
 import React, { useState, useRef, useMemo, useEffect, useCallback } from "react";
-import { View, Text, StyleSheet, Alert, TouchableOpacity, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, Alert, TouchableOpacity, ActivityIndicator, AppState, AppStateStatus } from "react-native";
 import { CameraView, useCameraPermissions, BarcodeScanningResult } from "expo-camera";
 import { Camera, useCameraDevice, useCameraPermission } from "react-native-vision-camera";
 import { useFocusEffect } from "@react-navigation/native";
@@ -69,6 +69,9 @@ export default function AuthScreen() {
   const [isFocused, setIsFocused] = useState(true);
   const [initError, setInitError] = useState<string | null>(null);
 
+  // AppState を使って isActive を安定化（バックグラウンド時にsetStateを防ぐ）
+  const [appState, setAppState] = useState<AppStateStatus>(AppState.currentState);
+
   const expoCameraRef = useRef<CameraView>(null);
   const visionCameraRef = useRef<Camera>(null);
   const processingLock = useRef(false);
@@ -92,6 +95,12 @@ export default function AuthScreen() {
     }
   }, [visionCameraDevice]);
 
+  // AppState 監視（バックグラウンド時の重い処理を防ぐ）
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", setAppState);
+    return () => subscription.remove();
+  }, []);
+
   // ルールエンジンの初期化
   const ruleEngine = useMemo(() => {
     if (!currentProject) return null;
@@ -99,15 +108,17 @@ export default function AuthScreen() {
   }, [currentProject?.checkConfig]);
 
   // タイムスライシング検出方式（1000msごとに切り替え）
-  // ✅ フォーカス時のみ動作（タブ切替の重さ対策）
+  // ✅ isLive ガード: タブフォーカス && アプリアクティブ時のみ動作
+  const isLive = isFocused && appState === "active";
+
   useEffect(() => {
-    if (!isFocused) return; // フォーカス外では何もしない
+    if (!isLive) return; // フォーカス外またはバックグラウンドでは何もしない
 
     const interval = setInterval(() => {
       setActiveDetector((prev) => (prev === "face" ? "qr" : "face"));
     }, 1000);
     return () => clearInterval(interval);
-  }, [isFocused]);
+  }, [isLive]);
 
   // タブフォーカス時にカメラリソースをリセット
   useFocusEffect(

@@ -37,6 +37,7 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="scan" size={size} color={color} />
           ),
+          unmountOnBlur: true, // カメラ画面は離れたら破棄してJSスレッド負荷を軽減
         }}
       />
       <Tabs.Screen
@@ -46,6 +47,7 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person-add" size={size} color={color} />
           ),
+          unmountOnBlur: true, // カメラ画面は離れたら破棄してJSスレッド負荷を軽減
         }}
       />
       <Tabs.Screen
@@ -82,6 +84,7 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="camera" size={size} color={color} />
           ),
+          unmountOnBlur: true, // カメラ画面は離れたら破棄してJSスレッド負荷を軽減
         }}
       />
     </Tabs>
