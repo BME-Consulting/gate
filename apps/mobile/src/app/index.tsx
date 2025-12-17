@@ -27,6 +27,38 @@ export default function LoginScreen() {
       console.log("  useMockAuth:", useMockAuth);
       console.log("  AUTH_ISSUER:", authIssuer);
       console.log("  Full extra:", JSON.stringify(Constants.expoConfig?.extra, null, 2));
+
+      // 🚨 開発中の自動ログイン（adbテスト用）
+      const autoLogin = async () => {
+        console.log("🔧 Auto-login enabled for ADB testing");
+        const { setCurrentProject } = useAppStore.getState();
+
+        await login({
+          id: "dev-user-1",
+          name: "admin",
+          token: "dev-token-" + Date.now(),
+          refreshToken: "dev-refresh-" + Date.now(),
+        }, true);
+
+        setCurrentProject({
+          projectId: "PRJ001",
+          name: "東京建設現場A",
+          gateMode: "IN",
+          checkConfig: {
+            ccusIdCheck: false,
+            socialInsuranceCheck: false,
+            residencyCheck: false,
+            ageCheck: false,
+            healthCheck: false,
+            soleProprietorCheck: false,
+          },
+          serverLock: false,
+        });
+
+        router.replace("/(tabs)/home");
+      };
+
+      setTimeout(autoLogin, 1000);
     }
   }, []);
 
