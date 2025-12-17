@@ -270,8 +270,7 @@ export default function FaceRegistrationScreen() {
         console.warn(`[FaceReg] ⚠️ Image size exceeds recommended limit: ${imageSizeMB} MB (recommended: 1.5 MB)`);
       }
 
-      // 環境変数からFace API URLとAPIキーを取得
-      const apiFaceApi = Constants.expoConfig?.extra?.apiFaceApi || "http://192.168.1.4:8100";
+      // APIキーを取得（apiFaceApiは既に上で宣言済み）
       const apiFaceApiKey = Constants.expoConfig?.extra?.apiFaceApiKey || "development-api-key-12345";
 
       console.log(`[FaceReg] 🚀 Sending to Face API:`, {
