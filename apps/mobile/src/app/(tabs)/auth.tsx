@@ -99,12 +99,15 @@ export default function AuthScreen() {
   }, [currentProject?.checkConfig]);
 
   // タイムスライシング検出方式（1000msごとに切り替え）
+  // ✅ フォーカス時のみ動作（タブ切替の重さ対策）
   useEffect(() => {
+    if (!isFocused) return; // フォーカス外では何もしない
+
     const interval = setInterval(() => {
       setActiveDetector((prev) => (prev === "face" ? "qr" : "face"));
     }, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [isFocused]);
 
   // タブフォーカス時にカメラリソースをリセット
   useFocusEffect(

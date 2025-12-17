@@ -197,7 +197,9 @@ export default function FaceRegistrationScreen() {
 
       // 【UX-2】明るさ判定
       const brightness = analyzeBrightness(tinyBase64);
-      console.log(`[FaceReg] 💡 Brightness: ${brightness.label} (score: ${brightness.score.toFixed(2)})`);
+      if (__DEV__) {
+        console.log(`[FaceReg] 💡 Brightness: ${brightness.label} (score: ${brightness.score.toFixed(2)})`);
+      }
 
       const startTime = Date.now();
       const apiFaceApi = Constants.expoConfig?.extra?.apiFaceApi || "http://192.168.1.4:8100";
@@ -206,35 +208,37 @@ export default function FaceRegistrationScreen() {
         console.warn('[FaceReg] ⚠️ Image too dark, rejecting before API call');
         setErrorType('quality_dark');
 
-        // 【UX計測】品質エラーを記録
-        sendFaceRegisterFail({
+        // 【UX計測】品質エラーを記録（UIをブロックしない）
+        void sendFaceRegisterFail({
           projectId: "PRJ001",
           failReason: "quality_dark",
           brightnessScore: brightness.score,
           apiRoute: apiFaceApi.includes("tunnel") ? "tunnel_url" : "lan_url",
           faceApiBaseUrl: apiFaceApi,
-        });
+        }).catch(() => {}); // エラーは握りつぶす
 
         return; // Face API送信しない
       }
 
       // 【UX-2】シャープネス判定
       const sharpness = analyzeSharpness(tinyBase64);
-      console.log(`[FaceReg] 📷 Sharpness: ${sharpness.label} (score: ${sharpness.score.toFixed(2)})`);
+      if (__DEV__) {
+        console.log(`[FaceReg] 📷 Sharpness: ${sharpness.label} (score: ${sharpness.score.toFixed(2)})`);
+      }
 
       if (sharpness.label === 'BLURRED') {
         console.warn('[FaceReg] ⚠️ Image blurred, rejecting before API call');
         setErrorType('quality_blurred');
 
-        // 【UX計測】品質エラーを記録
-        sendFaceRegisterFail({
+        // 【UX計測】品質エラーを記録（UIをブロックしない）
+        void sendFaceRegisterFail({
           projectId: "PRJ001",
           failReason: "quality_blurred",
           brightnessScore: brightness.score,
           sharpnessScore: sharpness.score,
           apiRoute: apiFaceApi.includes("tunnel") ? "tunnel_url" : "lan_url",
           faceApiBaseUrl: apiFaceApi,
-        });
+        }).catch(() => {}); // エラーは握りつぶす
 
         return; // Face API送信しない
       }
@@ -248,12 +252,14 @@ export default function FaceRegistrationScreen() {
       const imageSizeKB = Math.round(imageData.length / 1024);
       const imageSizeMB = (imageSizeKB / 1024).toFixed(2);
 
-      console.log(`[FaceReg] 📸 Photo captured:`, {
-        path: photo.path,
-        width: photo.width,
-        height: photo.height,
-        base64Size: `${imageSizeKB} KB (${imageSizeMB} MB)`,
-      });
+      if (__DEV__) {
+        console.log(`[FaceReg] 📸 Photo captured:`, {
+          path: photo.path,
+          width: photo.width,
+          height: photo.height,
+          base64Size: `${imageSizeKB} KB (${imageSizeMB} MB)`,
+        });
+      }
 
       if (imageData.length > 3 * 1024 * 1024) {
         // 3MB超過は送信拒否
@@ -273,11 +279,13 @@ export default function FaceRegistrationScreen() {
       // APIキーを取得（apiFaceApiは既に上で宣言済み）
       const apiFaceApiKey = Constants.expoConfig?.extra?.apiFaceApiKey || "development-api-key-12345";
 
-      console.log(`[FaceReg] 🚀 Sending to Face API:`, {
-        url: `${apiFaceApi}/api/face/register`,
-        person_id: selectedPersonId,
-        imageDataPrefix: imageData.substring(0, 50),
-      });
+      if (__DEV__) {
+        console.log(`[FaceReg] 🚀 Sending to Face API:`, {
+          url: `${apiFaceApi}/api/face/register`,
+          person_id: selectedPersonId,
+          imageDataPrefix: imageData.substring(0, 50),
+        });
+      }
 
       // Face APIに送信（タイムアウト付き）
       const response = await fetchWithTimeout(`${apiFaceApi}/api/face/register`, {
@@ -461,7 +469,9 @@ export default function FaceRegistrationScreen() {
 
       // 【UX-2】明るさ判定
       const brightness = analyzeBrightness(tinyBase64);
-      console.log(`[FaceVerify] 💡 Brightness: ${brightness.label} (score: ${brightness.score.toFixed(2)})`);
+      if (__DEV__) {
+        console.log(`[FaceVerify] 💡 Brightness: ${brightness.label} (score: ${brightness.score.toFixed(2)})`);
+      }
 
       if (brightness.label === 'DARK') {
         console.warn('[FaceVerify] ⚠️ Image too dark, rejecting before API call');
@@ -471,7 +481,9 @@ export default function FaceRegistrationScreen() {
 
       // 【UX-2】シャープネス判定
       const sharpness = analyzeSharpness(tinyBase64);
-      console.log(`[FaceVerify] 📷 Sharpness: ${sharpness.label} (score: ${sharpness.score.toFixed(2)})`);
+      if (__DEV__) {
+        console.log(`[FaceVerify] 📷 Sharpness: ${sharpness.label} (score: ${sharpness.score.toFixed(2)})`);
+      }
 
       if (sharpness.label === 'BLURRED') {
         console.warn('[FaceVerify] ⚠️ Image blurred, rejecting before API call');
@@ -492,12 +504,14 @@ export default function FaceRegistrationScreen() {
       const imageSizeKB = Math.round(imageData.length / 1024);
       const imageSizeMB = (imageSizeKB / 1024).toFixed(2);
 
-      console.log(`[FaceVerify] 🚀 Sending to Face API:`, {
-        url: `${apiFaceApi}/api/face/recognize`,
-        person_id: selectedPersonId,
-        imageSize: `${imageSizeMB} MB`,
-        resolution: `${photo.width}x${photo.height}`,
-      });
+      if (__DEV__) {
+        console.log(`[FaceVerify] 🚀 Sending to Face API:`, {
+          url: `${apiFaceApi}/api/face/recognize`,
+          person_id: selectedPersonId,
+          imageSize: `${imageSizeMB} MB`,
+          resolution: `${photo.width}x${photo.height}`,
+        });
+      }
 
       // Face API Recognize エンドポイントに送信
       const response = await fetchWithTimeout(`${apiFaceApi}/api/face/recognize`, {
