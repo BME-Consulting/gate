@@ -15,6 +15,8 @@ import { TIMEOUT, fetchWithTimeout } from "@mc-gate/core";
 import * as Sentry from "@sentry/react-native";
 import { ErrorGuidanceCard } from "../../components/ErrorGuidanceCard";
 import { ErrorType } from "../../constants/errorMessages";
+import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
+import { analyzeBrightness, analyzeSharpness } from "../../utils/imageQuality";
 
 // Face API レスポンス型定義（Face APIはsnake_caseを返す）
 interface FaceRegistrationResponse {
@@ -170,18 +172,49 @@ export default function FaceRegistrationScreen() {
       setRegistrationResult(null);
 
       // 写真を撮影（vision-camera）
-      // P0: 画像品質最適化 - 1.5MB以下に抑える
       const photo = await cameraRef.current.takePhoto({
         flash: 'off',
         enableShutterSound: false,
-        qualityPrioritization: 'speed', // 速度優先で画質を下げる（サイズ削減）
       });
 
       if (!photo || !photo.path) {
         throw new Error("写真の撮影に失敗しました");
       }
 
-      // Base64に変換（react-native-fs を使用）
+      // 【UX-2】品質判定用の32px縮小画像を生成
+      const tinyImage = await manipulateAsync(
+        photo.path,
+        [{ resize: { width: 32 } }],
+        { base64: true, compress: 0.7, format: SaveFormat.JPEG }
+      );
+
+      if (!tinyImage.base64) {
+        throw new Error("品質判定用画像の生成に失敗しました");
+      }
+
+      const tinyBase64 = `data:image/jpeg;base64,${tinyImage.base64}`;
+
+      // 【UX-2】明るさ判定
+      const brightness = analyzeBrightness(tinyBase64);
+      console.log(`[FaceReg] 💡 Brightness: ${brightness.label} (score: ${brightness.score.toFixed(2)})`);
+
+      if (brightness.label === 'DARK') {
+        console.warn('[FaceReg] ⚠️ Image too dark, rejecting before API call');
+        setErrorType('quality_dark');
+        return; // Face API送信しない
+      }
+
+      // 【UX-2】シャープネス判定
+      const sharpness = analyzeSharpness(tinyBase64);
+      console.log(`[FaceReg] 📷 Sharpness: ${sharpness.label} (score: ${sharpness.score.toFixed(2)})`);
+
+      if (sharpness.label === 'BLURRED') {
+        console.warn('[FaceReg] ⚠️ Image blurred, rejecting before API call');
+        setErrorType('quality_blurred');
+        return; // Face API送信しない
+      }
+
+      // ✅ 品質OK → Face API送信用の画像を準備
       const RNFS = require('react-native-fs');
       const base64Image = await RNFS.readFile(photo.path, 'base64');
       const imageData = `data:image/jpeg;base64,${base64Image}`;
@@ -383,14 +416,46 @@ export default function FaceRegistrationScreen() {
       const photo = await cameraRef.current.takePhoto({
         flash: 'off',
         enableShutterSound: false,
-        qualityPrioritization: 'speed', // 速度優先で画質を下げる（サイズ削減）
       });
 
       if (!photo || !photo.path) {
         throw new Error("写真の撮影に失敗しました");
       }
 
-      // Base64に変換
+      // 【UX-2】品質判定用の32px縮小画像を生成
+      const tinyImage = await manipulateAsync(
+        photo.path,
+        [{ resize: { width: 32 } }],
+        { base64: true, compress: 0.7, format: SaveFormat.JPEG }
+      );
+
+      if (!tinyImage.base64) {
+        throw new Error("品質判定用画像の生成に失敗しました");
+      }
+
+      const tinyBase64 = `data:image/jpeg;base64,${tinyImage.base64}`;
+
+      // 【UX-2】明るさ判定
+      const brightness = analyzeBrightness(tinyBase64);
+      console.log(`[FaceVerify] 💡 Brightness: ${brightness.label} (score: ${brightness.score.toFixed(2)})`);
+
+      if (brightness.label === 'DARK') {
+        console.warn('[FaceVerify] ⚠️ Image too dark, rejecting before API call');
+        setErrorType('quality_dark');
+        return; // Face API送信しない
+      }
+
+      // 【UX-2】シャープネス判定
+      const sharpness = analyzeSharpness(tinyBase64);
+      console.log(`[FaceVerify] 📷 Sharpness: ${sharpness.label} (score: ${sharpness.score.toFixed(2)})`);
+
+      if (sharpness.label === 'BLURRED') {
+        console.warn('[FaceVerify] ⚠️ Image blurred, rejecting before API call');
+        setErrorType('quality_blurred');
+        return; // Face API送信しない
+      }
+
+      // ✅ 品質OK → Face API送信用の画像を準備
       const RNFS = require('react-native-fs');
       const base64Image = await RNFS.readFile(photo.path, 'base64');
       const imageData = `data:image/jpeg;base64,${base64Image}`;

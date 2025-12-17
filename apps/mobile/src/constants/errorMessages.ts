@@ -1,6 +1,7 @@
 /**
  * エラーメッセージテンプレート
  * UX-1: 失敗時ガイダンスの構造化
+ * UX-2: 撮影品質エラー（暗い/ブレ）
  */
 
 export type ErrorType =
@@ -8,7 +9,9 @@ export type ErrorType =
   | "server_error"
   | "not_registered"
   | "camera_error"
-  | "network_error";
+  | "network_error"
+  | "quality_dark"
+  | "quality_blurred";
 
 interface ErrorMessage {
   icon: string;
@@ -79,6 +82,34 @@ export const ERROR_MESSAGES: Record<ErrorType, ErrorMessage> = {
       "電波の良い場所に移動してください",
     ],
     primaryButton: "再試行",
+    secondaryButton: "閉じる",
+  },
+
+  quality_dark: {
+    icon: "sunny-outline",
+    iconColor: "#F59E0B", // warning yellow
+    title: "撮影環境が暗すぎます",
+    guidance: [
+      "明るい場所に移動してください",
+      "逆光を避けてください",
+      "照明を点けてください",
+      "窓際など自然光のある場所で撮影してください",
+    ],
+    primaryButton: "もう一度撮影",
+    secondaryButton: "閉じる",
+  },
+
+  quality_blurred: {
+    icon: "camera-outline",
+    iconColor: "#F59E0B", // warning yellow
+    title: "画像がブレています",
+    guidance: [
+      "端末をしっかり固定してください",
+      "撮影時に顔を動かさないでください",
+      "カメラに近づきすぎないでください",
+      "手ブレ補正のため数秒間静止してください",
+    ],
+    primaryButton: "もう一度撮影",
     secondaryButton: "閉じる",
   },
 };
