@@ -3,7 +3,7 @@
 // ==========================================
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { View, Text, StyleSheet, Alert, TouchableOpacity, ActivityIndicator, Modal, FlatList } from "react-native";
+import { View, Text, StyleSheet, Alert, TouchableOpacity, ActivityIndicator, Modal, FlatList, AppState } from "react-native";
 import { Camera, useCameraDevice, useCameraPermission } from "react-native-vision-camera";
 import { useFocusEffect } from "@react-navigation/native";
 import Constants from "expo-constants";
@@ -48,8 +48,19 @@ export default function FaceRegistrationScreen() {
   const lastProcessTime = useRef(0);
   const { workers, getAllWorkers, isReady } = useWorkers();
 
+  // AppState を使って isActive を安定化
+  const [appState, setAppState] = useState(AppState.currentState);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", setAppState);
+    return () => sub.remove();
+  }, []);
+
   // vision-camera device
   const cameraDevice = useCameraDevice('front') || undefined;
+
+  // isCameraActive: タブフォーカス AND アプリがアクティブ
+  const isCameraActive = isFocused && appState === "active";
 
   // デバイス取得失敗時のエラーハンドリング
   useEffect(() => {
@@ -353,15 +364,31 @@ export default function FaceRegistrationScreen() {
 
   // 本人確認ハンドラー
   const handleVerify = async () => {
-    if (!cameraRef.current || !isCameraReady || isProcessing || processingLock.current) {
-      return;
-    }
+    // preflightログ（これが命綱）
+    console.log("[FaceReg] preflight", {
+      hasRef: !!cameraRef.current,
+      hasDevice: !!cameraDevice,
+      isFocused,
+      appState,
+      isCameraActive,
+      isCameraReady,
+      isProcessing,
+      lock: processingLock.current,
+      selectedPersonId,
+    });
 
-    // 作業員が選択されているか確認
+    if (isProcessing || processingLock.current) return;
     if (!selectedPersonId) {
       Alert.alert("エラー", "作業員を選択してください", [{ text: "OK" }]);
       return;
     }
+
+    // ガード強化（ここが今回の主因）
+    if (!cameraDevice) return;
+    if (!isFocused) return;
+    if (!isCameraActive) return;
+    if (!cameraRef.current) return;
+    if (!isCameraReady) return;
 
     try {
       processingLock.current = true;
@@ -484,17 +511,16 @@ export default function FaceRegistrationScreen() {
   // 選択された作業員情報を取得
   const selectedWorker = workers?.find(w => w.personId === selectedPersonId);
 
-  // 🔥 Camera を安定領域に配置（isFocusedのみで制御、cameraDevice削除）
+  // 🔥 Camera を常に配置（条件レンダリングで消さない）
   return (
     <View style={styles.container}>
-      {isFocused && cameraDevice && (
-        <View style={styles.cameraContainer}>
-          {/* Camera - frameProcessor削除（サーバー側Face API専用） */}
+      <View style={styles.cameraContainer}>
+        {cameraDevice ? (
           <Camera
             ref={cameraRef}
             style={StyleSheet.absoluteFill}
             device={cameraDevice}
-            isActive={isFocused}
+            isActive={isCameraActive}
             photo={true}
             onInitialized={() => {
               console.log("[FaceReg] Camera initialized");
@@ -504,9 +530,14 @@ export default function FaceRegistrationScreen() {
               console.error("[FaceReg] Camera error:", error);
             }}
           />
+        ) : (
+          <View style={styles.cameraFallback}>
+            <Text style={styles.cameraFallbackText}>カメラデバイスを取得中...</Text>
+          </View>
+        )}
 
-          {/* オーバーレイ（Camera の外側に配置） */}
-          <View style={styles.overlay}>
+        {/* オーバーレイ（Camera の外側に配置） */}
+        <View style={styles.overlay}>
               {/* 上部バー */}
               <View style={styles.topBar}>
                 <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
@@ -682,8 +713,7 @@ export default function FaceRegistrationScreen() {
                 )}
             </View>
           </View>
-        </View>
-      )}
+      </View>
 
       {/* 作業員選択モーダル */}
       <Modal
@@ -1179,5 +1209,18 @@ const styles = StyleSheet.create({
   resultCardNotMatched: {
     borderWidth: 2,
     borderColor: tokens.color.danger,
+  },
+
+  // カメラフォールバック
+  cameraFallback: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "#000",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  cameraFallbackText: {
+    fontSize: 16,
+    color: "#fff",
   },
 });
