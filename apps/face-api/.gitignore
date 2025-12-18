@@ -33,6 +33,13 @@ data/*.db-journal
 data/*.db-wal
 data/*.db-shm
 
+# Production data (contains biometric/personal data - MUST NOT commit)
+data-prod/
+data-prod/*.db
+data-prod/*.db-journal
+data-prod/*.db-wal
+data-prod/*.db-shm
+
 # IDEs
 .vscode/
 .idea/

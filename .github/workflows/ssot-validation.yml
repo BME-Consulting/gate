@@ -16,6 +16,7 @@ on:
       - 'apps/mobile/src/app/(tabs)/_layout.tsx'
       - 'apps/mobile/src/app/(tabs)/settings.tsx'
       - 'scripts/validate-production-ui.sh'
+      - 'scripts/validate-keycloak-issuer.sh'
       - 'docs/SECURITY_POLICY_UI.md'
   push:
     branches:
@@ -32,6 +33,7 @@ on:
       - 'apps/mobile/src/app/(tabs)/_layout.tsx'
       - 'apps/mobile/src/app/(tabs)/settings.tsx'
       - 'scripts/validate-production-ui.sh'
+      - 'scripts/validate-keycloak-issuer.sh'
       - 'docs/SECURITY_POLICY_UI.md'
   workflow_dispatch:  # Allow manual trigger
 
@@ -124,6 +126,18 @@ jobs:
             echo "✅ Production UI guard checks PASSED"
           else
             echo "❌ Production UI guard checks FAILED"
+            exit 1
+          fi
+
+      - name: Validate Keycloak Issuer
+        run: |
+          echo "Validating Keycloak issuer..."
+          chmod +x scripts/validate-keycloak-issuer.sh
+
+          if ./scripts/validate-keycloak-issuer.sh; then
+            echo "✅ Keycloak issuer validation PASSED"
+          else
+            echo "❌ Keycloak issuer validation FAILED"
             exit 1
           fi
 
