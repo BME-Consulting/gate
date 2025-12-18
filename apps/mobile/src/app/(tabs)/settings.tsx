@@ -686,9 +686,23 @@ export default function SettingsScreen() {
             </View>
 
             <View style={styles.row}>
-              <Text style={styles.label}>Auth URL</Text>
+              <Text style={styles.label}>Auth Issuer</Text>
               <Text style={[styles.value, styles.monospace]} numberOfLines={2}>
                 {Constants.expoConfig?.extra?.authIssuer || "未設定"}
+              </Text>
+            </View>
+
+            <View style={styles.row}>
+              <Text style={styles.label}>Auth Audience</Text>
+              <Text style={[styles.value, styles.monospace]} numberOfLines={1}>
+                {Constants.expoConfig?.extra?.auth?.audience || "未設定"}
+              </Text>
+            </View>
+
+            <View style={styles.row}>
+              <Text style={styles.label}>Auth Client ID</Text>
+              <Text style={[styles.value, styles.monospace]} numberOfLines={1}>
+                {Constants.expoConfig?.extra?.auth?.clientId || "未設定"}
               </Text>
             </View>
 
