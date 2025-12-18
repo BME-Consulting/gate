@@ -13,6 +13,10 @@ on:
       - 'apps/mobile/app.config.ts'
       - 'apps/mobile/app.config.js'
       - 'cloudflare-tunnel/config.yml'
+      - 'apps/mobile/src/app/(tabs)/_layout.tsx'
+      - 'apps/mobile/src/app/(tabs)/settings.tsx'
+      - 'scripts/validate-production-ui.sh'
+      - 'docs/SECURITY_POLICY_UI.md'
   push:
     branches:
       - main
@@ -25,6 +29,10 @@ on:
       - 'apps/mobile/app.config.ts'
       - 'apps/mobile/app.config.js'
       - 'cloudflare-tunnel/config.yml'
+      - 'apps/mobile/src/app/(tabs)/_layout.tsx'
+      - 'apps/mobile/src/app/(tabs)/settings.tsx'
+      - 'scripts/validate-production-ui.sh'
+      - 'docs/SECURITY_POLICY_UI.md'
   workflow_dispatch:  # Allow manual trigger
 
 jobs:
@@ -106,6 +114,18 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Validate Production UI Guards
+        run: |
+          echo "Validating production UI guards..."
+          chmod +x scripts/validate-production-ui.sh
+
+          if ./scripts/validate-production-ui.sh; then
+            echo "✅ Production UI guard checks PASSED"
+          else
+            echo "❌ Production UI guard checks FAILED"
+            exit 1
+          fi
 
       - name: Check for port 8100 violations
         run: |
