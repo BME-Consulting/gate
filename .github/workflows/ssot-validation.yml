@@ -1,0 +1,204 @@
+name: SSOT Validation
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'apps/face-api/Dockerfile'
+      - 'apps/face-api/docker-compose.yml'
+      - 'apps/gs-api/docker-compose.yml'
+      - 'apps/mobile/eas.json'
+      - 'apps/mobile/app.config.ts'
+      - 'apps/mobile/app.config.js'
+      - 'cloudflare-tunnel/config.yml'
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'apps/face-api/Dockerfile'
+      - 'apps/face-api/docker-compose.yml'
+      - 'apps/gs-api/docker-compose.yml'
+      - 'apps/mobile/eas.json'
+      - 'apps/mobile/app.config.ts'
+      - 'apps/mobile/app.config.js'
+      - 'cloudflare-tunnel/config.yml'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  ssot-validation:
+    name: SSOT Compliance Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for better analysis
+
+      - name: Set up dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq curl
+
+      - name: Run SSOT Doctor
+        id: ssot_doctor
+        run: |
+          chmod +x scripts/ssot-doctor.sh
+
+          # Run ssot-doctor.sh and capture output
+          if ./scripts/ssot-doctor.sh; then
+            echo "status=passed" >> $GITHUB_OUTPUT
+            echo "✅ SSOT validation passed"
+          else
+            echo "status=failed" >> $GITHUB_OUTPUT
+            echo "❌ SSOT validation failed"
+            exit 1
+          fi
+
+      - name: Report results
+        if: always()
+        run: |
+          echo "## SSOT Validation Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ steps.ssot_doctor.outputs.status }}" == "passed" ]; then
+            echo "✅ **PASSED**: All configurations are aligned with Single Source of Truth" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### SSOT Reference" >> $GITHUB_STEP_SUMMARY
+            echo "- Face API: \`face-gate.bme-service.monster → 127.0.0.1:8101\`" >> $GITHUB_STEP_SUMMARY
+            echo "- GS API: \`api-gate.bme-service.monster → 127.0.0.1:7070\`" >> $GITHUB_STEP_SUMMARY
+            echo "- Auth API: \`auth-gate.bme-service.monster → 127.0.0.1:8081\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **FAILED**: SSOT violations detected" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Please review the errors above and fix the following:" >> $GITHUB_STEP_SUMMARY
+            echo "1. Ensure Cloudflare Tunnel Dashboard is the single source of truth" >> $GITHUB_STEP_SUMMARY
+            echo "2. Align Docker ports with Cloudflare Tunnel configuration" >> $GITHUB_STEP_SUMMARY
+            echo "3. Use HTTPS Tunnel URLs in preview/production profiles" >> $GITHUB_STEP_SUMMARY
+            echo "4. Avoid hardcoded port 8100 (must be 8101)" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          script: |
+            const status = '${{ steps.ssot_doctor.outputs.status }}';
+            const body = status === 'passed'
+              ? '✅ **SSOT Validation Passed**\n\nAll configurations are aligned with the Single Source of Truth (Cloudflare Tunnel Dashboard).'
+              : '❌ **SSOT Validation Failed**\n\nPlease review the workflow logs and fix the SSOT violations before merging.\n\n**Reference**: Cloudflare Dashboard is the SSOT for all port and URL configurations.';
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+
+  additional-checks:
+    name: Additional SSOT Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for port 8100 violations
+        run: |
+          echo "Searching for port 8100 violations..."
+
+          # Search in key configuration files
+          FILES=(
+            "apps/face-api/Dockerfile"
+            "apps/mobile/eas.json"
+            "apps/mobile/app.config.ts"
+            "apps/mobile/app.config.js"
+          )
+
+          VIOLATIONS=0
+          for file in "${FILES[@]}"; do
+            if [ -f "$file" ]; then
+              if grep -n ':8100' "$file"; then
+                echo "❌ Port 8100 found in $file (MUST be 8101)"
+                VIOLATIONS=$((VIOLATIONS + 1))
+              fi
+            fi
+          done
+
+          if [ $VIOLATIONS -gt 0 ]; then
+            echo "❌ Found $VIOLATIONS port 8100 violations"
+            exit 1
+          else
+            echo "✅ No port 8100 violations found"
+          fi
+
+      - name: Check for LAN IP in production configs
+        run: |
+          echo "Checking for LAN IP in production configurations..."
+
+          # Check eas.json production profile
+          if [ -f "apps/mobile/eas.json" ]; then
+            if jq -e '.build.production.env' apps/mobile/eas.json > /dev/null 2>&1; then
+              PROD_ENV=$(jq -r '.build.production.env | to_entries[] | "\(.key)=\(.value)"' apps/mobile/eas.json)
+
+              if echo "$PROD_ENV" | grep -E 'API_(FACE_API|BASE_GS|BASE_CCUS)=http://192\.168\.'; then
+                echo "❌ LAN IP found in eas.json production profile (MUST use HTTPS Tunnel URLs)"
+                exit 1
+              else
+                echo "✅ No LAN IP in production profile"
+              fi
+            fi
+          fi
+
+      - name: Verify Cloudflare Tunnel config syntax
+        run: |
+          echo "Validating Cloudflare Tunnel configuration..."
+
+          if [ -f "cloudflare-tunnel/config.yml" ]; then
+            # Basic YAML syntax check
+            if ! command -v yq &> /dev/null; then
+              echo "Installing yq for YAML validation..."
+              sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+              sudo chmod +x /usr/local/bin/yq
+            fi
+
+            if yq eval . cloudflare-tunnel/config.yml > /dev/null 2>&1; then
+              echo "✅ Cloudflare Tunnel config is valid YAML"
+            else
+              echo "❌ Cloudflare Tunnel config has YAML syntax errors"
+              exit 1
+            fi
+
+            # Check required hostnames
+            if yq eval '.ingress[] | select(.hostname == "face-gate.bme-service.monster")' cloudflare-tunnel/config.yml > /dev/null 2>&1; then
+              echo "✅ Face API hostname configured"
+            else
+              echo "❌ Face API hostname missing in tunnel config"
+              exit 1
+            fi
+          else
+            echo "⚠️  Cloudflare Tunnel config not found"
+          fi
+
+      - name: Generate SSOT compliance report
+        if: always()
+        run: |
+          echo "## SSOT Compliance Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Configuration Files Checked" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Face API Dockerfile" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Docker Compose files" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Mobile app config (eas.json)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Cloudflare Tunnel config" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### SSOT Principles" >> $GITHUB_STEP_SUMMARY
+          echo "1. Cloudflare Tunnel Dashboard is the single source of truth" >> $GITHUB_STEP_SUMMARY
+          echo "2. All Docker services must align with tunnel configuration" >> $GITHUB_STEP_SUMMARY
+          echo "3. Mobile apps must use HTTPS tunnel URLs in preview/production" >> $GITHUB_STEP_SUMMARY
+          echo "4. Port 8101 (not 8100) for Face API" >> $GITHUB_STEP_SUMMARY
+          echo "5. Port 7070 for GS API" >> $GITHUB_STEP_SUMMARY
+          echo "6. Port 8081 for Auth API" >> $GITHUB_STEP_SUMMARY
