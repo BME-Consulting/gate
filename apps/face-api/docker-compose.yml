@@ -9,7 +9,7 @@ services:
     environment:
       - HOST=0.0.0.0
       - PORT=8101
-      - API_KEY=development-api-key-12345
+      - API_KEY=preview-api-key-please-rotate
       - CORS_ORIGINS=http://localhost:3000,http://192.168.1.4:8081
       - DATABASE_PATH=/app/data/embeddings.db
       - FACE_DETECTION_MODEL=hog
