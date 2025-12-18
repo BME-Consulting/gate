@@ -154,6 +154,51 @@ jobs:
             fi
           fi
 
+      - name: Check Auth Issuer configuration
+        run: |
+          echo "Validating Auth Issuer configuration..."
+
+          VIOLATIONS=0
+
+          # Check eas.json preview profile
+          if [ -f "apps/mobile/eas.json" ]; then
+            PREVIEW_AUTH=$(jq -r '.build.preview.env.AUTH_ISSUER // empty' apps/mobile/eas.json)
+            if [ -n "$PREVIEW_AUTH" ]; then
+              if echo "$PREVIEW_AUTH" | grep -E 'http://192\.168\.|http://localhost'; then
+                echo "❌ Preview Auth Issuer uses HTTP/LAN IP: $PREVIEW_AUTH"
+                echo "   Expected: https://auth-gate.bme-service.monster/realms/mcd3"
+                VIOLATIONS=$((VIOLATIONS + 1))
+              elif ! echo "$PREVIEW_AUTH" | grep -q '^https://'; then
+                echo "❌ Preview Auth Issuer is not HTTPS: $PREVIEW_AUTH"
+                VIOLATIONS=$((VIOLATIONS + 1))
+              else
+                echo "✅ Preview Auth Issuer is valid: $PREVIEW_AUTH"
+              fi
+            fi
+
+            # Check production profile
+            PROD_AUTH=$(jq -r '.build.production.env.AUTH_ISSUER // empty' apps/mobile/eas.json)
+            if [ -n "$PROD_AUTH" ]; then
+              if echo "$PROD_AUTH" | grep -E 'http://192\.168\.|http://localhost'; then
+                echo "❌ Production Auth Issuer uses HTTP/LAN IP: $PROD_AUTH"
+                VIOLATIONS=$((VIOLATIONS + 1))
+              elif ! echo "$PROD_AUTH" | grep -q '^https://'; then
+                echo "❌ Production Auth Issuer is not HTTPS: $PROD_AUTH"
+                VIOLATIONS=$((VIOLATIONS + 1))
+              else
+                echo "✅ Production Auth Issuer is valid: $PROD_AUTH"
+              fi
+            fi
+          fi
+
+          if [ $VIOLATIONS -gt 0 ]; then
+            echo "❌ Found $VIOLATIONS Auth Issuer violations"
+            echo "Auth Issuer MUST use HTTPS Cloudflare Tunnel URL in preview/production"
+            exit 1
+          else
+            echo "✅ All Auth Issuer configurations are valid"
+          fi
+
       - name: Verify Cloudflare Tunnel config syntax
         run: |
           echo "Validating Cloudflare Tunnel configuration..."
@@ -184,6 +229,50 @@ jobs:
             echo "⚠️  Cloudflare Tunnel config not found"
           fi
 
+      - name: Check API Key rotation status
+        run: |
+          echo "Checking API Key rotation status..."
+
+          # Check for placeholder API keys that should be rotated
+          WARNINGS=0
+
+          if [ -f "apps/mobile/eas.json" ]; then
+            # Check preview keys
+            PREVIEW_FACE_KEY=$(jq -r '.build.preview.env.API_FACE_API_KEY // empty' apps/mobile/eas.json)
+            PREVIEW_GS_KEY=$(jq -r '.build.preview.env.API_GS_API_KEY // empty' apps/mobile/eas.json)
+
+            if echo "$PREVIEW_FACE_KEY" | grep -q 'please-rotate'; then
+              echo "⚠️  Preview Face API Key contains 'please-rotate' - should be rotated soon"
+              WARNINGS=$((WARNINGS + 1))
+            fi
+
+            if echo "$PREVIEW_GS_KEY" | grep -q 'please-rotate'; then
+              echo "⚠️  Preview GS API Key contains 'please-rotate' - should be rotated soon"
+              WARNINGS=$((WARNINGS + 1))
+            fi
+
+            # Check for development keys in production
+            PROD_FACE_KEY=$(jq -r '.build.production.env.API_FACE_API_KEY // empty' apps/mobile/eas.json)
+            PROD_GS_KEY=$(jq -r '.build.production.env.API_GS_API_KEY // empty' apps/mobile/eas.json)
+
+            if echo "$PROD_FACE_KEY" | grep -qE 'development|preview|test|please-rotate'; then
+              echo "❌ Production Face API Key appears to be a test/dev key: $PROD_FACE_KEY"
+              exit 1
+            fi
+
+            if echo "$PROD_GS_KEY" | grep -qE 'development|preview|test|please-rotate'; then
+              echo "❌ Production GS API Key appears to be a test/dev key: $PROD_GS_KEY"
+              exit 1
+            fi
+          fi
+
+          if [ $WARNINGS -gt 0 ]; then
+            echo "⚠️  $WARNINGS API key rotation warnings (non-blocking)"
+            echo "Recommendation: Rotate preview API keys before production deployment"
+          else
+            echo "✅ API keys look reasonable"
+          fi
+
       - name: Generate SSOT compliance report
         if: always()
         run: |
@@ -194,11 +283,15 @@ jobs:
           echo "- ✅ Docker Compose files" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ Mobile app config (eas.json)" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ Cloudflare Tunnel config" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Auth Issuer configuration" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ API Key rotation status" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### SSOT Principles" >> $GITHUB_STEP_SUMMARY
           echo "1. Cloudflare Tunnel Dashboard is the single source of truth" >> $GITHUB_STEP_SUMMARY
           echo "2. All Docker services must align with tunnel configuration" >> $GITHUB_STEP_SUMMARY
           echo "3. Mobile apps must use HTTPS tunnel URLs in preview/production" >> $GITHUB_STEP_SUMMARY
-          echo "4. Port 8101 (not 8100) for Face API" >> $GITHUB_STEP_SUMMARY
-          echo "5. Port 7070 for GS API" >> $GITHUB_STEP_SUMMARY
-          echo "6. Port 8081 for Auth API" >> $GITHUB_STEP_SUMMARY
+          echo "4. Auth Issuer must use HTTPS (no LAN IP or HTTP)" >> $GITHUB_STEP_SUMMARY
+          echo "5. Port 8101 (not 8100) for Face API" >> $GITHUB_STEP_SUMMARY
+          echo "6. Port 7070 for GS API" >> $GITHUB_STEP_SUMMARY
+          echo "7. Port 8081 for Auth API" >> $GITHUB_STEP_SUMMARY
+          echo "8. Production API keys must not contain test/dev markers" >> $GITHUB_STEP_SUMMARY
