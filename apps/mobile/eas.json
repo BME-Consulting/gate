@@ -77,14 +77,14 @@
       "node": "22.12.0",
       "env": {
         "APP_ENV": "production",
-        "API_FACE_API": "https://face-gate.bme-service.monster",
-        "API_BASE_GS": "https://api-gate.bme-service.monster",
-        "API_BASE_CCUS": "https://api-gate.bme-service.monster",
+        "API_FACE_API": "https://face-gate-prod.bme-service.monster",
+        "API_BASE_GS": "https://api-gate-prod.bme-service.monster",
+        "API_BASE_CCUS": "https://api-gate-prod.bme-service.monster",
         "AUTH_ISSUER": "https://auth-gate.bme-service.monster/realms/mcd3",
         "AUTH_AUDIENCE": "mc-gate",
         "AUTH_CLIENT_ID": "mc-gate-mobile",
-        "API_FACE_API_KEY": "production-api-key-please-rotate",
-        "API_GS_API_KEY": "production-api-key-please-rotate"
+        "API_FACE_API_KEY": "production-e2f27115-f09d",
+        "API_GS_API_KEY": "production-e2f27115-f09d"
       },
       "ios": {
         "simulator": false

@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  face-api-prod:
+    build: .
+    container_name: mc-gate-face-api-prod
+    ports:
+      - "8102:8102"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8102
+      - API_KEY=production-e2f27115-f09d
+      - CORS_ORIGINS=http://localhost:3000,http://192.168.1.4:8081
+      - DATABASE_PATH=/app/data/embeddings.db
+      - FACE_DETECTION_MODEL=hog
+      - FACE_RECOGNITION_TOLERANCE=0.6
+      - MAX_IMAGE_SIZE_MB=10
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./data-prod:/app/data
+      - ./logs-prod:/app/logs
+    restart: unless-stopped
+    networks:
+      - mc-gate-network-prod
+
+networks:
+  mc-gate-network-prod:
+    driver: bridge
