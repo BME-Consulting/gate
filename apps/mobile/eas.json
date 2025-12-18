@@ -1,6 +1,7 @@
 {
   "cli": {
-    "version": ">= 16.0.0"
+    "version": ">= 16.0.0",
+    "appVersionSource": "local"
   },
   "build": {
     "development": {
@@ -36,8 +37,8 @@
         "AUTH_ISSUER": "https://auth-gate.bme-service.monster/realms/mcd3",
         "AUTH_AUDIENCE": "mc-gate",
         "AUTH_CLIENT_ID": "mc-gate-mobile",
-        "API_FACE_API_KEY": "preview-api-key-please-rotate",
-        "API_GS_API_KEY": "preview-api-key-please-rotate"
+        "API_FACE_API_KEY": "preview-3048a965-fa7c",
+        "API_GS_API_KEY": "preview-3048a965-fa7c"
       },
       "ios": {
         "simulator": false
@@ -59,8 +60,8 @@
         "AUTH_ISSUER": "https://auth-gate.bme-service.monster/realms/mcd3",
         "AUTH_AUDIENCE": "mc-gate",
         "AUTH_CLIENT_ID": "mc-gate-mobile",
-        "API_FACE_API_KEY": "preview-api-key-please-rotate",
-        "API_GS_API_KEY": "preview-api-key-please-rotate"
+        "API_FACE_API_KEY": "preview-3048a965-fa7c",
+        "API_GS_API_KEY": "preview-3048a965-fa7c"
       },
       "ios": {
         "simulator": false
