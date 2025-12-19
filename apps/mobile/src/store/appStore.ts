@@ -15,6 +15,7 @@ import {
   clearTokens,
   refreshTokenIfNeeded,
   decodeUserFromToken,
+  extractProjectsFromToken,
 } from "../services/tokenManager";
 
 interface AppState {
@@ -29,6 +30,7 @@ interface AppState {
 
   // プロジェクト
   currentProject: ProjectConfig | null;
+  availableProjects: string[]; // ユーザーがアクセス可能なプロジェクトIDのリスト
   setCurrentProject: (project: ProjectConfig) => void;
 
   // パスコードロック
@@ -54,9 +56,13 @@ export const useAppStore = create<AppState>((set, get) => ({
         await saveTokens(user.token, user.refreshToken || "", user.idToken);
       }
 
+      // トークンからプロジェクトIDを抽出（モックの場合は空配列）
+      const availableProjects = isMock ? [] : extractProjectsFromToken(user.token);
+
       set({
         user,
         isAuthenticated: true,
+        availableProjects,
       });
     } catch (error) {
       console.error("Login failed:", error);
@@ -99,6 +105,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         user: null,
         isAuthenticated: false,
         currentProject: null,
+        availableProjects: [],
       });
     } catch (error) {
       console.error("Logout failed:", error);
@@ -151,6 +158,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       // ユーザー情報を復元
       const userInfo = decodeUserFromToken(newAccessToken);
 
+      // トークンからプロジェクトIDを抽出
+      const availableProjects = extractProjectsFromToken(newAccessToken);
+
       const user: User = {
         id: userInfo.id,
         name: userInfo.name,
@@ -163,6 +173,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({
         user,
         isAuthenticated: true,
+        availableProjects,
       });
 
       return true;
@@ -175,6 +186,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   // プロジェクト
   currentProject: null,
+  availableProjects: [],
   setCurrentProject: (project) => set({ currentProject: project }),
 
   // パスコードロック

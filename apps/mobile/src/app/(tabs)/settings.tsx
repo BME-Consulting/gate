@@ -3,13 +3,13 @@
 // ==========================================
 
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, ScrollView, Switch, Alert, Platform, TouchableOpacity, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Switch, Alert, Platform, TouchableOpacity, ActivityIndicator, Modal } from "react-native";
 import { useRouter } from "expo-router";
 import { Button, tokens } from "@mc-gate/ui-kit";
 import { MockCardReader } from "@mc-gate/reader-bridge";
 import { useAppStore } from "../../store/appStore";
 import { useWorkers } from "../../hooks/useWorkers";
-import type { CheckConfig } from "@mc-gate/core";
+import type { CheckConfig, ProjectConfig } from "@mc-gate/core";
 import { TIMEOUT, fetchWithTimeout } from "@mc-gate/core";
 import { PasscodeModal } from "../../components/PasscodeModal";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -20,9 +20,37 @@ import Constants from "expo-constants";
 // BLEリーダーのシングルトンインスタンス
 let readerInstance: MockCardReader | null = null;
 
+/**
+ * プロジェクトIDから ProjectConfig を生成（モック）
+ * TODO: 将来的にはバックエンドAPIから取得
+ */
+function createProjectConfig(projectId: string): ProjectConfig {
+  // モックデータ: プロジェクトIDに応じた名前とデフォルト設定
+  const projectNames: Record<string, string> = {
+    PRJ001: "東京建設現場A",
+    PRJ002: "大阪建設現場B",
+    PRJ003: "名古屋建設現場C",
+  };
+
+  return {
+    projectId,
+    name: projectNames[projectId] || `プロジェクト ${projectId}`,
+    gateMode: "IN",
+    checkConfig: {
+      ccusIdCheck: false,
+      socialInsuranceCheck: false,
+      residencyCheck: false,
+      ageCheck: false,
+      healthCheck: false,
+      soleProprietorCheck: false,
+    },
+    serverLock: false,
+  };
+}
+
 export default function SettingsScreen() {
   const router = useRouter();
-  const { user, currentProject, logout, setCurrentProject, passcode, isPasscodeEnabled, setPasscode } = useAppStore();
+  const { user, currentProject, availableProjects, logout, setCurrentProject, passcode, isPasscodeEnabled, setPasscode } = useAppStore();
   const { isReady: workersReady, workers, getAllWorkers, syncFromServer } = useWorkers();
 
   // 作業員マスタ同期状態
@@ -55,6 +83,9 @@ export default function SettingsScreen() {
   const [passcodeModalVisible, setPasscodeModalVisible] = useState(false);
   const [passcodeModalMode, setPasscodeModalMode] = useState<"set" | "verify">("set");
   const [tempPasscode, setTempPasscode] = useState("");
+
+  // プロジェクト選択モーダル
+  const [projectModalVisible, setProjectModalVisible] = useState(false);
 
   // EAS Update情報
   const [updateInfo, setUpdateInfo] = useState<{
@@ -411,6 +442,13 @@ export default function SettingsScreen() {
     }
   };
 
+  const handleProjectSelect = (projectId: string) => {
+    const newProject = createProjectConfig(projectId);
+    setCurrentProject(newProject);
+    setProjectModalVisible(false);
+    Alert.alert("プロジェクト切り替え", `${newProject.name} に切り替えました`);
+  };
+
   return (
     <>
       <PasscodeModal
@@ -420,6 +458,60 @@ export default function SettingsScreen() {
         onCancel={handlePasscodeCancel}
         currentPasscode={passcode || undefined}
       />
+
+      {/* プロジェクト選択モーダル */}
+      <Modal
+        visible={projectModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setProjectModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>プロジェクト選択</Text>
+            <Text style={styles.modalSubtitle}>切り替えるプロジェクトを選択してください</Text>
+
+            <View style={styles.projectList}>
+              {availableProjects.map((projectId) => {
+                const project = createProjectConfig(projectId);
+                const isSelected = currentProject?.projectId === projectId;
+
+                return (
+                  <TouchableOpacity
+                    key={projectId}
+                    style={[styles.projectItem, isSelected && styles.projectItemSelected]}
+                    onPress={() => handleProjectSelect(projectId)}
+                  >
+                    <View style={styles.projectInfo}>
+                      <Text style={[styles.projectId, isSelected && styles.projectIdSelected]}>
+                        {project.projectId}
+                      </Text>
+                      <Text style={[styles.projectName, isSelected && styles.projectNameSelected]}>
+                        {project.name}
+                      </Text>
+                    </View>
+                    {isSelected && (
+                      <View style={styles.selectedBadge}>
+                        <Text style={styles.selectedBadgeText}>選択中</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <View style={styles.modalActions}>
+              <Button
+                title="キャンセル"
+                variant="secondary"
+                onPress={() => setProjectModalVisible(false)}
+                fullWidth
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
+
     <ScrollView style={styles.container}>
       <View style={styles.content}>
         {/* ユーザー情報 */}
@@ -430,12 +522,36 @@ export default function SettingsScreen() {
               <Text style={styles.label}>ユーザー名</Text>
               <Text style={styles.value}>{user?.name}</Text>
             </View>
+          </View>
+        </View>
+
+        {/* プロジェクト管理 */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>プロジェクト管理</Text>
+          <View style={styles.card}>
             <View style={styles.row}>
-              <Text style={styles.label}>現場</Text>
+              <Text style={styles.label}>現在のプロジェクト</Text>
               <Text style={styles.value}>
-                {currentProject?.name || "未選択"}
+                {currentProject ? `${currentProject.projectId} - ${currentProject.name}` : "未選択"}
               </Text>
             </View>
+
+            {availableProjects.length > 0 && (
+              <View style={styles.buttonRow}>
+                <Button
+                  title="プロジェクト切り替え"
+                  variant="secondary"
+                  onPress={() => setProjectModalVisible(true)}
+                  fullWidth
+                />
+              </View>
+            )}
+
+            {availableProjects.length === 0 && (
+              <Text style={styles.note}>
+                利用可能なプロジェクトがありません
+              </Text>
+            )}
           </View>
         </View>
 
@@ -997,5 +1113,98 @@ const styles = StyleSheet.create({
     fontSize: tokens.font.size.base,
     color: tokens.color.text.primary,
     fontWeight: tokens.font.weight.semibold,
+  },
+
+  // プロジェクト選択モーダル
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  modalContent: {
+    width: "85%",
+    maxWidth: 400,
+    backgroundColor: tokens.color.background.default,
+    borderRadius: tokens.radius.lg,
+    padding: tokens.spacing.xl,
+    ...tokens.shadow.lg,
+  },
+
+  modalTitle: {
+    fontSize: tokens.font.size.xl,
+    fontWeight: tokens.font.weight.bold,
+    color: tokens.color.text.primary,
+    marginBottom: tokens.spacing.sm,
+  },
+
+  modalSubtitle: {
+    fontSize: tokens.font.size.sm,
+    color: tokens.color.text.secondary,
+    marginBottom: tokens.spacing.lg,
+  },
+
+  projectList: {
+    gap: tokens.spacing.sm,
+    marginBottom: tokens.spacing.lg,
+  },
+
+  projectItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: tokens.spacing.md,
+    borderRadius: tokens.radius.md,
+    borderWidth: 2,
+    borderColor: tokens.color.border.default,
+    backgroundColor: tokens.color.background.paper,
+  },
+
+  projectItemSelected: {
+    borderColor: tokens.color.primary,
+    backgroundColor: tokens.color.primary + "10",
+  },
+
+  projectInfo: {
+    flex: 1,
+  },
+
+  projectId: {
+    fontSize: tokens.font.size.sm,
+    fontWeight: tokens.font.weight.semibold,
+    color: tokens.color.text.secondary,
+    marginBottom: tokens.spacing.xs,
+  },
+
+  projectIdSelected: {
+    color: tokens.color.primary,
+  },
+
+  projectName: {
+    fontSize: tokens.font.size.base,
+    fontWeight: tokens.font.weight.semibold,
+    color: tokens.color.text.primary,
+  },
+
+  projectNameSelected: {
+    color: tokens.color.primary,
+  },
+
+  selectedBadge: {
+    paddingHorizontal: tokens.spacing.sm,
+    paddingVertical: tokens.spacing.xs,
+    borderRadius: tokens.radius.sm,
+    backgroundColor: tokens.color.primary,
+  },
+
+  selectedBadgeText: {
+    fontSize: tokens.font.size.xs,
+    fontWeight: tokens.font.weight.semibold,
+    color: "#fff",
+  },
+
+  modalActions: {
+    gap: tokens.spacing.sm,
   },
 });

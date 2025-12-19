@@ -15,6 +15,11 @@ interface JWTPayload {
   preferred_username?: string;
   email?: string;
   name?: string;
+  resource_access?: {
+    "mc-gate"?: {
+      roles?: string[];
+    };
+  };
   [key: string]: unknown;
 }
 
@@ -148,5 +153,34 @@ export function decodeUserFromToken(token: string): {
   } catch (error) {
     console.error("Failed to decode user from token:", error);
     throw new Error("Invalid token");
+  }
+}
+
+/**
+ * トークンからプロジェクトIDのリストを抽出
+ *
+ * Keycloakトークンの resource_access["mc-gate"].roles から
+ * "project:PRJ001" のような形式のロールを抽出
+ *
+ * @param token - JWTアクセストークン
+ * @returns プロジェクトIDの配列（例: ["PRJ001", "PRJ002"]）
+ */
+export function extractProjectsFromToken(token: string): string[] {
+  try {
+    const decoded = jwtDecode<JWTPayload>(token);
+
+    // resource_access["mc-gate"].roles から project:XXX 形式のロールを抽出
+    const roles = decoded.resource_access?.["mc-gate"]?.roles || [];
+
+    const projectIds = roles
+      .filter((role) => role.startsWith("project:"))
+      .map((role) => role.replace("project:", ""));
+
+    console.log("[TokenManager] Extracted project IDs from token:", projectIds);
+
+    return projectIds;
+  } catch (error) {
+    console.error("Failed to extract projects from token:", error);
+    return []; // エラー時は空配列を返す
   }
 }
