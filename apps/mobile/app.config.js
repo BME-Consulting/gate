@@ -1,7 +1,14 @@
 module.exports = ({ config }) => {
   // Environment detection
   // APP_ENVを統一的に使用（ENVとの二重管理を避ける）
-  const appEnv = process.env.APP_ENV || process.env.ENV || "development";
+  // フォールバック: EAS_BUILD_PROFILE または Updates.channel から推測
+  const buildProfile = process.env.EAS_BUILD_PROFILE || "";
+  const appEnv = process.env.APP_ENV ||
+    process.env.ENV ||
+    (buildProfile === "production" ? "production" :
+     buildProfile === "preview" ? "preview" :
+     buildProfile === "production-apk" ? "production" :
+     "development");
   const isProduction = appEnv === "production";
 
   // API URLs - IMPORTANT: Use environment variables for production/preview
