@@ -28,6 +28,7 @@
         "AUTH_AUDIENCE": "mc-gate",
         "AUTH_CLIENT_ID": "mc-gate-mobile",
         "API_FACE_API_KEY": "development-api-key-12345",
+        "API_GS_API_KEY": "development-api-key-12345",
         "SENTRY_DSN": "https://a78f6b7457e0eff34f464bc83a1a0885@o4509755717648384.ingest.us.sentry.io/4510471361265664"
       },
       "ios": {
@@ -57,7 +58,16 @@
     "production": {
       "channel": "production",
       "env": {
-        "APP_ENV": "production"
+        "APP_ENV": "production",
+        "API_FACE_API": "https://face-gate-prod.bme-service.monster",
+        "API_BASE_GS": "https://api-gate-prod.bme-service.monster",
+        "API_BASE_CCUS": "https://api-gate-prod.bme-service.monster",
+        "AUTH_ISSUER": "https://auth-gate-prod.bme-service.monster/realms/mcd3",
+        "AUTH_AUDIENCE": "mc-gate",
+        "AUTH_CLIENT_ID": "mc-gate-mobile",
+        "API_FACE_API_KEY": "production-e2f27115-f09d",
+        "API_GS_API_KEY": "production-e2f27115-f09d",
+        "SENTRY_DSN": "https://a78f6b7457e0eff34f464bc83a1a0885@o4509755717648384.ingest.us.sentry.io/4510471361265664"
       },
       "ios": {
         "simulator": false
