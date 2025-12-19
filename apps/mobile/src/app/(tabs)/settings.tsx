@@ -24,7 +24,13 @@ let readerInstance: MockCardReader | null = null;
 export default function SettingsScreen() {
   const router = useRouter();
   const { user, currentProject, availableProjects, logout, setCurrentProject, passcode, isPasscodeEnabled, setPasscode } = useAppStore();
-  const { isReady: workersReady, workers, getAllWorkers, syncFromServer } = useWorkers();
+
+  // [DEBUG] useWorkers の返却内容を確認
+  const workersHook = useWorkers();
+  console.log("[WORKERS] hook keys =", workersHook ? Object.keys(workersHook) : null);
+  console.log("[WORKERS] syncFromServer typeof =", typeof (workersHook as any)?.syncFromServer);
+
+  const { isReady: workersReady, workers, getAllWorkers, syncFromServer } = workersHook;
 
   // 作業員マスタ同期状態
   const [workerCount, setWorkerCount] = useState<number>(0);
@@ -382,7 +388,8 @@ export default function SettingsScreen() {
       console.log("[DEBUG] syncFromServer is function:", typeof syncFromServer === 'function');
 
       if (typeof syncFromServer !== 'function') {
-        throw new Error(`syncFromServer is not a function, it is: ${typeof syncFromServer}`);
+        console.error("[WORKERS] syncFromServer missing in workersHook:", workersHook);
+        throw new Error(`syncFromServer is not a function, it is: ${typeof syncFromServer}. Available keys: ${workersHook ? Object.keys(workersHook).join(', ') : 'null'}`);
       }
 
       await syncFromServer(workersApiUrl, apiGsApiKey, user.token);
