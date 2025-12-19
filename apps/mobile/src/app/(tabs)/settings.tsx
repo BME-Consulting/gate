@@ -378,6 +378,13 @@ export default function SettingsScreen() {
       console.log("===========================================================");
 
       console.log("[DEBUG] Starting worker sync...");
+      console.log("[DEBUG] syncFromServer type:", typeof syncFromServer);
+      console.log("[DEBUG] syncFromServer is function:", typeof syncFromServer === 'function');
+
+      if (typeof syncFromServer !== 'function') {
+        throw new Error(`syncFromServer is not a function, it is: ${typeof syncFromServer}`);
+      }
+
       await syncFromServer(workersApiUrl, apiGsApiKey, user.token);
       console.log("[DEBUG] Worker sync completed successfully");
 
