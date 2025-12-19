@@ -2,12 +2,15 @@
 // ルートレイアウト
 // ==========================================
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { View, ActivityIndicator } from "react-native";
 import { Stack, useRouter, usePathname } from "expo-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import * as Linking from "expo-linking";
 import * as Sentry from "@sentry/react-native";
 import Constants from "expo-constants";
+import { useAppStore } from "../store/appStore";
+import { tokens } from "@mc-gate/ui-kit";
 
 // Sentry 初期化
 const sentryDsn = Constants.expoConfig?.extra?.sentryDsn;
@@ -35,6 +38,11 @@ export default function RootLayout() {
   const router = useRouter();
   const pathname = usePathname();
 
+  // OAuth ガード: セッション復元
+  const restoreSession = useAppStore((s) => s.restoreSession);
+  const isAuthenticated = useAppStore((s) => s.isAuthenticated);
+  const [booting, setBooting] = useState(true);
+
   // QueryClient を useMemo で安全に初期化（New Architecture 対応）
   const queryClient = useMemo(() => new QueryClient({
     defaultOptions: {
@@ -44,6 +52,28 @@ export default function RootLayout() {
       },
     },
   }), []);
+
+  // OAuth ガード: アプリ起動時に1回だけセッション復元
+  useEffect(() => {
+    (async () => {
+      try {
+        console.log("[_layout.tsx] Restoring session...");
+        await restoreSession();
+      } catch (error) {
+        console.error("[_layout.tsx] Session restore error:", error);
+      } finally {
+        setBooting(false);
+      }
+    })();
+  }, []);
+
+  // OAuth ガード: 認証済みなら /(tabs)/home へリダイレクト
+  useEffect(() => {
+    if (!booting && isAuthenticated) {
+      console.log("[_layout.tsx] Authenticated - redirecting to home");
+      router.replace("/(tabs)/home");
+    }
+  }, [booting, isAuthenticated]);
 
   useEffect(() => {
     try {
@@ -72,6 +102,15 @@ export default function RootLayout() {
       console.error("[_layout.tsx] useEffect error:", error);
     }
   }, [pathname]);
+
+  // OAuth ガード: 起動中はローディング表示（チラつき防止）
+  if (booting) {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: tokens.color.background.default }}>
+        <ActivityIndicator size="large" color={tokens.color.primary} />
+      </View>
+    );
+  }
 
   return (
     <QueryClientProvider client={queryClient}>
