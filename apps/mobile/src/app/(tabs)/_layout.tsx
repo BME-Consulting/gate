@@ -5,13 +5,8 @@
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { tokens } from "@mc-gate/ui-kit";
-import Constants from "expo-constants";
 
 export default function TabsLayout() {
-  // 環境判定: production ではデバッグタブを非表示
-  const appEnv = Constants.expoConfig?.extra?.appEnv || "development";
-  const isProduction = appEnv === "production";
-
   return (
     <Tabs
       screenOptions={{
@@ -73,31 +68,6 @@ export default function TabsLayout() {
           ),
         }}
       />
-
-      {/* デバッグタブ: production では非表示 */}
-      {!isProduction && (
-        <>
-          <Tabs.Screen
-            name="debug"
-            options={{
-              title: "デバッグ",
-              tabBarIcon: ({ color, size }) => (
-                <Ionicons name="bug" size={size} color={color} />
-              ),
-            }}
-          />
-          <Tabs.Screen
-            name="vision-test"
-            options={{
-              title: "カメラテスト",
-              tabBarIcon: ({ color, size }) => (
-                <Ionicons name="camera" size={size} color={color} />
-              ),
-              unmountOnBlur: true, // カメラ画面は離れたら破棄してJSスレッド負荷を軽減
-            }}
-          />
-        </>
-      )}
     </Tabs>
   );
 }
