@@ -9,44 +9,17 @@ import { Button, tokens } from "@mc-gate/ui-kit";
 import { MockCardReader } from "@mc-gate/reader-bridge";
 import { useAppStore } from "../../store/appStore";
 import { useWorkers } from "../../hooks/useWorkers";
-import type { CheckConfig, ProjectConfig } from "@mc-gate/core";
+import type { CheckConfig } from "@mc-gate/core";
 import { TIMEOUT, fetchWithTimeout } from "@mc-gate/core";
 import { PasscodeModal } from "../../components/PasscodeModal";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import * as Updates from "expo-updates";
 import Constants from "expo-constants";
+import { createProjectConfig } from "../../config/projects";
 
 
 // BLEリーダーのシングルトンインスタンス
 let readerInstance: MockCardReader | null = null;
-
-/**
- * プロジェクトIDから ProjectConfig を生成（モック）
- * TODO: 将来的にはバックエンドAPIから取得
- */
-function createProjectConfig(projectId: string): ProjectConfig {
-  // モックデータ: プロジェクトIDに応じた名前とデフォルト設定
-  const projectNames: Record<string, string> = {
-    PRJ001: "東京建設現場A",
-    PRJ002: "大阪建設現場B",
-    PRJ003: "名古屋建設現場C",
-  };
-
-  return {
-    projectId,
-    name: projectNames[projectId] || `プロジェクト ${projectId}`,
-    gateMode: "IN",
-    checkConfig: {
-      ccusIdCheck: false,
-      socialInsuranceCheck: false,
-      residencyCheck: false,
-      ageCheck: false,
-      healthCheck: false,
-      soleProprietorCheck: false,
-    },
-    serverLock: false,
-  };
-}
 
 export default function SettingsScreen() {
   const router = useRouter();
