@@ -378,7 +378,7 @@ export default function SettingsScreen() {
       console.log("===========================================================");
 
       console.log("[DEBUG] Starting worker sync...");
-      await syncFromServer(workersApiUrl, apiGsApiKey);
+      await syncFromServer(workersApiUrl, apiGsApiKey, user.token);
       console.log("[DEBUG] Worker sync completed successfully");
 
       // 同期後に作業員数を再取得

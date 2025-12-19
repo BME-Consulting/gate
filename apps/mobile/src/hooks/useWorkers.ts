@@ -186,7 +186,7 @@ export function useWorkers() {
   /**
    * サーバーから作業員を取得（実API実装）
    */
-  const fetchWorkersFromServer = async (apiUrl: string, apiKey: string): Promise<Worker[]> => {
+  const fetchWorkersFromServer = async (apiUrl: string, apiKey: string, bearerToken: string): Promise<Worker[]> => {
     console.log("[Workers] Fetching from server:", apiUrl);
 
     const controller = new AbortController();
@@ -198,6 +198,7 @@ export function useWorkers() {
         headers: {
           "Content-Type": "application/json",
           "x-api-key": apiKey,
+          "Authorization": `Bearer ${bearerToken}`,
         },
         signal: controller.signal,
       });
@@ -247,7 +248,7 @@ export function useWorkers() {
   /**
    * サーバーから作業員マスタを同期
    */
-  const syncFromServer = async (apiUrl: string, apiKey: string): Promise<void> => {
+  const syncFromServer = async (apiUrl: string, apiKey: string, bearerToken: string): Promise<void> => {
     if (!repositoryInstance) {
       throw new Error("WorkerRepository is not initialized");
     }
@@ -269,7 +270,7 @@ export function useWorkers() {
       } else {
         // 本番実装: 実際のサーバーから取得（デフォルト）
         console.log("🔄 Fetching workers from server (useMockWorkers = false)");
-        serverWorkers = await fetchWorkersFromServer(apiUrl, apiKey);
+        serverWorkers = await fetchWorkersFromServer(apiUrl, apiKey, bearerToken);
       }
 
       // バッチでUPSERT
