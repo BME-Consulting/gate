@@ -75,65 +75,82 @@ export default function LoginScreen() {
     }
   }, []);
 
-  const handleLogin = async () => {
+  // app.config.jsから設定を取得（UIの分岐にも使用）
+  const useMockAuth = Constants.expoConfig?.extra?.useMockAuth ?? true;
+  const appEnv = Constants.expoConfig?.extra?.appEnv || "development";
+  const shouldUseMock = appEnv !== "production" && useMockAuth;
+
+  // モックログイン（開発/プレビュー環境）
+  const handleMockLogin = async () => {
     if (!username || !password) return;
 
     setLoading(true);
 
     try {
-      const { setCurrentProject, loginWithOAuth } = useAppStore.getState();
+      const { login, setCurrentProject } = useAppStore.getState();
 
-      // app.config.jsから設定を取得（安全性優先）
-      const useMockAuth = Constants.expoConfig?.extra?.useMockAuth ?? true;  // デフォルトはモック認証
-      const appEnv = Constants.expoConfig?.extra?.appEnv || "development";
+      console.log("✅ Using mock authentication");
+      await login({
+        id: "dev-user-1",
+        name: username,
+        token: "dev-token-" + Date.now(),
+        refreshToken: "dev-refresh-" + Date.now(),
+      }, true);  // isMock = true を渡してSecureStore保存をスキップ
 
-      // appEnvでモック認証を制御（__DEV__に依存しない）
-      // 本番環境では強制的にモック認証を無効化
-      const shouldUseMock = appEnv !== "production" && useMockAuth;
-
-      console.log("🔐 Authentication mode:", shouldUseMock ? "MOCK" : "OAuth");
-      console.log("  __DEV__:", __DEV__);
-      console.log("  appEnv:", appEnv);
-      console.log("  useMockAuth:", useMockAuth);
-      console.log("  shouldUseMock:", shouldUseMock);
-
-      if (shouldUseMock) {
-        // モック実装（開発中のみ）
-        console.log("✅ Using mock authentication");
-        await login({
-          id: "dev-user-1",
-          name: username,
-          token: "dev-token-" + Date.now(),
-          refreshToken: "dev-refresh-" + Date.now(),
-        }, true);  // isMock = true を渡してSecureStore保存をスキップ
-      } else {
-        // 本番: OAuth認証
-        console.log("✅ Using OAuth authentication");
-        await loginWithOAuth();
-      }
-
-      // モックプロジェクト設定
-      // NOTE: テスト用途のため、すべてのチェックをオフにしています
-      // 本番環境では設定画面で個別にオン/オフを切り替えられるようにする予定
-      const defaultProjectId = "PRJ001";  // ハードコード（安全性優先）
+      // デフォルトプロジェクト設定
       setCurrentProject({
-        projectId: defaultProjectId,
+        projectId: "PRJ001",
         name: "東京建設現場A",
         gateMode: "IN",
         checkConfig: {
-          ccusIdCheck: false, // テスト用: オフ
-          socialInsuranceCheck: false, // テスト用: オフ
-          residencyCheck: false, // テスト用: オフ
-          ageCheck: false, // テスト用: オフ
-          healthCheck: false, // テスト用: オフ
-          soleProprietorCheck: false, // テスト用: オフ
+          ccusIdCheck: false,
+          socialInsuranceCheck: false,
+          residencyCheck: false,
+          ageCheck: false,
+          healthCheck: false,
+          soleProprietorCheck: false,
         },
         serverLock: false,
       });
 
       router.replace("/(tabs)/home");
     } catch (error) {
-      console.error("❌ Login error:", error);
+      console.error("❌ Mock login error:", error);
+      Alert.alert("ログインエラー", error instanceof Error ? error.message : "ログインに失敗しました");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // OAuthログイン（本番環境）
+  const handleOAuthLogin = async () => {
+    setLoading(true);
+
+    try {
+      const { loginWithOAuth, setCurrentProject } = useAppStore.getState();
+
+      console.log("✅ Using OAuth authentication (Keycloak)");
+      await loginWithOAuth();
+
+      // デフォルトプロジェクト設定
+      setCurrentProject({
+        projectId: "PRJ001",
+        name: "東京建設現場A",
+        gateMode: "IN",
+        checkConfig: {
+          ccusIdCheck: false,
+          socialInsuranceCheck: false,
+          residencyCheck: false,
+          ageCheck: false,
+          healthCheck: false,
+          soleProprietorCheck: false,
+        },
+        serverLock: false,
+      });
+
+      router.replace("/(tabs)/home");
+    } catch (error) {
+      console.error("❌ OAuth login error:", error);
 
       let message = "ログインに失敗しました";
 
@@ -142,7 +159,7 @@ export default function LoginScreen() {
 
         // JSON Parse errorの場合、より詳細な情報を提供
         if (message.includes("JSON Parse error") || message.includes("Unexpected character")) {
-          message = "サーバーへの接続に失敗しました。\n\nKeycloakサーバーが起動していることを確認してください。\n\n開発中の場合は、app.config.tsで\nuseMockAuth: true\nを設定してモック認証を使用できます。";
+          message = "Keycloakサーバーへの接続に失敗しました。\n\nサーバーが起動していることを確認してください。";
         }
       }
 
@@ -158,36 +175,57 @@ export default function LoginScreen() {
         <Text style={styles.title}>MCD3 通門管理</Text>
         <Text style={styles.subtitle}>ログイン</Text>
 
-        <View style={styles.form}>
-          <TextInput
-            style={styles.input}
-            placeholder="ユーザーID"
-            value={username}
-            onChangeText={setUsername}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
+        {shouldUseMock ? (
+          // モック認証UI（開発/プレビュー環境）
+          <View style={styles.form}>
+            <Text style={styles.envLabel}>開発環境（モック認証）</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="ユーザーID"
+              value={username}
+              onChangeText={setUsername}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
 
-          <TextInput
-            style={styles.input}
-            placeholder="パスワード"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
+            <TextInput
+              style={styles.input}
+              placeholder="パスワード"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
 
-          <Button
-            title="ログイン"
-            onPress={handleLogin}
-            loading={loading}
-            disabled={!username || !password}
-            fullWidth
-            size="lg"
-            style={styles.button}
-          />
-        </View>
+            <Button
+              title="ログイン（モック）"
+              onPress={handleMockLogin}
+              loading={loading}
+              disabled={!username || !password}
+              fullWidth
+              size="lg"
+              style={styles.button}
+            />
+          </View>
+        ) : (
+          // OAuth認証UI（本番環境）
+          <View style={styles.form}>
+            <Text style={styles.oauthInfo}>
+              社内SSO（Keycloak）でログインします。{"\n"}
+              ログインボタンをタップすると、ブラウザが開きます。
+            </Text>
+
+            <Button
+              title="Keycloakでログイン"
+              onPress={handleOAuthLogin}
+              loading={loading}
+              fullWidth
+              size="lg"
+              style={styles.button}
+            />
+          </View>
+        )}
       </View>
     </View>
   );
@@ -236,5 +274,25 @@ const styles = StyleSheet.create({
 
   button: {
     marginTop: tokens.spacing.md,
+  },
+
+  envLabel: {
+    fontSize: tokens.font.size.sm,
+    color: tokens.color.text.secondary,
+    textAlign: "center",
+    marginBottom: tokens.spacing.md,
+    paddingHorizontal: tokens.spacing.md,
+    paddingVertical: tokens.spacing.xs,
+    backgroundColor: tokens.color.background.paper,
+    borderRadius: tokens.radius.sm,
+  },
+
+  oauthInfo: {
+    fontSize: tokens.font.size.base,
+    color: tokens.color.text.secondary,
+    textAlign: "center",
+    lineHeight: 24,
+    marginBottom: tokens.spacing.xl,
+    paddingHorizontal: tokens.spacing.md,
   },
 });
