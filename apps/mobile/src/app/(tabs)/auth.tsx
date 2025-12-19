@@ -108,18 +108,27 @@ export default function AuthScreen() {
     return new RuleEngine(currentProject.checkConfig);
   }, [currentProject?.checkConfig]);
 
-  // タイムスライシング検出方式（1000msごとに切り替え）
-  // ✅ isLive ガード: タブフォーカス && アプリアクティブ時のみ動作
-  const isLive = isFocused && appState === "active";
+  // 手動切り替え（明示的トグル）
+  const handleToggleDetector = () => {
+    const newMode: DetectorType = activeDetector === "face" ? "qr" : "face";
+    console.log(`[Auth] Switching detector: ${activeDetector} → ${newMode}`);
 
-  useEffect(() => {
-    if (!isLive) return; // フォーカス外またはバックグラウンドでは何もしない
+    // カメラ状態を完全リセット
+    setActiveDetector(newMode);
+    setIsProcessing(false);
+    setDetectionStatus(
+      newMode === "face" ? "顔を検出中..." : "QRコードを検出中..."
+    );
+    setLastFaceDetection(null);
+    setIsCameraReady(false);
 
-    const interval = setInterval(() => {
-      setActiveDetector((prev) => (prev === "face" ? "qr" : "face"));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [isLive]);
+    // 処理ロックを解除
+    processingLock.current = false;
+    lastProcessTime.current = 0;
+  };
+
+  // カメラキー（切り替え時に強制再マウント）
+  const cameraKey = `${activeDetector}-${currentProject?.projectId ?? "default"}`;
 
   // タブフォーカス時にカメラリソースをリセット
   useFocusEffect(
@@ -630,8 +639,9 @@ export default function AuthScreen() {
       {/* Dual Camera Approach: vision-camera for face, expo-camera for QR */}
       <View style={styles.cameraContainer}>
         {/* Vision Camera - Face Detection */}
-        {/* 🔥 常に存在、isActiveで動作制御（条件レンダリング廃止） */}
+        {/* 🔥 keyで強制再マウント（切り替え時にカメラリセット） */}
         <Camera
+          key={`vision-${cameraKey}`}
           ref={visionCameraRef}
           style={[StyleSheet.absoluteFill, activeDetector !== 'face' && { opacity: 0 }]}
           device={visionCameraDevice}
@@ -649,8 +659,10 @@ export default function AuthScreen() {
         />
 
         {/* Expo Camera - QR Scanning */}
+        {/* 🔥 keyで強制再マウント（切り替え時にカメラリセット） */}
         {activeDetector === 'qr' && (
           <CameraView
+            key={`expo-${cameraKey}`}
             ref={expoCameraRef}
             style={StyleSheet.absoluteFill}
             facing="front"
@@ -677,6 +689,62 @@ export default function AuthScreen() {
               <View style={styles.backButton} />
             </View>
 
+            {/* 明示的トグル（QR / 顔認証） */}
+            <View style={styles.toggleContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.toggleButton,
+                  activeDetector === "qr" && styles.toggleButtonActive,
+                ]}
+                onPress={() => activeDetector !== "qr" && handleToggleDetector()}
+                disabled={isProcessing}
+              >
+                <Ionicons
+                  name="qr-code"
+                  size={20}
+                  color={activeDetector === "qr" ? "#fff" : "#888"}
+                />
+                <Text
+                  style={[
+                    styles.toggleButtonText,
+                    activeDetector === "qr" && styles.toggleButtonTextActive,
+                  ]}
+                >
+                  QR
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.toggleButton,
+                  activeDetector === "face" && styles.toggleButtonActive,
+                ]}
+                onPress={() => activeDetector !== "face" && handleToggleDetector()}
+                disabled={isProcessing}
+              >
+                <Ionicons
+                  name="person"
+                  size={20}
+                  color={activeDetector === "face" ? "#fff" : "#888"}
+                />
+                <Text
+                  style={[
+                    styles.toggleButtonText,
+                    activeDetector === "face" && styles.toggleButtonTextActive,
+                  ]}
+                >
+                  顔認証
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* 現在モード表示 */}
+            <View style={styles.currentModeContainer}>
+              <Text style={styles.currentModeLabel}>
+                現在：{activeDetector === "qr" ? "QR" : "顔認証"}
+              </Text>
+            </View>
+
             {/* ガイドフレーム */}
             <View style={styles.guideContainer}>
               <View style={styles.guideFrame}>
@@ -686,50 +754,6 @@ export default function AuthScreen() {
                 <View style={[styles.guideCorner, styles.guideCornerBottomRight]} />
               </View>
               <Text style={styles.guideText}>{detectionStatus}</Text>
-
-              {/* 検出インジケーター */}
-              <View style={styles.detectorIndicator}>
-                <View
-                  style={[
-                    styles.detectorBadge,
-                    activeDetector === "face" && styles.detectorBadgeActive,
-                  ]}
-                >
-                  <Ionicons
-                    name="person"
-                    size={16}
-                    color={activeDetector === "face" ? "#fff" : "#888"}
-                  />
-                  <Text
-                    style={[
-                      styles.detectorBadgeText,
-                      activeDetector === "face" && styles.detectorBadgeTextActive,
-                    ]}
-                  >
-                    顔検出
-                  </Text>
-                </View>
-                <View
-                  style={[
-                    styles.detectorBadge,
-                    activeDetector === "qr" && styles.detectorBadgeActive,
-                  ]}
-                >
-                  <Ionicons
-                    name="qr-code"
-                    size={16}
-                    color={activeDetector === "qr" ? "#fff" : "#888"}
-                  />
-                  <Text
-                    style={[
-                      styles.detectorBadgeText,
-                      activeDetector === "qr" && styles.detectorBadgeTextActive,
-                    ]}
-                  >
-                    QR検出
-                  </Text>
-                </View>
-              </View>
             </View>
 
             {/* ボトムバー */}
@@ -906,36 +930,53 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
 
-  detectorIndicator: {
+  toggleContainer: {
     flexDirection: "row",
+    justifyContent: "center",
     gap: 12,
-    marginTop: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
   },
 
-  detectorBadge: {
+  toggleButton: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
     backgroundColor: "rgba(255, 255, 255, 0.2)",
-    borderRadius: 16,
-    borderWidth: 1,
+    borderRadius: 20,
+    borderWidth: 2,
     borderColor: "rgba(255, 255, 255, 0.3)",
+    minWidth: 110,
+    justifyContent: "center",
   },
 
-  detectorBadgeActive: {
+  toggleButtonActive: {
     backgroundColor: tokens.color.primary,
     borderColor: tokens.color.primary,
   },
 
-  detectorBadgeText: {
-    fontSize: 12,
-    fontWeight: "500",
+  toggleButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
     color: "#888",
   },
 
-  detectorBadgeTextActive: {
+  toggleButtonTextActive: {
+    color: "#fff",
+  },
+
+  currentModeContainer: {
+    alignItems: "center",
+    paddingVertical: 8,
+    backgroundColor: "rgba(0, 0, 0, 0.3)",
+  },
+
+  currentModeLabel: {
+    fontSize: 14,
+    fontWeight: "500",
     color: "#fff",
   },
 
