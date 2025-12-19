@@ -97,6 +97,10 @@ Please set these environment variables before building.
   // デバッグ出力（ビルドログで確認用）
   console.log("🔍 app.config.js Debug (before merge):");
   console.log("  incoming config.extra:", JSON.stringify(baseExtra, null, 2));
+  console.log("  APP_ENV (process.env):", process.env.APP_ENV);
+  console.log("  EAS_BUILD_PROFILE (process.env):", process.env.EAS_BUILD_PROFILE);
+  console.log("  appEnv (computed):", appEnv);
+  console.log("  isProduction:", isProduction);
   console.log("  apiBaseGs:", apiBaseGs);
   console.log("  apiBaseCcus:", apiBaseCcus);
   console.log("  apiFaceApi:", apiFaceApi);
