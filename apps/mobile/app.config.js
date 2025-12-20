@@ -25,8 +25,9 @@ module.exports = ({ config }) => {
 
   // API Keys - MUST be set via environment variables
   // ハードコード削除: 全環境で環境変数から取得
-  const apiGsApiKey = process.env.API_GS_API_KEY || null;
-  const apiFaceApiKey = process.env.API_FACE_API_KEY || null;
+  // IMPORTANT: Filter out empty objects (EAS Update may pass {} instead of undefined)
+  const apiGsApiKey = (process.env.API_GS_API_KEY && typeof process.env.API_GS_API_KEY === 'string') ? process.env.API_GS_API_KEY : null;
+  const apiFaceApiKey = (process.env.API_FACE_API_KEY && typeof process.env.API_FACE_API_KEY === 'string') ? process.env.API_FACE_API_KEY : null;
 
   // Sentry DSN - Error tracking and monitoring
   const sentryDsn = process.env.SENTRY_DSN || "";
