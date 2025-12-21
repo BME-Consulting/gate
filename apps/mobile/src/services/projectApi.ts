@@ -11,6 +11,8 @@ import { ApiError, fetchWithTimeout, TIMEOUT } from "@mc-gate/core";
  */
 export interface ProjectsResponse {
   projects: ProjectConfig[];
+  defaultProjectId?: string;  // 推奨プロジェクト（オプション）
+  fetchedAt: string;           // 取得日時（ISO8601）
 }
 
 /**

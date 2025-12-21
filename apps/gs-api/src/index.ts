@@ -10,6 +10,7 @@ import workersRoutes from './routes/workers';
 import eventsRoutes from './routes/events';
 import statsRoutes from './routes/stats';
 import uxMetricsRoutes from './routes/ux-metrics';
+import projectsRoutes from './routes/projects';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 7070;
@@ -105,7 +106,13 @@ app.get('/health', async (req, res) => {
   }
 });
 
-// 認証が必要なエンドポイント
+// OAuth認証が必要なエンドポイント（JWT トークンからプロジェクトロールを抽出）
+// NOTE: 開発環境では MOCK_AUTH=true で動作（JWT検証スキップ）
+// IMPORTANT: authMiddleware より先に登録（API Key チェックをスキップ）
+import { oauthMiddleware } from './middleware/oauth';
+app.use('/api', oauthMiddleware, projectsRoutes);
+
+// API Key 認証が必要なエンドポイント
 app.use('/api', authMiddleware, workersRoutes);
 app.use('/api', authMiddleware, eventsRoutes);
 app.use('/api', authMiddleware, statsRoutes);
@@ -145,6 +152,7 @@ const server = app.listen(PORT, '0.0.0.0', () => {
   console.log('  POST /api/events                       - スキャンイベント受信');
   console.log('  GET  /api/projects/:id/events          - イベント履歴取得');
   console.log('  GET  /api/projects/:id/stats           - 統計情報取得');
+  console.log('  GET  /api/me/projects                  - ユーザープロジェクト一覧（OAuth）');
   console.log('  POST /api/ux-metrics                   - UX計測イベント受信');
   console.log('  GET  /api/ux-metrics/stats             - UX計測統計取得');
   console.log('');
