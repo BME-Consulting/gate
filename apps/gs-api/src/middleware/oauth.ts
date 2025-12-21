@@ -1,5 +1,11 @@
 import { Request, Response, NextFunction } from 'express';
 import { createRemoteJWKSet, jwtVerify, JWTPayload } from 'jose';
+import { webcrypto } from 'node:crypto';
+
+// Node.js 18+ の Web Crypto API を jose が利用できるようにする
+if (!globalThis.crypto) {
+  (globalThis as any).crypto = webcrypto;
+}
 
 /**
  * OAuth 2.0 Bearer認証ミドルウェア
@@ -113,10 +119,12 @@ export async function verifyAccessToken(req: Request): Promise<VerifiedUser> {
       throw err;
     }
 
-    // Keycloak roles 抽出: resource_access["mc-gate"].roles
-    const roles = (payload as any)?.resource_access?.['mc-gate']?.roles ?? [];
+    // Keycloak roles 抽出: resource_access["mc-gate-mobile"].roles または resource_access["mc-gate"].roles
+    const mcGateMobileRoles = (payload as any)?.resource_access?.['mc-gate-mobile']?.roles ?? [];
+    const mcGateRoles = (payload as any)?.resource_access?.['mc-gate']?.roles ?? [];
+    const roles = mcGateMobileRoles.length > 0 ? mcGateMobileRoles : mcGateRoles;
 
-    console.log(`[OAuth Middleware] JWT verified: sub=${sub}, roles=${JSON.stringify(roles)}`);
+    console.log(`[OAuth Middleware] JWT verified: sub=${sub}, roles=${JSON.stringify(roles)} (from ${mcGateMobileRoles.length > 0 ? 'mc-gate-mobile' : 'mc-gate'})`);
 
     return {
       sub,

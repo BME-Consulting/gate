@@ -15,15 +15,18 @@ const router = express.Router();
  */
 router.get('/me/projects', async (req, res) => {
   try {
-    // モックユーザー情報を取得（oauthMiddleware経由）
+    // 検証済みユーザー情報を取得（oauthMiddleware経由）
     const user = (req as any).user;
 
-    console.log('[GET /api/me/projects] User:', user);
+    console.log('[GET /api/me/projects] User:', {
+      sub: user?.sub,
+      rolesCount: user?.roles?.length ?? 0,
+    });
 
-    // JWT から resource_access["mc-gate"].roles を抽出
-    // MOCK_AUTH=true の場合は仮データのロールを使用
-    const mockRoles = ['project:PRJ001', 'project:PRJ002'];
-    const roles = user?.resource_access?.['mc-gate']?.roles || mockRoles;
+    // OAuth middleware で抽出済みの roles を使用
+    // MOCK_AUTH=true: middleware が mockRoles を返す（空配列）
+    // MOCK_AUTH=false: resource_access["mc-gate-mobile" or "mc-gate"].roles
+    const roles = user?.roles ?? [];
 
     console.log('[GET /api/me/projects] Roles:', roles);
 
