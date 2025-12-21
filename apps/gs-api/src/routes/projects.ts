@@ -24,11 +24,19 @@ router.get('/me/projects', async (req, res) => {
     });
 
     // OAuth middleware で抽出済みの roles を使用
-    // MOCK_AUTH=true: middleware が mockRoles を返す（空配列）
     // MOCK_AUTH=false: resource_access["mc-gate-mobile" or "mc-gate"].roles
     const roles = user?.roles ?? [];
 
     console.log('[GET /api/me/projects] Roles:', roles);
+
+    // roles が無い場合は 403 Forbidden
+    if (roles.length === 0) {
+      console.warn('[GET /api/me/projects] No roles assigned to user:', user.sub);
+      return res.status(403).json({
+        error: 'FORBIDDEN',
+        message: 'No project access roles assigned',
+      });
+    }
 
     // project:XXX 形式のロールからプロジェクトIDを抽出
     const projectIds = roles
