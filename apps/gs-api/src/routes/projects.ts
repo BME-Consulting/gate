@@ -66,7 +66,7 @@ router.get('/me/projects', async (req, res) => {
     // プロジェクトが0件の場合でも空配列を返す（404にしない）
     const response = {
       projects: accessibleProjects,
-      defaultProjectId: accessibleProjects.length > 0 ? accessibleProjects[0].projectId : undefined,
+      defaultProjectId: accessibleProjects.length > 0 ? accessibleProjects[0].projectId : null,
       fetchedAt: new Date().toISOString(),
     };
 
