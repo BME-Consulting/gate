@@ -1,118 +1,165 @@
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
+import { createRemoteJWKSet, jwtVerify, JWTPayload } from 'jose';
 
 /**
  * OAuth 2.0 Bearer認証ミドルウェア
  *
- * 開発環境: モックトークンを受け入れる（JWT検証なし）
- * 本番環境: Keycloak JWTを検証
+ * 開発環境: MOCK_AUTH=true でモックトークンを受け入れる
+ * 本番環境: MOCK_AUTH=false で Keycloak JWKS署名検証（RS256）
  *
- * Step C-1: 形式/iss/exp チェック（署名検証なし）
- * Step C-2: JWKS署名検証（TODO）
+ * Step C-1: 形式/iss/exp チェック（署名検証なし） ✅
+ * Step C-2: JWKS署名検証（RS256） ✅
  */
-export function oauthMiddleware(req: Request, res: Response, next: NextFunction) {
-  // 1. Bearerトークンの抽出
-  const authHeader = req.headers['authorization'];
 
-  // Authorization ヘッダーが無い → 401
-  if (!authHeader) {
-    return res.status(401).json({
-      error: 'UNAUTHORIZED',
-      message: 'Missing authorization header'
-    });
+// 環境変数
+const ISSUER = process.env.AUTH_ISSUER || 'https://auth-gate-prod.bme-service.monster/realms/mcd3';
+const AUDIENCE = process.env.AUTH_AUDIENCE || 'mc-gate';
+const JWKS_URL = process.env.AUTH_JWKS_URL || 'https://auth-gate-prod.bme-service.monster/realms/mcd3/protocol/openid-connect/certs';
+
+// JWKS エンドポイント（jose が内部でキャッシュ＆レート制御）
+let JWKS: ReturnType<typeof createRemoteJWKSet> | null = null;
+
+// JWKS初期化（MOCK_AUTH=false の場合のみ）
+if (process.env.MOCK_AUTH !== 'true') {
+  try {
+    JWKS = createRemoteJWKSet(new URL(JWKS_URL));
+    console.log(`[OAuth Middleware] JWKS endpoint configured: ${JWKS_URL}`);
+  } catch (error) {
+    console.error('[OAuth Middleware] Failed to configure JWKS endpoint:', error);
   }
+}
 
-  // Bearer 形式でない → 401
-  if (!authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({
-      error: 'UNAUTHORIZED',
-      message: 'Invalid authorization header format. Expected: Bearer <token>'
-    });
-  }
+/**
+ * 検証済みユーザー情報
+ */
+export interface VerifiedUser {
+  sub: string;
+  name?: string;
+  email?: string;
+  preferred_username?: string;
+  resource_access?: any;
+  payload: JWTPayload;
+  roles: string[];
+}
 
-  const token = authHeader.substring(7); // "Bearer " の7文字を除去
+/**
+ * Bearer トークンを抽出
+ */
+function extractBearerToken(authHeader?: string): string | null {
+  if (!authHeader) return null;
+  const match = authHeader.match(/^Bearer\s+(.+)$/i);
+  return match?.[1] ?? null;
+}
+
+/**
+ * JWT アクセストークンを検証
+ *
+ * @param req - Express Request オブジェクト
+ * @returns 検証済みユーザー情報
+ * @throws 401 エラー（トークンが無効な場合）
+ */
+export async function verifyAccessToken(req: Request): Promise<VerifiedUser> {
+  const token = extractBearerToken(req.headers['authorization']);
 
   if (!token) {
-    return res.status(401).json({
-      error: 'UNAUTHORIZED',
-      message: 'Missing authorization token'
-    });
+    const err: any = new Error('Missing Authorization Bearer token');
+    err.status = 401;
+    throw err;
   }
 
-  // 2. モック環境: トークン検証をスキップ
+  // MOCK_AUTH=true: モック認証（開発用）
   if (process.env.MOCK_AUTH === 'true') {
     console.log(`[OAuth Middleware] MOCK_AUTH enabled - accepting token: ${token.substring(0, 20)}...`);
 
-    // モックユーザー情報をreq.userに格納
-    (req as any).user = {
+    const mockPayload: JWTPayload = {
       sub: 'dev-user-1',
       name: 'Development User',
       email: 'dev@example.com',
       preferred_username: 'dev-user',
     };
 
-    return next();
+    return {
+      sub: 'dev-user-1',
+      name: 'Development User',
+      email: 'dev@example.com',
+      preferred_username: 'dev-user',
+      payload: mockPayload,
+      roles: [], // routes/projects.ts で mockRoles を使用
+    };
   }
 
-  // 3. Step C-1: 本番環境のJWT基本検証（署名検証なし）
+  // MOCK_AUTH=false: JWKS署名検証
+  if (!JWKS) {
+    const err: any = new Error('JWKS endpoint not configured');
+    err.status = 500;
+    throw err;
+  }
+
   try {
-    // JWT形式チェック（.が2個ない → 401）
-    const parts = token.split('.');
-    if (parts.length !== 3) {
-      return res.status(401).json({
-        error: 'UNAUTHORIZED',
-        message: 'Invalid JWT format. Expected 3 parts separated by dots.'
-      });
+    // jose による JWKS 署名検証（RS256）
+    // - 署名検証
+    // - issuer 検証
+    // - audience 検証
+    // - exp / nbf 検証
+    const { payload } = await jwtVerify(token, JWKS, {
+      issuer: ISSUER,
+      audience: AUDIENCE,
+    });
+
+    const sub = payload.sub;
+    if (!sub) {
+      const err: any = new Error('JWT missing sub claim');
+      err.status = 401;
+      throw err;
     }
 
-    // JWTデコード（署名検証なし）
-    const decoded = jwt.decode(token, { complete: true });
+    // Keycloak roles 抽出: resource_access["mc-gate"].roles
+    const roles = (payload as any)?.resource_access?.['mc-gate']?.roles ?? [];
 
-    if (!decoded || typeof decoded === 'string') {
-      return res.status(401).json({
-        error: 'UNAUTHORIZED',
-        message: 'Failed to decode JWT'
-      });
-    }
+    console.log(`[OAuth Middleware] JWT verified: sub=${sub}, roles=${JSON.stringify(roles)}`);
 
-    const payload = decoded.payload as any;
-
-    // issuerチェック
-    const expectedIssuer = process.env.AUTH_ISSUER || 'https://auth-gate-prod.bme-service.monster/realms/mcd3';
-    if (payload.iss !== expectedIssuer) {
-      console.warn(`[OAuth Middleware] Invalid issuer: ${payload.iss} (expected: ${expectedIssuer})`);
-      return res.status(401).json({
-        error: 'UNAUTHORIZED',
-        message: 'Invalid token issuer'
-      });
-    }
-
-    // expチェック（有効期限切れ → 401）
-    const now = Math.floor(Date.now() / 1000);
-    if (payload.exp && payload.exp < now) {
-      return res.status(401).json({
-        error: 'UNAUTHORIZED',
-        message: 'Token has expired'
-      });
-    }
-
-    // ユーザー情報をreq.userに格納
-    (req as any).user = {
-      sub: payload.sub,
-      name: payload.name,
-      email: payload.email,
-      preferred_username: payload.preferred_username,
-      resource_access: payload.resource_access, // プロジェクトroles用
+    return {
+      sub,
+      name: (payload as any).name,
+      email: (payload as any).email,
+      preferred_username: (payload as any).preferred_username,
+      resource_access: (payload as any).resource_access,
+      payload,
+      roles,
     };
 
-    console.log(`[OAuth Middleware] JWT validated (no signature check): sub=${payload.sub}`);
+  } catch (error: any) {
+    // 署名検証失敗、issuer/audience 不一致、有効期限切れ、など
+    console.error('[OAuth Middleware] JWT verification failed:', error.message);
+
+    const err: any = new Error('Invalid token');
+    err.status = 401;
+    err.cause = error?.message ?? String(error);
+    throw err;
+  }
+}
+
+/**
+ * OAuth認証ミドルウェア
+ *
+ * Express middleware として使用
+ */
+export async function oauthMiddleware(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = await verifyAccessToken(req);
+
+    // req.user に検証済みユーザー情報を格納
+    (req as any).user = user;
+
     next();
 
   } catch (error: any) {
-    console.error('[OAuth Middleware] JWT validation error:', error.message);
-    return res.status(401).json({
-      error: 'UNAUTHORIZED',
-      message: 'Invalid JWT token'
+    const status = error.status || 401;
+    const message = error.message || 'Unauthorized';
+
+    return res.status(status).json({
+      error: status === 401 ? 'UNAUTHORIZED' : 'INTERNAL_SERVER_ERROR',
+      message,
     });
   }
 }
