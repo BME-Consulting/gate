@@ -25,6 +25,8 @@ export type TimeoutType = keyof typeof TIMEOUT;
 
 /**
  * タイムアウト付きfetch関数
+ *
+ * エラー分類のために、エラー種別を name プロパティで識別可能にする
  */
 export async function fetchWithTimeout(
   url: string,
@@ -45,9 +47,41 @@ export async function fetchWithTimeout(
     return response;
   } catch (error) {
     clearTimeout(timeoutId);
-    if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error(`リクエストがタイムアウトしました（${timeoutMs / 1000}秒）`);
+
+    if (error instanceof Error) {
+      // タイムアウトエラー
+      if (error.name === 'AbortError') {
+        const timeoutError = new Error(`Request timeout after ${timeoutMs / 1000}s`);
+        timeoutError.name = 'TimeoutError';
+        throw timeoutError;
+      }
+
+      // ネットワークエラーの詳細分類
+      const errorMessage = error.message.toLowerCase();
+
+      // DNS解決失敗
+      if (errorMessage.includes('dns') || errorMessage.includes('enotfound') || errorMessage.includes('getaddrinfo')) {
+        const dnsError = new Error(`DNS resolution failed: ${error.message}`);
+        dnsError.name = 'DNSError';
+        throw dnsError;
+      }
+
+      // TLS/SSL エラー
+      if (errorMessage.includes('tls') || errorMessage.includes('ssl') || errorMessage.includes('certificate')) {
+        const tlsError = new Error(`TLS/SSL error: ${error.message}`);
+        tlsError.name = 'TLSError';
+        throw tlsError;
+      }
+
+      // ネットワーク到達不可
+      if (errorMessage.includes('network') || errorMessage.includes('failed to fetch') || errorMessage.includes('econnrefused')) {
+        const networkError = new Error(`Network connection failed: ${error.message}`);
+        networkError.name = 'NetworkError';
+        throw networkError;
+      }
     }
+
+    // その他のエラーはそのまま再throw
     throw error;
   }
 }

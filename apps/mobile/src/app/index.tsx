@@ -8,6 +8,7 @@ import { useRouter } from "expo-router";
 import Constants from "expo-constants";
 import { Button, tokens } from "@mc-gate/ui-kit";
 import { useAppStore } from "../store/appStore";
+import { ApiError } from "@mc-gate/api-client";
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -152,18 +153,24 @@ export default function LoginScreen() {
     } catch (error) {
       console.error("❌ OAuth login error:", error);
 
-      let message = "ログインに失敗しました";
+      // ApiError の場合は toUserMessage() を使用（運用に優しい分類済みメッセージ）
+      if (error instanceof ApiError) {
+        Alert.alert("ログインエラー", error.toUserMessage());
+      } else if (error instanceof Error) {
+        // その他のエラー（OAuth固有のエラーなど）
+        let message = error.message;
 
-      if (error instanceof Error) {
-        message = error.message;
-
-        // JSON Parse errorの場合、より詳細な情報を提供
+        // JSON Parse error の場合はネットワークエラーとして扱う
         if (message.includes("JSON Parse error") || message.includes("Unexpected character")) {
-          message = "Keycloakサーバーへの接続に失敗しました。\n\nサーバーが起動していることを確認してください。";
+          message = "通信できません（サーバー応答不正）\n\nKeycloakサーバーが正しく起動していることを確認してください。";
+        } else if (message.includes("キャンセル")) {
+          message = "ログインがキャンセルされました";
         }
-      }
 
-      Alert.alert("ログインエラー", message);
+        Alert.alert("ログインエラー", message);
+      } else {
+        Alert.alert("ログインエラー", "予期しないエラーが発生しました");
+      }
     } finally {
       setLoading(false);
     }

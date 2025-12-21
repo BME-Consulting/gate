@@ -5,6 +5,7 @@
 import * as AuthSession from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
 import Constants from "expo-constants";
+import { ApiError } from "@mc-gate/api-client";
 
 // WebBrowserの完了ハンドリングを有効化（iOS）
 WebBrowser.maybeCompleteAuthSession();
@@ -115,6 +116,38 @@ export async function loginWithKeycloak(): Promise<TokenResult> {
     };
   } catch (error) {
     console.error("OAuth login failed:", error);
+
+    // エラーを分類して ApiError として再throw
+    if (error instanceof Error) {
+      const errorMessage = error.message.toLowerCase();
+
+      // ネットワークエラー
+      if (errorMessage.includes("network") || errorMessage.includes("failed to fetch")) {
+        throw new ApiError("NETWORK_ERROR", `OAuth server unreachable: ${error.message}`);
+      }
+
+      // DNS エラー
+      if (errorMessage.includes("dns") || errorMessage.includes("enotfound")) {
+        throw new ApiError("DNS_ERROR", `Failed to resolve OAuth issuer: ${error.message}`);
+      }
+
+      // TLS/SSL エラー
+      if (errorMessage.includes("tls") || errorMessage.includes("ssl") || errorMessage.includes("certificate")) {
+        throw new ApiError("TLS_ERROR", `TLS/SSL error during OAuth: ${error.message}`);
+      }
+
+      // タイムアウト
+      if (errorMessage.includes("timeout") || errorMessage.includes("aborted")) {
+        throw new ApiError("TIMEOUT", `OAuth request timeout: ${error.message}`);
+      }
+
+      // 認証キャンセル（ユーザー操作）
+      if (errorMessage.includes("cancel")) {
+        throw error; // キャンセルは ApiError にしない（通常のフロー）
+      }
+    }
+
+    // その他のエラー
     throw error;
   }
 }
@@ -147,7 +180,29 @@ export async function refreshAccessToken(
     };
   } catch (error) {
     console.error("Token refresh failed:", error);
-    throw error;
+
+    // リフレッシュトークンが無効/期限切れの場合は UNAUTHORIZED
+    if (error instanceof Error) {
+      const errorMessage = error.message.toLowerCase();
+
+      // 認証エラー（リフレッシュトークン失効）
+      if (errorMessage.includes("invalid") || errorMessage.includes("expired") || errorMessage.includes("unauthorized")) {
+        throw new ApiError("UNAUTHORIZED", `Refresh token expired or invalid: ${error.message}`);
+      }
+
+      // ネットワークエラー
+      if (errorMessage.includes("network") || errorMessage.includes("failed to fetch")) {
+        throw new ApiError("NETWORK_ERROR", `OAuth server unreachable during refresh: ${error.message}`);
+      }
+
+      // タイムアウト
+      if (errorMessage.includes("timeout") || errorMessage.includes("aborted")) {
+        throw new ApiError("TIMEOUT", `Token refresh timeout: ${error.message}`);
+      }
+    }
+
+    // その他のエラー（通常は UNAUTHORIZED として扱う）
+    throw new ApiError("UNAUTHORIZED", error instanceof Error ? error.message : "Token refresh failed");
   }
 }
 

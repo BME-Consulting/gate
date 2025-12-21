@@ -11,6 +11,7 @@ import { useAppStore } from "../../store/appStore";
 import { useWorkers } from "../../hooks/useWorkers";
 import type { CheckConfig } from "@mc-gate/core";
 import { TIMEOUT, fetchWithTimeout } from "@mc-gate/core";
+import { ApiError } from "@mc-gate/api-client";
 import { PasscodeModal } from "../../components/PasscodeModal";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import * as Updates from "expo-updates";
@@ -402,28 +403,21 @@ export default function SettingsScreen() {
     } catch (error: any) {
       console.error("==================== WORKER SYNC ERROR ====================");
       console.error("[ERROR] Error type:", error?.constructor?.name);
-      console.error("[ERROR] Error message:", error?.message);
       console.error("[ERROR] Error name:", error?.name);
+      console.error("[ERROR] Error message:", error?.message);
       console.error("[ERROR] Error stack:", error?.stack);
       console.error("===========================================================");
 
-      let errorMessage = "サーバーとの同期に失敗しました。";
-
-      if (error.message?.includes("タイムアウト") || error.name === "AbortError") {
-        errorMessage = "サーバーへの接続がタイムアウトしました。\n\nネットワーク接続を確認して、もう一度お試しください。";
-      } else if (error.message?.includes("401")) {
-        errorMessage = "認証エラー: トークンが無効です。再度ログインしてください。";
-      } else if (error.message?.includes("403")) {
-        errorMessage = "認証エラー: APIキーが無効です。再度ログインしてください。";
-      } else if (error.message?.includes("404")) {
-        errorMessage = "サーバーエラー: 作業員APIが見つかりません。";
-      } else if (error.message?.includes("500")) {
-        errorMessage = "サーバーエラー: サーバー内部でエラーが発生しました。";
-      } else if (error.message?.includes("Network") || error.message?.includes("Failed to fetch")) {
-        errorMessage = "ネットワークエラー: サーバーに接続できません。\n\nネットワーク接続とサーバーの状態を確認してください。";
+      // ApiError の場合は toUserMessage() を使用（運用に優しい分類済みメッセージ）
+      if (error instanceof ApiError) {
+        Alert.alert("同期失敗", error.toUserMessage());
+      } else {
+        // その他のエラー（予期しない）
+        const fallbackMessage = error instanceof Error
+          ? `予期しないエラーが発生しました\n\n${error.message}\n\n管理者に問い合わせてください。`
+          : "サーバーとの同期に失敗しました。";
+        Alert.alert("同期失敗", fallbackMessage);
       }
-
-      Alert.alert("同期失敗", errorMessage);
     } finally {
       setIsSyncing(false);
     }
