@@ -6,26 +6,67 @@ async function main() {
   console.log('🌱 Seeding database...');
 
   // ==========================================
-  // Seed Default Project
+  // Seed Projects
   // ==========================================
-  const project = await prisma.project.upsert({
-    where: { id: 'PRJ001' },
-    update: {},
-    create: {
+  const projects = [
+    {
       id: 'PRJ001',
-      name: 'デフォルトプロジェクト',
+      name: '東京建設現場A',
       gateMode: 'IN',
+      serverLock: false,
       checkConfig: {
-        checkCcusRegistration: false,
-        checkSocialInsurance: false,
-        checkResidencyExpiry: false,
-        checkAge: false,
-        checkFaceRecognition: false,
+        ccusIdCheck: true,
+        socialInsuranceCheck: true,
+        residencyCheck: false,
+        ageCheck: false,
+        healthCheck: false,
+        soleProprietorCheck: true,
       },
     },
-  });
+    {
+      id: 'PRJ002',
+      name: '大阪建設現場B',
+      gateMode: 'OUT',
+      serverLock: true,
+      checkConfig: {
+        ccusIdCheck: false,
+        socialInsuranceCheck: true,
+        residencyCheck: true,
+        ageCheck: true,
+        healthCheck: false,
+        soleProprietorCheck: false,
+      },
+    },
+    {
+      id: 'PRJ003',
+      name: '名古屋建設現場C',
+      gateMode: 'IN',
+      serverLock: false,
+      checkConfig: {
+        ccusIdCheck: false,
+        socialInsuranceCheck: false,
+        residencyCheck: false,
+        ageCheck: false,
+        healthCheck: false,
+        soleProprietorCheck: false,
+      },
+    },
+  ];
 
-  console.log(`✅ Project created: ${project.name} (${project.id})`);
+  for (const projectData of projects) {
+    const project = await prisma.project.upsert({
+      where: { id: projectData.id },
+      update: {
+        name: projectData.name,
+        gateMode: projectData.gateMode,
+        serverLock: projectData.serverLock,
+        checkConfig: projectData.checkConfig,
+      },
+      create: projectData,
+    });
+
+    console.log(`✅ Project created: ${project.name} (${project.id})`);
+  }
 
   // ==========================================
   // Seed Dummy Workers
@@ -94,7 +135,7 @@ async function main() {
   console.log('');
   console.log('✅ Seeding completed successfully!');
   console.log(`   - ${workers.length} workers`);
-  console.log(`   - 1 project`);
+  console.log(`   - ${projects.length} projects`);
 }
 
 main()
