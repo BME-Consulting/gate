@@ -16,7 +16,6 @@ import { PasscodeModal } from "../../components/PasscodeModal";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import * as Updates from "expo-updates";
 import Constants from "expo-constants";
-import { createProjectConfig } from "../../config/projects";
 
 
 // BLEリーダーのシングルトンインスタンス
@@ -423,11 +422,10 @@ export default function SettingsScreen() {
     }
   };
 
-  const handleProjectSelect = (projectId: string) => {
-    const newProject = createProjectConfig(projectId);
-    setCurrentProject(newProject);
+  const handleProjectSelect = async (project: ProjectConfig) => {
+    await setCurrentProject(project);
     setProjectModalVisible(false);
-    Alert.alert("プロジェクト切り替え", `${newProject.name} に切り替えました`);
+    Alert.alert("プロジェクト切り替え", `${project.name} に切り替えました`);
   };
 
   return (
@@ -453,15 +451,14 @@ export default function SettingsScreen() {
             <Text style={styles.modalSubtitle}>切り替えるプロジェクトを選択してください</Text>
 
             <View style={styles.projectList}>
-              {availableProjects.map((projectId) => {
-                const project = createProjectConfig(projectId);
-                const isSelected = currentProject?.projectId === projectId;
+              {availableProjects.map((project) => {
+                const isSelected = currentProject?.projectId === project.projectId;
 
                 return (
                   <TouchableOpacity
-                    key={projectId}
+                    key={project.projectId}
                     style={[styles.projectItem, isSelected && styles.projectItemSelected]}
-                    onPress={() => handleProjectSelect(projectId)}
+                    onPress={() => handleProjectSelect(project)}
                   >
                     <View style={styles.projectInfo}>
                       <Text style={[styles.projectId, isSelected && styles.projectIdSelected]}>

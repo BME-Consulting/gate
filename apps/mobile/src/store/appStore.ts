@@ -17,6 +17,14 @@ import {
   decodeUserFromToken,
   extractProjectsFromToken,
 } from "../services/tokenManager";
+import { fetchUserProjects } from "../services/projectApi";
+import {
+  saveProjectsCache,
+  getProjectsCache,
+  saveCurrentProject,
+  getCurrentProject,
+  clearProjectsCache,
+} from "../services/projectStorage";
 
 interface AppState {
   // 認証
@@ -30,8 +38,10 @@ interface AppState {
 
   // プロジェクト
   currentProject: ProjectConfig | null;
-  availableProjects: string[]; // ユーザーがアクセス可能なプロジェクトIDのリスト
-  setCurrentProject: (project: ProjectConfig) => void;
+  availableProjects: ProjectConfig[]; // ユーザーがアクセス可能なプロジェクト一覧（API取得 + キャッシュ）
+  setCurrentProject: (project: ProjectConfig) => Promise<void>; // 現在のプロジェクトを設定してキャッシュ
+  fetchProjects: () => Promise<void>; // プロジェクト一覧をAPIから取得してキャッシュ
+  loadProjectsFromCache: () => Promise<void>; // キャッシュからプロジェクト一覧を復元
 
   // パスコードロック
   passcode: string | null;
@@ -56,14 +66,15 @@ export const useAppStore = create<AppState>((set, get) => ({
         await saveTokens(user.token, user.refreshToken || "", user.idToken);
       }
 
-      // トークンからプロジェクトIDを抽出（モックの場合は空配列）
-      const availableProjects = isMock ? [] : extractProjectsFromToken(user.token);
-
       set({
         user,
         isAuthenticated: true,
-        availableProjects,
       });
+
+      // ログイン後にプロジェクト一覧を取得（モックの場合はスキップ）
+      if (!isMock) {
+        await get().fetchProjects();
+      }
     } catch (error) {
       console.error("Login failed:", error);
       throw error;
@@ -100,6 +111,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       const { user } = get();
       await oauthLogout(user?.idToken);
       await clearTokens();
+      await clearProjectsCache(); // プロジェクトキャッシュもクリア
 
       set({
         user: null,
@@ -158,9 +170,6 @@ export const useAppStore = create<AppState>((set, get) => ({
       // ユーザー情報を復元
       const userInfo = decodeUserFromToken(newAccessToken);
 
-      // トークンからプロジェクトIDを抽出
-      const availableProjects = extractProjectsFromToken(newAccessToken);
-
       const user: User = {
         id: userInfo.id,
         name: userInfo.name,
@@ -173,8 +182,21 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({
         user,
         isAuthenticated: true,
-        availableProjects,
       });
+
+      // プロジェクト一覧をキャッシュから復元
+      await get().loadProjectsFromCache();
+
+      // 現在のプロジェクトを復元
+      const cachedProject = await getCurrentProject();
+      if (cachedProject) {
+        set({ currentProject: cachedProject });
+      } else if (get().availableProjects.length > 0) {
+        // キャッシュがない場合は最初のプロジェクトを自動選択
+        const firstProject = get().availableProjects[0];
+        set({ currentProject: firstProject });
+        await saveCurrentProject(firstProject);
+      }
 
       return true;
     } catch (error) {
@@ -187,7 +209,60 @@ export const useAppStore = create<AppState>((set, get) => ({
   // プロジェクト
   currentProject: null,
   availableProjects: [],
-  setCurrentProject: (project) => set({ currentProject: project }),
+
+  setCurrentProject: async (project) => {
+    set({ currentProject: project });
+    await saveCurrentProject(project); // SecureStoreに保存
+  },
+
+  // プロジェクト一覧をAPIから取得してキャッシュ
+  fetchProjects: async () => {
+    const { user } = get();
+    if (!user) {
+      console.warn("[AppStore] Cannot fetch projects: user not authenticated");
+      return;
+    }
+
+    try {
+      const projects = await fetchUserProjects(user.token);
+
+      // APIから取得したプロジェクトをキャッシュ
+      await saveProjectsCache(projects);
+
+      set({ availableProjects: projects });
+
+      // 現在のプロジェクトが未設定の場合は最初のプロジェクトを自動選択
+      if (!get().currentProject && projects.length > 0) {
+        const firstProject = projects[0];
+        set({ currentProject: firstProject });
+        await saveCurrentProject(firstProject);
+      }
+
+      console.log("[AppStore] Fetched and cached projects:", projects.length);
+    } catch (error) {
+      console.error("[AppStore] Failed to fetch projects:", error);
+
+      // API呼び出し失敗時はキャッシュから復元を試みる
+      await get().loadProjectsFromCache();
+      throw error;
+    }
+  },
+
+  // キャッシュからプロジェクト一覧を復元（オフライン対応）
+  loadProjectsFromCache: async () => {
+    try {
+      const cachedProjects = await getProjectsCache();
+
+      if (cachedProjects && cachedProjects.length > 0) {
+        set({ availableProjects: cachedProjects });
+        console.log("[AppStore] Loaded projects from cache:", cachedProjects.length);
+      } else {
+        console.warn("[AppStore] No cached projects found");
+      }
+    } catch (error) {
+      console.error("[AppStore] Failed to load projects from cache:", error);
+    }
+  },
 
   // パスコードロック
   passcode: null,

@@ -38,7 +38,7 @@ export default function LoginScreen() {
       const autoLogin = async () => {
         try {
           console.log("🔧 Auto-login starting for", appEnv, "environment");
-          const { setCurrentProject } = useAppStore.getState();
+          const { setCurrentProject, loadProjectsFromCache } = useAppStore.getState();
 
           await login({
             id: "dev-user-1",
@@ -47,20 +47,28 @@ export default function LoginScreen() {
             refreshToken: "dev-refresh-" + Date.now(),
           }, true);
 
-          setCurrentProject({
-            projectId: "PRJ001",
-            name: "東京建設現場A",
-            gateMode: "IN",
-            checkConfig: {
-              ccusIdCheck: false,
-              socialInsuranceCheck: false,
-              residencyCheck: false,
-              ageCheck: false,
-              healthCheck: false,
-              soleProprietorCheck: false,
-            },
-            serverLock: false,
-          });
+          // キャッシュからプロジェクトを復元（なければモック作成）
+          await loadProjectsFromCache();
+
+          const { availableProjects, currentProject } = useAppStore.getState();
+
+          if (!currentProject && availableProjects.length === 0) {
+            const mockProject = {
+              projectId: "PRJ001",
+              name: "東京建設現場A（モック）",
+              gateMode: "IN" as const,
+              checkConfig: {
+                ccusIdCheck: false,
+                socialInsuranceCheck: false,
+                residencyCheck: false,
+                ageCheck: false,
+                healthCheck: false,
+                soleProprietorCheck: false,
+              },
+              serverLock: false,
+            };
+            await setCurrentProject(mockProject);
+          }
 
           console.log("✅ Auto-login successful, navigating to home");
           router.replace("/(tabs)/home");
@@ -88,7 +96,7 @@ export default function LoginScreen() {
     setLoading(true);
 
     try {
-      const { login, setCurrentProject } = useAppStore.getState();
+      const { login, setCurrentProject, loadProjectsFromCache } = useAppStore.getState();
 
       console.log("✅ Using mock authentication");
       await login({
@@ -98,21 +106,29 @@ export default function LoginScreen() {
         refreshToken: "dev-refresh-" + Date.now(),
       }, true);  // isMock = true を渡してSecureStore保存をスキップ
 
-      // デフォルトプロジェクト設定
-      setCurrentProject({
-        projectId: "PRJ001",
-        name: "東京建設現場A",
-        gateMode: "IN",
-        checkConfig: {
-          ccusIdCheck: false,
-          socialInsuranceCheck: false,
-          residencyCheck: false,
-          ageCheck: false,
-          healthCheck: false,
-          soleProprietorCheck: false,
-        },
-        serverLock: false,
-      });
+      // モック環境: キャッシュからプロジェクトを復元（なければデフォルト設定）
+      await loadProjectsFromCache();
+
+      const { availableProjects, currentProject } = useAppStore.getState();
+
+      // プロジェクトが未設定の場合はモックプロジェクトを作成
+      if (!currentProject && availableProjects.length === 0) {
+        const mockProject = {
+          projectId: "PRJ001",
+          name: "東京建設現場A（モック）",
+          gateMode: "IN" as const,
+          checkConfig: {
+            ccusIdCheck: false,
+            socialInsuranceCheck: false,
+            residencyCheck: false,
+            ageCheck: false,
+            healthCheck: false,
+            soleProprietorCheck: false,
+          },
+          serverLock: false,
+        };
+        await setCurrentProject(mockProject);
+      }
 
       router.replace("/(tabs)/home");
     } catch (error) {
@@ -128,26 +144,13 @@ export default function LoginScreen() {
     setLoading(true);
 
     try {
-      const { loginWithOAuth, setCurrentProject } = useAppStore.getState();
+      const { loginWithOAuth } = useAppStore.getState();
 
       console.log("✅ Using OAuth authentication (Keycloak)");
       await loginWithOAuth();
 
-      // デフォルトプロジェクト設定
-      setCurrentProject({
-        projectId: "PRJ001",
-        name: "東京建設現場A",
-        gateMode: "IN",
-        checkConfig: {
-          ccusIdCheck: false,
-          socialInsuranceCheck: false,
-          residencyCheck: false,
-          ageCheck: false,
-          healthCheck: false,
-          soleProprietorCheck: false,
-        },
-        serverLock: false,
-      });
+      // プロジェクト一覧は loginWithOAuth() 内で自動取得される
+      // currentProject も自動的に最初のプロジェクトが設定される
 
       router.replace("/(tabs)/home");
     } catch (error) {
