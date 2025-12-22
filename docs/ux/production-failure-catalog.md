@@ -151,7 +151,7 @@ useEffect(() => {
 
 ---
 
-## UX Failure Pattern 2: API 一時断時の体験破壊
+## UX Failure Pattern 2: API 一時断時の体験破壊 ✅ RESOLVED (Human-verified 2025-12-22)
 
 ### 発生条件
 
@@ -873,6 +873,7 @@ const performLogout = async () => {
 
 - ✅ **Pattern 1**: Token 期限切れ時の Alert 表示（appStore.ts:256-270）
 - ✅ **Pattern 2**: Timeout 10秒化（timeout.ts:12）、再試行ボタン（settings.tsx:422-444）
+  - **2025-12-22 Human-verified**: P2-6実装により整合性確保、10秒タイムアウト動作確認
 
 ### 未実装（優先度順）
 

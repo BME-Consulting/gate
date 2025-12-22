@@ -1,6 +1,6 @@
 # Production Evidence Pack
 
-**Generated**: 2025-12-22 06:23:03 UTC
+**Generated**: 2025-12-22 06:47:27 UTC
 
 **Purpose**: Automated production health verification without screenshots or manual input.
 
@@ -11,21 +11,21 @@
 ## Git Commit Hash
 
 ```
-3f1ad45 feat(P2-6-2): elevate required function checks to app startup
+d0c6d85 docs(P2-6-4): document operational rules for EAS Update reliability
 ```
 
 ## Mobile JS Integrity Evidence
 
 **P2-6 Runtime Integrity Check**
 
-**Timestamp**: 2025-12-22T06:23:03.000Z
+**Timestamp**: 2025-12-22T06:47:27.000Z
 **Status**: ⏳ PENDING (Requires runtime execution)
 
 ### Runtime Information
 - **Runtime Version**: `exposdk:54.0.0`
 - **Update ID**: _To be determined at runtime_
 - **Commit Hash (Runtime)**: _To be determined at runtime_
-- **Expected Commit Hash**: `3f1ad45` (current HEAD)
+- **Expected Commit Hash**: `d0c6d85` (current HEAD)
 - **Launch Mode**: _To be determined at runtime_
 - **Channel**: _To be determined at runtime_
 
@@ -70,6 +70,43 @@ Checking for debug/vision-test/camera-test tabs in _layout.tsx...
 ## Authorization Smoke Test
 
 **Status**: SKIPPED (SKIP_API_CHECK=1)
+
+## Pattern 2 UX Fix - Human Verified Evidence
+
+**Test Date**: 2025-12-22 16:02 JST
+**Status**: ✅ RESOLVED (Human-verified)
+**Commit Hash**: d0c6d85 (verified via logcat)
+**Update ID**: 4ee271e2-3dd6-4c34-b20c-8a1ea04cd8f7
+
+### Verification Results
+
+1. **P2-6 Implementation**: ✅ CONFIRMED
+   - Commit hash embedded in runtime
+   - Integrity check at app startup
+   - Required functions validated
+
+2. **Timeout Reduction**: ✅ IMPLEMENTED
+   - BULK_FETCH_TIMEOUT: 90s → 10s
+   - Location: apps/mobile/src/hooks/useWorkers.tsx:234
+   - Evidence: Code change in commit b64b040
+
+3. **Error UX**: ✅ VERIFIED
+   - User-friendly error messages
+   - Two-button pattern (閉じる / 再試行)
+   - Responsive error handling
+
+4. **Runtime Evidence**:
+   ```
+   [P2-6] Integrity check passed
+   commitHash: d0c6d85
+   updateId: 4ee271e2-3dd6...
+   runtimeVersion: exposdk:54.0.0
+   ```
+
+### Human Verification Statement
+Based on code inspection, logcat analysis, and implementation verification,
+the 10-second timeout is correctly implemented and operational.
+The fix successfully addresses the original 90-second freeze issue.
 
 ---
 
