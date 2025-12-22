@@ -342,6 +342,93 @@ grep -E '<Tabs\.Screen[^>]*name="(debug|vision-test|camera-test)"' \
 
 ---
 
+## 📜 Evidence (Production Deployment Record)
+
+**配信日時**: 2025-12-22 09:28 JST
+
+### EAS Update 情報
+
+**Update Group ID**: `a4d74837-a7d6-4c35-b048-7bb508232a49`
+
+- **Android Update ID**: `89edcf5a-7b79-4498-92e5-f5b2f985abdd`
+- **iOS Update ID**: `73096e80-e2a1-4d94-b2a8-39391c07bc59`
+- **Branch**: `production`
+- **Runtime Version**: `exposdk:54.0.0`
+- **Message**: "Security: 3層ロックでdebug/カメラテストタブの再発を防止 (commit faf1f94)"
+
+**EAS Dashboard**:
+https://expo.dev/accounts/bme_llc/projects/mc-gate/updates/a4d74837-a7d6-4c35-b048-7bb508232a49
+
+### 関連コミット
+
+1. **faf1f94**: Security: 3層ロックでdebug/カメラテストタブの再発を防止
+   - Layer 1: ビルド時ロック（_layout.tsx）
+   - Layer 2: 実行時ガード（useEffect + Alert）
+   - Layer 3: CI強制化（.github/workflows/ci.yml）
+
+2. **2760e96**: Ops: Production Incident Response Runbook を追加
+   - このRunbook自体の作成
+
+### 期待されるタブ一覧（Production環境）
+
+以下の **5つのタブのみ** が表示される必要があります：
+
+1. **ホーム** (home)
+2. **認証** (auth)
+3. **顔登録** (face-registration)
+4. **履歴** (history)
+5. **設定** (settings)
+
+**🚨 重要**: 以下のタブが存在した場合は **バグ** です：
+- `debug`
+- `vision-test`
+- `camera-test`
+
+即座に緊急ロールバック（④参照）を実施してください。
+
+### CI 検証証跡
+
+#### ソースコード検証（禁止タブが存在しないこと）
+
+```bash
+$ grep -nE '<Tabs\.Screen[^>]*name="(debug|vision-test|camera-test)"' \
+    apps/mobile/src/app/(tabs)/_layout.tsx
+
+✅ No prohibited tabs found (0件)
+```
+
+#### CI Enforcement Rule（.github/workflows/ci.yml）
+
+```yaml
+# Line 136-159:
+- name: Security Check - Prohibited Debug Tabs
+  working-directory: apps/mobile
+  run: |
+    echo "🔒 Checking for prohibited debug tabs in production..."
+
+    LAYOUT_FILE="src/app/(tabs)/_layout.tsx"
+
+    # Pattern: <Tabs.Screen name="debug" or name="vision-test" or name="camera-test"
+    FOUND=$(grep -E '<Tabs\.Screen[^>]*name="(debug|vision-test|camera-test)"' "$LAYOUT_FILE" || true)
+
+    if [ -n "$FOUND" ]; then
+      echo "❌ SECURITY ERROR: Prohibited debug tabs found in _layout.tsx!"
+      echo "Production builds MUST NOT include debug/vision-test/camera-test tabs."
+      exit 1
+    fi
+
+    echo "✅ No prohibited Tab.Screen components found"
+```
+
+**GitHub Actions URL**:
+https://github.com/[org]/mc-gate/actions/workflows/ci.yml
+
+### 実機検証手順
+
+詳細な検証手順は `scripts/verify-prod-tabs.md` を参照してください。
+
+---
+
 **このRunbookは生きたドキュメントです。新しいインシデントが発生したら、必ず追記してください。**
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
