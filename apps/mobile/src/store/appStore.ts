@@ -3,6 +3,7 @@
 // ==========================================
 
 import { create } from "zustand";
+import { Alert } from "react-native";
 import type { ProjectConfig } from "@mc-gate/core";
 import { ApiError } from "@mc-gate/core";
 import type { User } from "../types/auth";
@@ -26,6 +27,9 @@ import {
   getCurrentProject,
   clearProjectsCache,
 } from "../services/projectStorage";
+
+// セッション期限切れAlertの多重表示防止フラグ
+let sessionExpiredAlertShown = false;
 
 interface AppState {
   // 認証
@@ -247,7 +251,27 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (error instanceof ApiError &&
           (error.kind === "UNAUTHORIZED" || error.kind === "FORBIDDEN")) {
         console.warn("[AppStore] Authentication failed - forcing logout");
-        await get().logout();
+
+        // セッション期限切れをユーザーに説明してからlogout
+        if (!sessionExpiredAlertShown) {
+          sessionExpiredAlertShown = true;
+          Alert.alert(
+            "セッション期限切れ",
+            "ログインの有効期限が切れました。再度ログインしてください。",
+            [
+              {
+                text: "OK",
+                onPress: async () => {
+                  await get().logout();
+                }
+              }
+            ]
+          );
+        } else {
+          // 既にAlert表示済みの場合はそのままlogout
+          await get().logout();
+        }
+
         return; // エラーを再throw せずに終了
       }
 
