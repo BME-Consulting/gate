@@ -3,7 +3,7 @@
 // ==========================================
 
 import { useEffect, useMemo, useState } from "react";
-import { View, ActivityIndicator } from "react-native";
+import { View, ActivityIndicator, Text } from "react-native";
 import { Stack, useRouter, usePathname } from "expo-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import * as Linking from "expo-linking";
@@ -11,6 +11,8 @@ import * as Sentry from "@sentry/react-native";
 import Constants from "expo-constants";
 import { useAppStore } from "../store/appStore";
 import { tokens } from "@mc-gate/ui-kit";
+import { performIntegrityCheck, showIntegrityAlert } from "../utils/integrityCheck";
+import { useWorkers } from "../hooks/useWorkers";
 
 // Sentry 初期化
 const sentryDsn = Constants.expoConfig?.extra?.sentryDsn;
@@ -42,6 +44,10 @@ export default function RootLayout() {
   const restoreSession = useAppStore((s) => s.restoreSession);
   const isAuthenticated = useAppStore((s) => s.isAuthenticated);
   const [booting, setBooting] = useState(true);
+  const [integrityValid, setIntegrityValid] = useState<boolean | null>(null);
+
+  // P2-6-2: Workers フックを取得（整合性チェック用）
+  const workersHook = useWorkers();
 
   // QueryClient を useMemo で安全に初期化（New Architecture 対応）
   const queryClient = useMemo(() => new QueryClient({
@@ -59,13 +65,51 @@ export default function RootLayout() {
       try {
         console.log("[_layout.tsx] Restoring session...");
         await restoreSession();
+
+        // P2-6-2: 必須関数存在チェック（起動時）
+        console.log("[P2-6-2] Performing integrity check...");
+
+        // Workers フックが準備できるまで待機
+        let retryCount = 0;
+        while (!workersHook.isReady && retryCount < 10) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+          retryCount++;
+        }
+
+        // 必須シンボルの定義
+        const requiredSymbols = {
+          "syncFromServer": () => typeof workersHook.syncFromServer === "function",
+          "getAllWorkers": () => typeof workersHook.getAllWorkers === "function",
+          "getWorkerById": () => typeof workersHook.getWorkerById === "function",
+        };
+
+        const integrityResult = performIntegrityCheck(requiredSymbols);
+        setIntegrityValid(integrityResult.isValid);
+
+        if (!integrityResult.isValid) {
+          console.error("[P2-6-2] Integrity check FAILED:", integrityResult);
+
+          // 整合性エラーをユーザーに通知
+          showIntegrityAlert(integrityResult, () => {
+            // 再起動処理（React Native には組み込みの再起動メソッドがないため、手動）
+            console.log("[P2-6-2] User requested restart");
+          });
+
+          // これ以上進まない（bootingをtrueのままにして画面遷移をブロック）
+          return;
+        }
+
+        console.log("[P2-6-2] Integrity check PASSED");
       } catch (error) {
         console.error("[_layout.tsx] Session restore error:", error);
       } finally {
-        setBooting(false);
+        // 整合性チェックが失敗した場合はbootingを解除しない
+        if (integrityValid !== false) {
+          setBooting(false);
+        }
       }
     })();
-  }, []);
+  }, [workersHook.isReady, workersHook.syncFromServer, workersHook.getAllWorkers, workersHook.getWorkerById]);
 
   // OAuth ガード: 認証済みなら /(tabs)/home へリダイレクト
   useEffect(() => {
@@ -108,6 +152,16 @@ export default function RootLayout() {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: tokens.color.background.default }}>
         <ActivityIndicator size="large" color={tokens.color.primary} />
+        {integrityValid === false && (
+          <View style={{ marginTop: 20, paddingHorizontal: 40 }}>
+            <Text style={{ color: tokens.color.error, textAlign: "center", fontSize: 16 }}>
+              ⚠️ アプリの整合性チェックに失敗しました
+            </Text>
+            <Text style={{ color: tokens.color.text.secondary, textAlign: "center", marginTop: 10, fontSize: 14 }}>
+              アプリを再インストールしてください
+            </Text>
+          </View>
+        )}
       </View>
     );
   }
