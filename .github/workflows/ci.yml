@@ -132,3 +132,28 @@ jobs:
             exit 1
           fi
           echo "✅ eas.json found"
+
+      - name: Security Check - Prohibited Debug Tabs
+        working-directory: apps/mobile
+        run: |
+          echo "🔒 Checking for prohibited debug tabs in production..."
+
+          # Check for Tabs.Screen with prohibited names
+          LAYOUT_FILE="src/app/(tabs)/_layout.tsx"
+
+          # Search for Tab.Screen components with prohibited names
+          # Pattern: <Tabs.Screen name="debug" or name="vision-test" or name="camera-test"
+          FOUND=$(grep -E '<Tabs\.Screen[^>]*name="(debug|vision-test|camera-test)"' "$LAYOUT_FILE" || true)
+
+          if [ -n "$FOUND" ]; then
+            echo "❌ SECURITY ERROR: Prohibited debug tabs found in _layout.tsx!"
+            echo ""
+            echo "The following Tab.Screen components were detected:"
+            echo "$FOUND"
+            echo ""
+            echo "Production builds MUST NOT include debug/vision-test/camera-test tabs."
+            echo "Please remove these Tab.Screen components from $LAYOUT_FILE"
+            exit 1
+          fi
+
+          echo "✅ No prohibited Tab.Screen components found"
