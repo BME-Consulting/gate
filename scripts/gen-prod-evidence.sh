@@ -76,7 +76,57 @@ check_prohibited_tabs() {
 }
 
 # ==========================================
-# Section 3: EAS Update Latest Group ID
+# Section 3: Mobile JS Integrity Evidence (P2-6)
+# ==========================================
+check_js_integrity() {
+  echo "## Mobile JS Integrity Evidence"
+  echo ""
+  echo "**P2-6 Runtime Integrity Check**"
+  echo ""
+
+  local expected_commit=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+  local timestamp=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
+
+  echo "**Timestamp**: $timestamp"
+  echo "**Status**: ⏳ PENDING (Requires runtime execution)"
+  echo ""
+
+  echo "### Runtime Information"
+  echo "- **Runtime Version**: \`exposdk:54.0.0\`"
+  echo "- **Update ID**: _To be determined at runtime_"
+  echo "- **Commit Hash (Runtime)**: _To be determined at runtime_"
+  echo "- **Expected Commit Hash**: \`$expected_commit\` (current HEAD)"
+  echo "- **Launch Mode**: _To be determined at runtime_"
+  echo "- **Channel**: _To be determined at runtime_"
+  echo ""
+
+  echo "### Required Symbols Check"
+  echo "- \`syncFromServer\`: _To be checked at runtime_"
+  echo "- \`getAllWorkers\`: _To be checked at runtime_"
+  echo "- \`getWorkerById\`: _To be checked at runtime_"
+  echo ""
+
+  echo "### Integrity Validation Rules"
+  echo "1. **Commit Hash Match**: Runtime commit must match expected commit"
+  echo "2. **Required Functions**: All required symbols must be type \`function\`"
+  echo "3. **Update Consistency**: Update ID must correspond to the correct branch"
+  echo ""
+
+  echo "### Test Execution Command"
+  echo '```bash'
+  echo '# Generate runtime integrity evidence'
+  echo 'adb shell am broadcast -a com.bmeconsulting.mcgate.CHECK_INTEGRITY'
+  echo '# Or trigger via app startup'
+  echo '```'
+  echo ""
+
+  echo "**Note**: This section requires actual app runtime execution to populate values."
+  echo "CI/CD should fail if Status = FAIL after runtime check."
+  echo ""
+}
+
+# ==========================================
+# Section 4: EAS Update Latest Group ID
 # ==========================================
 get_eas_update_info() {
   echo "## EAS Update Status"
@@ -257,6 +307,7 @@ generate_evidence_pack() {
   echo ""
 
   get_git_commit
+  check_js_integrity
   check_prohibited_tabs
   get_eas_update_info
   check_api_health

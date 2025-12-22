@@ -1,6 +1,6 @@
 # Production Evidence Pack
 
-**Generated**: 2025-12-22 01:39:35 UTC
+**Generated**: 2025-12-22 06:23:03 UTC
 
 **Purpose**: Automated production health verification without screenshots or manual input.
 
@@ -11,8 +11,43 @@
 ## Git Commit Hash
 
 ```
-bdacca7 Security: Mobile ↔ API authentication boundary hardening
+3f1ad45 feat(P2-6-2): elevate required function checks to app startup
 ```
+
+## Mobile JS Integrity Evidence
+
+**P2-6 Runtime Integrity Check**
+
+**Timestamp**: 2025-12-22T06:23:03.000Z
+**Status**: ⏳ PENDING (Requires runtime execution)
+
+### Runtime Information
+- **Runtime Version**: `exposdk:54.0.0`
+- **Update ID**: _To be determined at runtime_
+- **Commit Hash (Runtime)**: _To be determined at runtime_
+- **Expected Commit Hash**: `3f1ad45` (current HEAD)
+- **Launch Mode**: _To be determined at runtime_
+- **Channel**: _To be determined at runtime_
+
+### Required Symbols Check
+- `syncFromServer`: _To be checked at runtime_
+- `getAllWorkers`: _To be checked at runtime_
+- `getWorkerById`: _To be checked at runtime_
+
+### Integrity Validation Rules
+1. **Commit Hash Match**: Runtime commit must match expected commit
+2. **Required Functions**: All required symbols must be type `function`
+3. **Update Consistency**: Update ID must correspond to the correct branch
+
+### Test Execution Command
+```bash
+# Generate runtime integrity evidence
+adb shell am broadcast -a com.bmeconsulting.mcgate.CHECK_INTEGRITY
+# Or trigger via app startup
+```
+
+**Note**: This section requires actual app runtime execution to populate values.
+CI/CD should fail if Status = FAIL after runtime check.
 
 ## Prohibited Tabs Detection
 
