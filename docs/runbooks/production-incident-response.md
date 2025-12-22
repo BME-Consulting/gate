@@ -220,6 +220,65 @@ npx eas-cli update:republish \
 
 ---
 
+## 📦 Production Evidence Pack
+
+### Evidence Pack とは
+
+Production環境の健全性を自動的に収集・証拠化するための仕組み。
+スクリーンショット不要、手動入力不要で、誰が見ても同じ結論になる形で保存される。
+
+### Evidence Pack の生成方法
+
+```bash
+# ローカル環境で実行
+bash scripts/gen-prod-evidence.sh
+```
+
+出力先: `docs/evidence/prod-evidence.md`
+
+### 収集される情報
+
+1. **Git Commit Hash** - 現在のHEAD commit
+2. **Prohibited Tabs Detection** - debug/vision-test/camera-testタブの検出結果
+3. **EAS Update Status** - 最新のUpdate Group ID（EXPO_TOKEN設定時のみ）
+4. **API Health Checks** - GS API /health エンドポイントのステータス
+5. **Keycloak Issuer Check** - Keycloak issuer / JWKS エンドポイントのステータス
+6. **Authorization Smoke Test** - 認証境界の動作確認
+
+### CI での自動チェック
+
+GitHub Actions の `production-evidence` ジョブで自動実行される。
+Evidence Pack が outdated の場合、CI が失敗する。
+
+### Evidence Pack が outdated の場合の対応
+
+```bash
+# Evidence Pack を再生成
+bash scripts/gen-prod-evidence.sh
+
+# 変更をコミット
+git add docs/evidence/prod-evidence.md
+git commit -m "docs: update production evidence pack"
+
+# プッシュ
+git push
+```
+
+### Authorization Smoke Test の手動実行
+
+```bash
+# デバイス非依存の認証境界テスト
+bash apps/gs-api/scripts/smoke-authz.sh
+```
+
+期待される結果:
+- ✅ PASS: No auth header → 401
+- ✅ PASS: Invalid JWT → 401
+- ⏭️  SKIP: JWT without roles → 403 (要:有効なJWT)
+- ⏭️  SKIP: Valid JWT with roles → 200 (要:有効なJWT)
+
+---
+
 ## 🔍 トラブルシューティング Q&A
 
 ### Q: EAS Update が反映されない

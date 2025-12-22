@@ -188,3 +188,49 @@ jobs:
           fi
 
           echo "✅ API Authorization check completed"
+
+  production-evidence:
+    name: Production Evidence Pack
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Generate Production Evidence Pack
+        env:
+          SKIP_EAS_CHECK: "1"
+          SKIP_API_CHECK: "1"
+        run: |
+          echo "📦 Generating Production Evidence Pack..."
+          bash scripts/gen-prod-evidence.sh
+
+      - name: Check for Evidence Pack changes
+        run: |
+          echo "🔍 Checking if Evidence Pack is up to date..."
+
+          if ! git diff --exit-code docs/evidence/prod-evidence.md; then
+            echo ""
+            echo "❌ FAIL: Evidence Pack has changes!"
+            echo ""
+            echo "The generated evidence pack differs from the committed version."
+            echo "This means the evidence pack is out of date."
+            echo ""
+            echo "To fix this, run the following locally and commit the changes:"
+            echo "  bash scripts/gen-prod-evidence.sh"
+            echo "  git add docs/evidence/prod-evidence.md"
+            echo "  git commit -m \"docs: update production evidence pack\""
+            echo ""
+            exit 1
+          fi
+
+          echo "✅ Evidence Pack is up to date"
+
+      - name: Upload Evidence Pack
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: production-evidence-pack
+          path: docs/evidence/prod-evidence.md
+          retention-days: 30
