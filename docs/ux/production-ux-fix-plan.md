@@ -292,8 +292,10 @@ Alert.alert(
   - Jest でエラー種別判定ロジックをテスト可能
   - E2E でネットワークエラーシミュレーションとUIテストが可能
 
-#### Manual check (実施済み)
-- **Airplane mode test**: ✅ Timeout observed <10s, retry button functional
+#### Manual Verification
+- **Checklist**: `scripts/verify-ux-pattern2.md`
+- **Operator required**: External operator must execute airplane mode test, API server stop test, and 5xx error test
+- **Expected results**: <10s timeout, retry button functional, user-friendly error messages
 - **Scope validation**: ✅ BULK_FETCH=10s affects worker sync only (verified via `rg "BULK_FETCH" -n`)
 
 ---

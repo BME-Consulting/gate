@@ -286,7 +286,11 @@ export const TIMEOUT = {
 **効果**:
 - 10秒でタイムアウトするため、ユーザーの待ち時間が短縮される（90秒 → 10秒）
 - エラーメッセージが「タイムアウト」と明確になる
-- 機内モードテストで <10秒 タイムアウトを確認済み
+
+**Manual Verification**:
+- External operator required (see `scripts/verify-ux-pattern2.md`)
+- Checklist includes: Airplane mode test, API server stop test, 5xx error test
+- Expected result: <10s timeout, retry button functional, user-friendly error messages
 
 #### 改善案 3: ネットワーク状態の監視と自動リトライ
 
