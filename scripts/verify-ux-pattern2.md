@@ -12,7 +12,7 @@
 
 - ✅ App installed and logged in
 - ✅ Settings screen accessible
-- ✅ Worker sync button visible
+- ✅ "作業員マスタ管理" section visible with "サーバーから同期" button
 
 ---
 
@@ -21,10 +21,11 @@
 ### Steps
 
 1. Open Settings screen
-2. Enable Airplane mode on device
-3. Tap "ワーカー同期" (Worker Sync) button
-4. Observe timeout behavior
-5. Tap "再試行" (Retry) button if visible
+2. Scroll to "作業員マスタ管理" section
+3. Enable Airplane mode on device
+4. Tap "サーバーから同期" button
+5. Observe timeout behavior
+6. Tap "再試行" (Retry) button if visible
 
 ### Expected Results
 
@@ -58,9 +59,10 @@
    lsof -ti:7070 | xargs kill -9
    ```
 2. Open Settings screen on app
-3. Tap "ワーカー同期" (Worker Sync) button
-4. Observe timeout behavior
-5. Tap "再試行" (Retry) button if visible
+3. Scroll to "作業員マスタ管理" section
+4. Tap "サーバーから同期" button
+5. Observe timeout behavior
+6. Tap "再試行" (Retry) button if visible
 
 ### Expected Results
 
@@ -88,9 +90,10 @@
 
 1. Configure API server to return 500 Internal Server Error
 2. Open Settings screen on app
-3. Tap "ワーカー同期" (Worker Sync) button
-4. Observe error handling
-5. Tap "再試行" (Retry) button if visible
+3. Scroll to "作業員マスタ管理" section
+4. Tap "サーバーから同期" button
+5. Observe error handling
+6. Tap "再試行" (Retry) button if visible
 
 ### Expected Results
 
