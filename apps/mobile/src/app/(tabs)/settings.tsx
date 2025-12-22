@@ -389,9 +389,11 @@ export default function SettingsScreen() {
 
       // ガード: syncFromServer が undefined/null の場合はクラッシュせずにAlert表示
       if (typeof syncFromServer !== 'function') {
+        const commitHash = Constants.expoConfig?.extra?.commitHash || "unknown";
         const diagnosticInfo = {
           syncFromServerType: typeof syncFromServer,
           availableKeys: workersHook ? Object.keys(workersHook) : [],
+          commitHash,
           updateId: Updates.updateId || "なし（埋め込みビルド）",
           isEmbeddedLaunch: Updates.isEmbeddedLaunch,
           channel: Updates.channel || "不明",
@@ -405,6 +407,7 @@ export default function SettingsScreen() {
         Alert.alert(
           "同期機能が利用できません",
           "アプリの更新が正しく反映されていない可能性があります。\n\n以下を試してください：\n1. アプリを完全終了して再起動\n2. 改善しない場合は再インストール\n\n診断情報:\n" +
+          `Commit: ${commitHash}\n` +
           `Update ID: ${diagnosticInfo.updateId}\n` +
           `起動モード: ${diagnosticInfo.isEmbeddedLaunch ? "埋め込み" : "OTA"}\n` +
           `Channel: ${diagnosticInfo.channel}`,
@@ -857,6 +860,14 @@ export default function SettingsScreen() {
                   <Text style={styles.label}>Runtime Version</Text>
                   <Text style={[styles.value, styles.monospace]} numberOfLines={1}>
                     {Updates.runtimeVersion || "不明"}
+                  </Text>
+                </View>
+
+                {/* P2-6: Commit Hash による真正性検証 */}
+                <View style={styles.row}>
+                  <Text style={styles.label}>Commit Hash</Text>
+                  <Text style={[styles.value, styles.monospace]} numberOfLines={1}>
+                    {Constants.expoConfig?.extra?.commitHash || "unknown"}
                   </Text>
                 </View>
 

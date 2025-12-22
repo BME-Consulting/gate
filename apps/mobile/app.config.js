@@ -190,6 +190,17 @@ Please set these environment variables before building.
 
       appEnv,  // アプリ内で環境判定に使用
 
+      // Git commit hash for runtime verification (P2-6 integrity check)
+      // EAS Updateの不整合を検知するため、ビルド時のコミットハッシュを埋め込む
+      commitHash: (() => {
+        try {
+          return process.env.GIT_COMMIT || require('child_process').execSync('git rev-parse --short HEAD').toString().trim();
+        } catch (error) {
+          console.warn('[app.config] Failed to get git commit hash:', error.message);
+          return 'unknown';
+        }
+      })(),
+
       // アプリケーション定数（本番運用向け）
       defaultProjectId: process.env.DEFAULT_PROJECT_ID || "PRJ001",
       dbName: "mc-gate.db",
