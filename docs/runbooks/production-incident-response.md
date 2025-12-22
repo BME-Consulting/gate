@@ -279,6 +279,158 @@ bash apps/gs-api/scripts/smoke-authz.sh
 
 ---
 
+## 🔒 Production Freeze Operations
+
+### Production Freeze とは
+
+Production 環境を「変更できない状態」として固定し、安定性を構造的に保証する仕組み。
+
+**Freeze対象**:
+- UI Security (禁止タブ)
+- OAuth/JWT/Authentication
+- Evidence Pack 構造
+- CI Security Checks
+
+詳細: `docs/PRODUCTION_FREEZE.md`
+
+### Freeze 状態の確認
+
+```bash
+# 現在の Freeze 状態を確認
+cat docs/PRODUCTION_FREEZE.md | grep "ステータス"
+
+# 期待される出力:
+# **ステータス**: 🔒 **FROZEN** (変更禁止)
+```
+
+### Drift 検知の仕組み
+
+**自動検知**: CI で `scripts/check-prod-drift.sh` が実行され、以下をチェック:
+1. 禁止タブの混入
+2. Evidence Pack 構造の変更
+3. AUTH_AUDIENCE / MOCK_AUTH の変更
+4. OAuth middleware ファイルの差分
+5. CI Security Checks の削除
+
+**検知時の挙動**: CI が失敗し、以下のメッセージを表示:
+```
+❌ PRODUCTION FREEZE VIOLATION DETECTED
+
+The following frozen components have been modified:
+  - [変更された箇所]
+
+Production Freeze は変更禁止です。
+詳細: docs/PRODUCTION_FREEZE.md
+```
+
+### Freeze Violation への対応
+
+#### オプション A: 変更を Revert (推奨)
+
+```bash
+# 該当コミットを revert
+git revert [commit-hash]
+
+# または unstage
+git reset HEAD [file]
+git checkout -- [file]
+```
+
+#### オプション B: Freeze 解除手順 (要承認)
+
+**前提条件**:
+- 技術リード or プロジェクトマネージャーの承認が必要
+- 承認理由を明確に文書化
+
+**手順**:
+
+1. **PRODUCTION_FREEZE.md の更新**
+   ```bash
+   vim docs/PRODUCTION_FREEZE.md
+
+   # Freeze Status を変更
+   # **ステータス**: 🔒 **FROZEN** (変更禁止)
+   # ↓
+   # **ステータス**: 🔓 **TEMPORARILY_UNFROZEN** (一時解除)
+
+   # Unfreeze Reason を記載
+   # **解除理由**: [承認された理由]
+   # **解除期間**: 2025-12-23 〜 2025-12-25
+   # **承認者**: [技術リードの名前]
+   ```
+
+2. **変更の実施**
+   ```bash
+   # 必要な変更を実装
+   # ...
+
+   # コミット
+   git add -A
+   git commit -m "変更内容"
+   ```
+
+3. **CI チェックの確認**
+   ```bash
+   # CI が通ることを確認
+   # GitHub Actions で drift-check が pass することを確認
+   ```
+
+4. **Re-Freeze**
+   ```bash
+   vim docs/PRODUCTION_FREEZE.md
+
+   # Freeze Status を戻す
+   # **ステータス**: 🔓 **TEMPORARILY_UNFROZEN** (一時解除)
+   # ↓
+   # **ステータス**: 🔒 **FROZEN** (変更禁止)
+
+   # 新しい Freeze Version を記録
+   # | **Git Commit Hash** | `新しいコミットハッシュ` |
+   # | **EAS Update Group ID** | `新しいUpdate Group ID` |
+   # | **Freeze Date** | 2025-12-XX |
+   ```
+
+#### オプション C: 緊急時の例外ルート
+
+**適用条件**: 緊急度が高く、承認を待てない場合のみ
+
+**手順**:
+
+```bash
+# 1. CI をスキップして緊急 commit
+git commit -m "[EMERGENCY] 緊急修正: [理由]" --no-verify
+
+# 2. プッシュ
+git push
+
+# 3. Incident Report を作成（必須）
+vim docs/incident-reports/$(date +%Y-%m-%d)-emergency-fix.md
+
+# 4. PRODUCTION_FREEZE.md を更新（新しい Baseline を記録）
+vim docs/PRODUCTION_FREEZE.md
+
+# 5. 次の営業日に承認者にレビュー依頼
+# Slack/Email で技術リードに報告
+```
+
+**注意**: 緊急時例外ルートの濫用は厳禁。必ず事後承認を取得すること。
+
+### Freeze 解除の判断基準
+
+**解除が許可されるケース**:
+- セキュリティ脆弱性の緊急修正
+- Production 障害の根本対応
+- 法的要件（GDPR等）への対応
+- ビジネスクリティカルな機能追加（承認必須）
+
+**解除が許可されないケース**:
+- UI デザインの変更（Freeze 対象外）
+- 新機能の追加（Freeze 対象外）
+- パフォーマンス改善（Freeze 対象外）
+- ログ追加・削除（Freeze 対象外）
+
+---
+
 ## 🔍 トラブルシューティング Q&A
 
 ### Q: EAS Update が反映されない
