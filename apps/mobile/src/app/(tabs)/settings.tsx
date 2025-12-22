@@ -159,9 +159,9 @@ export default function SettingsScreen() {
       }
     } catch (error) {
       console.error("==================== UPDATE CHECK ERROR ====================");
-      console.error("[ERROR] Error type:", error?.constructor?.name);
-      console.error("[ERROR] Error message:", error instanceof Error ? error.message : String(error));
-      console.error("[ERROR] Error stack:", error instanceof Error ? error.stack : "no stack");
+      console.error("[P2][WorkerSync] [ERROR] Error type:", error?.constructor?.name);
+      console.error("[P2][WorkerSync] [ERROR] Error message:", error instanceof Error ? error.message : String(error));
+      console.error("[P2][WorkerSync] [ERROR] Error stack:", error instanceof Error ? error.stack : "no stack");
       console.error("===========================================================");
     }
   };
@@ -346,6 +346,49 @@ export default function SettingsScreen() {
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" });
   };
+  // ==========================================
+  // エラーメッセージ安全な変換ヘルパー
+  // ==========================================
+  const toUserMessageSafe = (error: any): string => {
+    // ApiError の場合
+    if (error instanceof ApiError) {
+      try {
+        // ApiError の toUserMessage() メソッドを安全に呼び出し
+        if (typeof error.toUserMessage === 'function') {
+          return error.toUserMessage();
+        }
+      } catch (methodError) {
+        console.error("[P2][WorkerSync] toUserMessage() call failed:", methodError);
+      }
+    }
+
+    // タイムアウトエラーの判定
+    if (
+      error?.message?.includes('timeout') ||
+      error?.name === 'TimeoutError' ||
+      error?.code === 'ETIMEDOUT'
+    ) {
+      return "通信タイムアウト\n\nサーバーとの通信が時間内に完了しません。\nネットワーク接続を確認してください。";
+    }
+
+    // ネットワークエラーの判定
+    if (
+      error?.message?.includes('Network') ||
+      error?.message?.includes('ECONNREFUSED') ||
+      error?.code === 'ECONNREFUSED'
+    ) {
+      return "ネットワークエラー\n\nサーバーに接続できません。\nネットワーク接続を確認してください。";
+    }
+
+    // 一般的なエラー
+    if (error instanceof Error) {
+      return `予期しないエラーが発生しました\n\n${error.message}\n\n管理者に問い合わせてください。`;
+    }
+
+    // フォールバック
+    return "サーバーとの同期に失敗しました。\n\n管理者に問い合わせてください。";
+  };
+
 
   const handleWorkerSync = async () => {
     if (Platform.OS === "web") {
@@ -424,11 +467,11 @@ export default function SettingsScreen() {
 
       Alert.alert("同期完了", "作業員マスタの同期が完了しました。");
     } catch (error: any) {
-      console.error("==================== WORKER SYNC ERROR ====================");
-      console.error("[ERROR] Error type:", error?.constructor?.name);
-      console.error("[ERROR] Error name:", error?.name);
-      console.error("[ERROR] Error message:", error?.message);
-      console.error("[ERROR] Error stack:", error?.stack);
+      console.error("[P2][WorkerSync] ==================== WORKER SYNC ERROR ====================");
+      console.error("[P2][WorkerSync] [ERROR] Error type:", error?.constructor?.name);
+      console.error("[P2][WorkerSync] [ERROR] Error name:", error?.name);
+      console.error("[P2][WorkerSync] [ERROR] Error message:", error?.message);
+      console.error("[P2][WorkerSync] [ERROR] Error stack:", error?.stack);
       console.error("===========================================================");
 
       // 401/403エラーの場合は認証が無効 → 強制ログアウト
@@ -446,7 +489,7 @@ export default function SettingsScreen() {
       if (error instanceof ApiError) {
         Alert.alert(
           "同期失敗",
-          error.toUserMessage(),
+          toUserMessageSafe(error),
           [
             { text: "閉じる", style: "cancel" },
             { text: "再試行", onPress: () => handleWorkerSync() }
