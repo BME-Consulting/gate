@@ -242,13 +242,18 @@ Alert.alert(
 ### 実装スコープ
 
 #### 追加 (○)
-- `TIMEOUT.BULK_FETCH` を 30000ms → 10000ms に短縮 (useWorkers.ts:18)
+- `TIMEOUT.BULK_FETCH` を 90000ms → 10000ms に短縮 (timeout.ts:12)
+  - **Evidence (影響範囲の証明)**:
+    - 実コード参照: `apps/mobile/src/hooks/useWorkers.ts:193` の1箇所のみ
+    - 用途: サーバーから作業員マスタを取得（worker sync専用）
+    - 他用途への影響: なし（`rg "BULK_FETCH" -n` で確認済み）
+    - **⚠️ 将来の注意**: BULK_FETCHを他用途に使う場合は定数を用途別に分離すること（例: WORKER_SYNC=10000）
 - エラー種別判定ロジック (settings.tsx に追加)
 - ユーザーフレンドリーなエラーメッセージ (3種類)
 - 再試行ボタン (Alert.alert のボタン配列に追加)
 
 #### 変更 (○)
-- `handleWorkerSync` のエラーハンドリング部分 (settings.tsx:402-430)
+- `handleWorkerSync` のエラーハンドリング部分 (settings.tsx:422-444)
 
 #### 削除 (✗)
 - なし（既存ロジックは一切削除しない）
@@ -286,6 +291,10 @@ Alert.alert(
 - **Yes** (部分的)
   - Jest でエラー種別判定ロジックをテスト可能
   - E2E でネットワークエラーシミュレーションとUIテストが可能
+
+#### Manual check (実施済み)
+- **Airplane mode test**: ✅ Timeout observed <10s, retry button functional
+- **Scope validation**: ✅ BULK_FETCH=10s affects worker sync only (verified via `rg "BULK_FETCH" -n`)
 
 ---
 

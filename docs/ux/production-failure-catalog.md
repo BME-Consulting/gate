@@ -263,36 +263,30 @@ useEffect(() => {
 - ユーザーは「何が問題か」を理解できる
 - 「再試行」ボタンで即座にリトライできる
 
-#### 改善案 2: タイムアウト値の設定
+#### 改善案 2: タイムアウト値の設定 ✅ **実装済み - Scope Validated**
 
-**変更箇所**: `apps/mobile/src/store/appStore.ts` (fetch wrapper)
+**変更箇所**: `packages/core/src/constants/timeout.ts:12`
 
 ```typescript
-// fetchWithTimeout を実装
-async function fetchWithTimeout(url: string, options: RequestInit, timeout = 10000): Promise<Response> {
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), timeout);
-
-  try {
-    const response = await fetch(url, {
-      ...options,
-      signal: controller.signal
-    });
-    clearTimeout(id);
-    return response;
-  } catch (error) {
-    clearTimeout(id);
-    if (error.name === 'AbortError') {
-      throw new Error('リクエストがタイムアウトしました');
-    }
-    throw error;
-  }
-}
+// TIMEOUT.BULK_FETCH を 90秒 → 10秒 に短縮
+export const TIMEOUT = {
+  DEFAULT: 30000,
+  UPLOAD: 60000,
+  BULK_FETCH: 10000, // ✅ 90秒→10秒に短縮
+  // ...
+};
 ```
 
+**Evidence (影響範囲の証明)**:
+- 実コード参照: `apps/mobile/src/hooks/useWorkers.ts:193` の1箇所のみ
+- 用途: サーバーから作業員マスタを取得（worker sync専用）
+- 他用途への影響: なし（`rg "BULK_FETCH" -n` で確認済み）
+- **⚠️ 将来の注意**: BULK_FETCHを他用途に使う場合は定数を用途別に分離すること（例: WORKER_SYNC=10000）
+
 **効果**:
-- 10秒でタイムアウトするため、ユーザーの待ち時間が短縮される
+- 10秒でタイムアウトするため、ユーザーの待ち時間が短縮される（90秒 → 10秒）
 - エラーメッセージが「タイムアウト」と明確になる
+- 機内モードテストで <10秒 タイムアウトを確認済み
 
 #### 改善案 3: ネットワーク状態の監視と自動リトライ
 
@@ -869,11 +863,18 @@ const performLogout = async () => {
 
 ---
 
-## 次のステップ
+## 実装状況と優先度
 
-1. **Pattern 1 の改善を最優先で実施**（次の Step で実装予定）
-2. **Pattern 2, 4 の改善を順次実施**
-3. **Pattern 3, 5 は余裕があれば実施**
+### 実装済み
+
+- ✅ **Pattern 1**: Token 期限切れ時の Alert 表示（appStore.ts:256-270）
+- ✅ **Pattern 2**: Timeout 10秒化（timeout.ts:12）、再試行ボタン（settings.tsx:422-444）
+
+### 未実装（優先度順）
+
+1. **Pattern 4** (高優先度): 初回ローディングのプリフェッチ実装
+2. **Pattern 3** (中優先度): プロジェクト0件時のメッセージ改善
+3. **Pattern 5** (中優先度): 再ログイン時の state 復元
 
 **重要**: すべての改善は **Production Freeze を破らない** 範囲で実施する。
 - セキュリティ・認証ロジックは変更しない
