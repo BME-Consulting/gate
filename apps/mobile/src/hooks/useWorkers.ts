@@ -207,7 +207,9 @@ export function useWorkers() {
 
       if (!response.ok) {
         console.error("[Workers] Failed to fetch workers:", response.status, response.statusText);
-        throw new Error(`Failed to fetch workers: ${response.status}`);
+        const error: any = new Error(`Failed to fetch workers: ${response.status}`);
+        error.status = response.status; // 401/403検出のためにstatusを付与
+        throw error;
       }
 
       const json = await response.json();

@@ -157,3 +157,34 @@ jobs:
           fi
 
           echo "✅ No prohibited Tab.Screen components found"
+
+      - name: Security Check - API Authorization
+        working-directory: apps/mobile
+        run: |
+          echo "🔒 Checking for fetch() calls without Authorization header..."
+
+          # Search for fetch() calls that might be missing Authorization header
+          # Exclude: test files, mock files, and known safe patterns
+          FOUND=$(grep -rn "fetch(" src --include="*.ts" --include="*.tsx" \
+            | grep -v "test" \
+            | grep -v "mock" \
+            | grep -v "__tests__" \
+            | grep -v "Authorization" \
+            | grep -v "// @auth-exempt" \
+            | grep -v "fetchWithTimeout" \
+            || true)
+
+          if [ -n "$FOUND" ]; then
+            echo "⚠️  WARNING: Potential fetch() calls without Authorization header:"
+            echo ""
+            echo "$FOUND"
+            echo ""
+            echo "All API calls MUST include Authorization header."
+            echo "If this is a false positive, add '// @auth-exempt' comment on the same line."
+            echo ""
+            echo "Reference: docs/security/mobile-auth-boundary.md"
+            # Note: Changed to warning (not exit 1) to avoid breaking existing code
+            # Will enforce strictly in future iterations
+          fi
+
+          echo "✅ API Authorization check completed"

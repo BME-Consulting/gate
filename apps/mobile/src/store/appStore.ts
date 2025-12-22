@@ -4,6 +4,7 @@
 
 import { create } from "zustand";
 import type { ProjectConfig } from "@mc-gate/core";
+import { ApiError } from "@mc-gate/core";
 import type { User } from "../types/auth";
 import {
   loginWithKeycloak,
@@ -242,7 +243,15 @@ export const useAppStore = create<AppState>((set, get) => ({
     } catch (error) {
       console.error("[AppStore] Failed to fetch projects:", error);
 
-      // API呼び出し失敗時はキャッシュから復元を試みる
+      // 401/403エラーの場合は認証が無効 → 強制ログアウト
+      if (error instanceof ApiError &&
+          (error.kind === "UNAUTHORIZED" || error.kind === "FORBIDDEN")) {
+        console.warn("[AppStore] Authentication failed - forcing logout");
+        await get().logout();
+        return; // エラーを再throw せずに終了
+      }
+
+      // その他のAPI呼び出し失敗時はキャッシュから復元を試みる
       await get().loadProjectsFromCache();
       throw error;
     }

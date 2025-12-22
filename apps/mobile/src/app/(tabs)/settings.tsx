@@ -407,6 +407,17 @@ export default function SettingsScreen() {
       console.error("[ERROR] Error stack:", error?.stack);
       console.error("===========================================================");
 
+      // 401/403エラーの場合は認証が無効 → 強制ログアウト
+      if (error?.status === 401 || error?.status === 403) {
+        console.warn("[Settings] Authentication failed during worker sync - forcing logout");
+        Alert.alert(
+          "認証エラー",
+          "認証情報が無効です。再度ログインしてください。",
+          [{ text: "OK", onPress: () => logout() }]
+        );
+        return;
+      }
+
       // ApiError の場合は toUserMessage() を使用（運用に優しい分類済みメッセージ）
       if (error instanceof ApiError) {
         Alert.alert("同期失敗", error.toUserMessage());
