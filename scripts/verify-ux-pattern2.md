@@ -13,6 +13,13 @@
 - ✅ App installed and logged in
 - ✅ Settings screen accessible
 - ✅ "作業員マスタ管理" section visible with "サーバーから同期" button
+- ✅ **必須**: Updates診断情報を記録（Settings > アプリ情報セクション）
+  - Runtime Version: _________________
+  - Update ID: _________________
+  - 配信チャンネル: _________________
+  - 起動モード: 埋め込み / OTA Update
+
+**重要**: テスト前に必ず診断情報を記録してください。これにより、テスト失敗時に原因を特定できます。
 
 ---
 
@@ -146,6 +153,46 @@
 - Retry button not functional
 - Crash occurs
 - Error message is technical (e.g., "Network request failed", "502 Bad Gateway")
+
+---
+
+## Troubleshooting: If Tests FAIL
+
+### エラー: "同期機能が利用できません" が表示される
+
+**原因**: `syncFromServer` 関数がundefinedのため、アプリの更新が正しく反映されていない。
+
+**診断手順**:
+1. Settings > アプリ情報 で診断情報を確認
+2. 起動モードが「埋め込み」か「OTA Update」かをチェック
+3. EAS Dashboard で Update Group ID を確認:
+   ```bash
+   npx eas-cli update:list --branch preview --limit 1
+   ```
+4. Runtime Version と Update ID を突合
+
+**修正手順**:
+1. アプリを完全終了して再起動
+2. 起動モードが「OTA Update」になるまで待つ（自動ダウンロード）
+3. 改善しない場合: EAS Update を再配信
+   ```bash
+   cd apps/mobile
+   npx eas-cli update --branch preview --message "Fix: ensure syncFromServer is available"
+   ```
+4. アプリを再起動して診断情報を再確認
+5. それでも改善しない場合: 新しいBuildを作成
+
+**証拠記録**:
+- 診断情報のスクリーンショット
+- エラーダイアログのスクリーンショット
+- adb logcat の該当部分（`grep "SYNC FUNCTION MISSING"`）
+
+### エラー: 再試行ボタンがない（予期しないエラーのみ表示）
+
+**原因**: エラーハンドリングが実装されているが、古いコードが動作している可能性。
+
+**修正手順**:
+- 上記「同期機能が利用できません」と同じ手順を実行
 
 ---
 

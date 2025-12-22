@@ -387,9 +387,30 @@ export default function SettingsScreen() {
       console.log("[DEBUG] syncFromServer type:", typeof syncFromServer);
       console.log("[DEBUG] syncFromServer is function:", typeof syncFromServer === 'function');
 
+      // ガード: syncFromServer が undefined/null の場合はクラッシュせずにAlert表示
       if (typeof syncFromServer !== 'function') {
-        console.error("[WORKERS] syncFromServer missing in workersHook:", workersHook);
-        throw new Error(`syncFromServer is not a function, it is: ${typeof syncFromServer}. Available keys: ${workersHook ? Object.keys(workersHook).join(', ') : 'null'}`);
+        const diagnosticInfo = {
+          syncFromServerType: typeof syncFromServer,
+          availableKeys: workersHook ? Object.keys(workersHook) : [],
+          updateId: Updates.updateId || "なし（埋め込みビルド）",
+          isEmbeddedLaunch: Updates.isEmbeddedLaunch,
+          channel: Updates.channel || "不明",
+        };
+
+        console.error("==================== SYNC FUNCTION MISSING ====================");
+        console.error("[CRITICAL] syncFromServer is not a function");
+        console.error("[DIAGNOSTIC]", JSON.stringify(diagnosticInfo, null, 2));
+        console.error("===========================================================");
+
+        Alert.alert(
+          "同期機能が利用できません",
+          "アプリの更新が正しく反映されていない可能性があります。\n\n以下を試してください：\n1. アプリを完全終了して再起動\n2. 改善しない場合は再インストール\n\n診断情報:\n" +
+          `Update ID: ${diagnosticInfo.updateId}\n` +
+          `起動モード: ${diagnosticInfo.isEmbeddedLaunch ? "埋め込み" : "OTA"}\n` +
+          `Channel: ${diagnosticInfo.channel}`,
+          [{ text: "OK" }]
+        );
+        return; // クラッシュを回避して処理を中断
       }
 
       await syncFromServer(workersApiUrl, apiGsApiKey, user.token);
@@ -831,6 +852,14 @@ export default function SettingsScreen() {
 
             {Updates.isEnabled ? (
               <>
+                {/* Updates 診断情報（Pattern 2 トラブルシューティング用） */}
+                <View style={styles.row}>
+                  <Text style={styles.label}>Runtime Version</Text>
+                  <Text style={[styles.value, styles.monospace]} numberOfLines={1}>
+                    {Updates.runtimeVersion || "不明"}
+                  </Text>
+                </View>
+
                 <View style={styles.row}>
                   <Text style={styles.label}>Update ID</Text>
                   <Text style={[styles.value, styles.monospace]} numberOfLines={1}>
