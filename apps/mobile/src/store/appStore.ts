@@ -48,6 +48,9 @@ interface AppState {
   fetchProjects: () => Promise<void>; // プロジェクト一覧をAPIから取得してキャッシュ
   loadProjectsFromCache: () => Promise<void>; // キャッシュからプロジェクト一覧を復元
 
+  // 初期データプリフェッチ
+  prefetchInitialData: () => Promise<void>; // Pattern 4: 初回ログイン時の一括データ取得
+
   // パスコードロック
   passcode: string | null;
   isPasscodeEnabled: boolean;
@@ -55,6 +58,7 @@ interface AppState {
 
   // UI状態
   isLoading: boolean;
+  isInitializing: boolean; // Pattern 4: グローバルローディング用
   setLoading: (loading: boolean) => void;
 }
 
@@ -74,14 +78,18 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({
         user,
         isAuthenticated: true,
+        isInitializing: true, // Pattern 4: グローバルローディング開始
       });
 
-      // ログイン後にプロジェクト一覧を取得（モックの場合はスキップ）
+      // ログイン後に初期データを一括取得（モックの場合はスキップ）
       if (!isMock) {
-        await get().fetchProjects();
+        await get().prefetchInitialData();
       }
+
+      set({ isInitializing: false }); // Pattern 4: グローバルローディング終了
     } catch (error) {
       console.error("Login failed:", error);
+      set({ isInitializing: false }); // エラー時もローディング終了
       throw error;
     }
   },
@@ -306,7 +314,31 @@ export const useAppStore = create<AppState>((set, get) => ({
       isPasscodeEnabled: passcode !== null,
     }),
 
+  // 初期データプリフェッチ（Pattern 4）
+  prefetchInitialData: async () => {
+    const { user } = get();
+    if (!user) {
+      console.warn("[AppStore] Cannot prefetch: user not authenticated");
+      return;
+    }
+
+    try {
+      console.log("[AppStore] Starting initial data prefetch...");
+
+      // 既存関数を順に await するだけ（新ロジック禁止）
+      await get().fetchProjects();
+      // Note: fetchWorkers関数は存在しないため、fetchProjectsのみを実行
+      // 将来的にfetchWorkersが実装されたら追加する
+
+      console.log("[AppStore] Initial data prefetch completed");
+    } catch (error) {
+      console.error("[AppStore] Failed to prefetch initial data:", error);
+      // エラーは無視（バックグラウンド処理のため再throwしない）
+    }
+  },
+
   // UI
   isLoading: false,
+  isInitializing: false, // Pattern 4: デフォルト値
   setLoading: (loading) => set({ isLoading: loading }),
 }));

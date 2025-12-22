@@ -9,14 +9,23 @@ import Constants from "expo-constants";
 import { Button, tokens } from "@mc-gate/ui-kit";
 import { useAppStore } from "../store/appStore";
 import { ApiError } from "@mc-gate/api-client";
+import { GlobalLoadingScreen } from "../components/GlobalLoadingScreen";
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { login } = useAppStore();
+  const { login, isInitializing } = useAppStore();
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Pattern 4: 初期化完了後にホーム画面へ遷移
+  React.useEffect(() => {
+    if (!isInitializing && useAppStore.getState().isAuthenticated) {
+      // 認証済みで初期化が完了したらホーム画面へ
+      router.replace("/(tabs)/home");
+    }
+  }, [isInitializing, router]);
 
   // 環境変数のデバッグログ（開発時のみ）
   React.useEffect(() => {
@@ -70,8 +79,8 @@ export default function LoginScreen() {
             await setCurrentProject(mockProject);
           }
 
-          console.log("✅ Auto-login successful, navigating to home");
-          router.replace("/(tabs)/home");
+          console.log("✅ Auto-login successful");
+          // Pattern 4: ホーム画面への遷移は useEffect で自動処理される
         } catch (error) {
           console.error("❌ Auto-login failed:", error);
         }
@@ -130,7 +139,7 @@ export default function LoginScreen() {
         await setCurrentProject(mockProject);
       }
 
-      router.replace("/(tabs)/home");
+      // Pattern 4: ホーム画面への遷移は useEffect で自動処理される
     } catch (error) {
       console.error("❌ Mock login error:", error);
       Alert.alert("ログインエラー", error instanceof Error ? error.message : "ログインに失敗しました");
@@ -151,8 +160,7 @@ export default function LoginScreen() {
 
       // プロジェクト一覧は loginWithOAuth() 内で自動取得される
       // currentProject も自動的に最初のプロジェクトが設定される
-
-      router.replace("/(tabs)/home");
+      // Pattern 4: ホーム画面への遷移は useEffect で自動処理される
     } catch (error) {
       console.error("❌ OAuth login error:", error);
 
@@ -178,6 +186,11 @@ export default function LoginScreen() {
       setLoading(false);
     }
   };
+
+  // Pattern 4: グローバルローディング中は GlobalLoadingScreen を表示
+  if (isInitializing) {
+    return <GlobalLoadingScreen message="初期データを読み込んでいます..." />;
+  }
 
   return (
     <View style={styles.container}>
