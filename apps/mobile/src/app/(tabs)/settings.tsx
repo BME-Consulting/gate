@@ -420,13 +420,27 @@ export default function SettingsScreen() {
 
       // ApiError の場合は toUserMessage() を使用（運用に優しい分類済みメッセージ）
       if (error instanceof ApiError) {
-        Alert.alert("同期失敗", error.toUserMessage());
+        Alert.alert(
+          "同期失敗",
+          error.toUserMessage(),
+          [
+            { text: "閉じる", style: "cancel" },
+            { text: "再試行", onPress: () => handleWorkerSync() }
+          ]
+        );
       } else {
         // その他のエラー（予期しない）
         const fallbackMessage = error instanceof Error
           ? `予期しないエラーが発生しました\n\n${error.message}\n\n管理者に問い合わせてください。`
           : "サーバーとの同期に失敗しました。";
-        Alert.alert("同期失敗", fallbackMessage);
+        Alert.alert(
+          "同期失敗",
+          fallbackMessage,
+          [
+            { text: "閉じる", style: "cancel" },
+            { text: "再試行", onPress: () => handleWorkerSync() }
+          ]
+        );
       }
     } finally {
       setIsSyncing(false);

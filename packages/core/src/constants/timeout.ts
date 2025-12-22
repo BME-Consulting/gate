@@ -9,7 +9,7 @@ export const TIMEOUT = {
   UPLOAD: 60000, // 60秒
 
   /** 大量データ取得 */
-  BULK_FETCH: 90000, // 90秒
+  BULK_FETCH: 10000, // 10秒（UX改善: 90秒→10秒に短縮）
 
   /** ロングポーリング */
   LONG_POLLING: 120000, // 120秒
