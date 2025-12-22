@@ -220,6 +220,106 @@ npx eas-cli update:republish \
 
 ---
 
+### ⑤ EAS Update 不整合（P2-6）
+
+**症状**:
+- 「undefined is not a function」エラーが発生
+- syncFromServerが呼べない
+- 機能が正しく動作しない
+
+**根本原因**:
+EAS Updateは**常に最新コードを配信するとは限らない**
+- ビルド時のコミットとUpdate時のコミットが異なる場合がある
+- ワーキングディレクトリの未コミット変更は反映されない
+- OTA Updateの配信タイミングでズレが生じる
+
+#### 確認①: Runtime Commit Hash を確認
+
+```bash
+# アプリの設定画面 → アプリ情報 → Commit Hash を確認
+# または adb logcat でコンソールログを確認
+
+adb logcat | grep "P2-6"
+
+# 期待されるログ:
+# [P2-6] Commit Hash: 9b13482
+# [P2-6] Update ID: xxx-xxx-xxx
+# [P2-6] Integrity: ✅ PASS
+```
+
+#### 確認②: Expected Commit Hash と比較
+
+```bash
+# 最新のコミットハッシュを確認
+git log --oneline -1
+
+# Evidence Pack の期待値と比較
+cat docs/evidence/prod-evidence.md | grep "Expected Commit Hash"
+```
+
+#### 確認③: Integrity Check 結果
+
+アプリ起動時に自動実行される整合性チェック：
+
+```
+==================== INTEGRITY CHECK ====================
+[P2-6] Commit Hash: 9b13482
+[P2-6] Update ID: xxx-xxx-xxx
+[P2-6] Launch Mode: OTA Update
+[P2-6] Channel: production
+[P2-6] Integrity: ✅ PASS / ❌ FAIL
+=========================================================
+```
+
+**FAIL の場合**: 必須関数が欠落している
+
+#### 対応: 正しいコミットでEAS Updateを再配信
+
+```bash
+# 1. 最新コードをコミット（未コミット変更があれば）
+git add -A
+git commit -m "fix: sync latest changes"
+
+# 2. EAS Update を配信
+cd apps/mobile
+npx eas-cli update --branch production --message "fix: P2-6 integrity sync"
+
+# 3. アプリ再起動して更新を適用
+# 設定画面 → アップデート確認 → アプリ再起動
+```
+
+#### P2-6 運用ルール（必須）
+
+**ルール1: コミットしてからUpdate配信**
+```bash
+# ❌ NG: 未コミットでUpdate
+vim src/file.ts  # 変更
+npx eas-cli update  # この時点で変更は反映されない！
+
+# ✅ OK: コミット後にUpdate
+vim src/file.ts  # 変更
+git add -A && git commit -m "fix"
+npx eas-cli update  # 変更が確実に反映される
+```
+
+**ルール2: Commit Fingerprintが一致しない限りテスト結果は無効**
+- Runtime Commit Hash ≠ Expected Commit Hash の場合
+- すべてのテスト結果を「無効」として扱う
+- 正しいコミットで再テストする
+
+**ルール3: Build作成後は必ずUpdateも配信**
+```bash
+# Build作成だけではJSコードは更新されない
+npx eas-cli build --platform android --profile production
+
+# 必ずUpdateも配信する
+npx eas-cli update --branch production --message "sync with build"
+```
+
+**想定復旧時間**: 10分以内
+
+---
+
 ## 📦 Production Evidence Pack
 
 ### Evidence Pack とは
