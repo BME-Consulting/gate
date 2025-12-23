@@ -10,6 +10,7 @@ import * as Linking from "expo-linking";
 import * as Sentry from "@sentry/react-native";
 import Constants from "expo-constants";
 import { useAppStore } from "../store/appStore";
+import { InitialErrorScreen } from "../components/system/InitialErrorScreen";
 import { tokens } from "@mc-gate/ui-kit";
 import { performIntegrityCheck, showIntegrityAlert } from "../utils/integrityCheck";
 import { useWorkers } from "../hooks/useWorkers";
@@ -43,6 +44,8 @@ export default function RootLayout() {
   // OAuth ガード: セッション復元
   const restoreSession = useAppStore((s) => s.restoreSession);
   const isAuthenticated = useAppStore((s) => s.isAuthenticated);
+  const initStatus = useAppStore((s) => s.initStatus);
+  const initError = useAppStore((s) => s.initError);
   const [booting, setBooting] = useState(true);
   const [integrityValid, setIntegrityValid] = useState<boolean | null>(null);
 
@@ -147,6 +150,15 @@ export default function RootLayout() {
     }
   }, [pathname]);
 
+  // G-3-4: 初期化エラー画面を優先表示（booting完了後）
+  if (!booting && initStatus === "error" && initError) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <InitialErrorScreen />
+      </QueryClientProvider>
+    );
+  }
+
   // OAuth ガード: 起動中はローディング表示（チラつき防止）
   if (booting) {
     return (
@@ -154,7 +166,7 @@ export default function RootLayout() {
         <ActivityIndicator size="large" color={tokens.color.primary} />
         {integrityValid === false && (
           <View style={{ marginTop: 20, paddingHorizontal: 40 }}>
-            <Text style={{ color: tokens.color.error, textAlign: "center", fontSize: 16 }}>
+            <Text style={{ color: tokens.color.warn, textAlign: "center", fontSize: 16 }}>
               ⚠️ アプリの整合性チェックに失敗しました
             </Text>
             <Text style={{ color: tokens.color.text.secondary, textAlign: "center", marginTop: 10, fontSize: 14 }}>

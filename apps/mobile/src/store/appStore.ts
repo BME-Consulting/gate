@@ -28,6 +28,14 @@ import {
   clearProjectsCache,
 } from "../services/projectStorage";
 
+// G-3-4: エラー分類
+type InitErrorCode = "NETWORK" | "AUTH" | "INTEGRITY" | "UNKNOWN";
+
+interface InitError {
+  code: InitErrorCode;
+  message: string;
+}
+
 // セッション期限切れAlertの多重表示防止フラグ
 let sessionExpiredAlertShown = false;
 
@@ -60,6 +68,13 @@ interface AppState {
   isLoading: boolean;
   isInitializing: boolean; // Pattern 4: グローバルローディング用
   setLoading: (loading: boolean) => void;
+
+  // G-3-4: 初期化エラーハンドリング
+  initStatus: "idle" | "running" | "error";
+  initError?: InitError;
+  startInitialization: () => Promise<void>;
+  retryInitialization: () => void;
+  resetApplication: () => void;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -341,4 +356,107 @@ export const useAppStore = create<AppState>((set, get) => ({
   isLoading: false,
   isInitializing: false, // Pattern 4: デフォルト値
   setLoading: (loading) => set({ isLoading: loading }),
+
+  // G-3-4: 初期化エラーハンドリング
+  initStatus: "idle",
+  initError: undefined,
+
+  // エラー分類関数
+  startInitialization: async () => {
+    set({ initStatus: "running", initError: undefined });
+
+    try {
+      // 既存の初期化処理（restoreSession + integrity）
+      const restoreOk = await get().restoreSession();
+
+      if (!restoreOk) {
+        throw new Error("401 Session restoration failed");
+      }
+
+      set({ initStatus: "idle", initError: undefined });
+    } catch (error) {
+      const { code, message } = classifyInitError(error);
+      console.error(`[G-3-4] Init Error: ${code}`, error);
+
+      set({
+        initStatus: "error",
+        initError: { code, message },
+      });
+    }
+  },
+
+  retryInitialization: () => {
+    get().startInitialization();
+  },
+
+  resetApplication: () => {
+    // logout をコール（既に存在する安全な実装を再利用）
+    get().logout();
+
+    // 初期化状態をリセット
+    set({
+      initStatus: "idle",
+      initError: undefined,
+    });
+  },
 }));
+
+// G-3-4: エラー分類ユーティリティ関数
+function classifyInitError(error: unknown): {
+  code: InitErrorCode;
+  message: string;
+} {
+  if (error instanceof Error) {
+    const message = error.message.toLowerCase();
+    const code = (error as any).code as string | undefined;
+
+    // NETWORK系
+    if (
+      message.includes("timeout") ||
+      message.includes("network") ||
+      message.includes("econnrefused") ||
+      code === "ETIMEDOUT" ||
+      code === "ECONNREFUSED"
+    ) {
+      return {
+        code: "NETWORK",
+        message:
+          "ネットワークに接続できません。\n\nWi-Fiまたはデータ通信を確認して、再試行してください。",
+      };
+    }
+
+    // AUTH系
+    if (
+      message.includes("401") ||
+      message.includes("403") ||
+      message.includes("unauthorized") ||
+      message.includes("forbidden")
+    ) {
+      return {
+        code: "AUTH",
+        message:
+          "認証に失敗しました。\n\nもう一度ログインしてください。",
+      };
+    }
+
+    // INTEGRITY系（P2-6）
+    if (message.includes("integrity") || message.includes("missing")) {
+      return {
+        code: "INTEGRITY",
+        message:
+          "アプリの整合性チェックに失敗しました。\n\n初期化ボタンからリセットしてください。",
+      };
+    }
+
+    // UNKNOWN（その他）
+    return {
+      code: "UNKNOWN",
+      message: `予期しないエラー: ${error.message}`,
+    };
+  }
+
+  return {
+    code: "UNKNOWN",
+    message: "初期化中に予期しないエラーが発生しました。",
+  };
+}
