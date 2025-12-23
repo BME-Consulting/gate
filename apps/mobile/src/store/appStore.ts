@@ -370,7 +370,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       const restoreOk = await get().restoreSession();
 
       if (!restoreOk) {
-        throw new Error("401 Session restoration failed");
+        throw new Error("Session restoration failed");
       }
 
       set({ initStatus: "idle", initError: undefined });
