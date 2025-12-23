@@ -416,6 +416,7 @@ function classifyInitError(error: unknown): {
       message.includes("econnrefused") ||
       message.includes("enotfound") ||
       message.includes("no such host") ||
+      message.includes("session restoration failed") ||
       code === "ETIMEDOUT" ||
       code === "ECONNREFUSED" ||
       code === "ENOTFOUND"
