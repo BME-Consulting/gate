@@ -363,6 +363,17 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   // エラー分類関数
   startInitialization: async () => {
+    // ✅ 冪等性ガード：既に実行中または error状態なら即座に return
+    const { initStatus: currentStatus } = get();
+    if (currentStatus === "running") {
+      console.warn("[G-3-4] startInitialization already running, skipping");
+      return;
+    }
+    if (currentStatus === "error") {
+      console.warn("[G-3-4] startInitialization in error state, skipping");
+      return;
+    }
+
     set({ initStatus: "running", initError: undefined });
 
     try {
