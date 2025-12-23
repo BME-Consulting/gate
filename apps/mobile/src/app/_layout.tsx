@@ -72,12 +72,14 @@ export default function RootLayout() {
 
   // OAuth ガード: アプリ起動時に1回だけセッション復元
   useEffect(() => {
+    console.error("[BOOT:1/3] RootLayout useEffect called. didInitRef.current =", didInitRef.current);
     // 🔒 ガード: 既に実行済みなら skip（無限ループ防止）
     if (didInitRef.current) return;
     didInitRef.current = true;
 
     (async () => {
       try {
+        console.error("[BOOT:2/3] Starting initialization (didInitRef set to true)");
         console.log("[_layout.tsx] Starting initialization...");
 
         // G-3-4: エラー分類ロジックを使用して初期化（restoreSession + error classification）

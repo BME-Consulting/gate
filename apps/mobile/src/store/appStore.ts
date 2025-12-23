@@ -363,6 +363,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   // エラー分類関数
   startInitialization: async () => {
+    console.error("[BOOT:3/3] startInitialization called");
     // ✅ 冪等性ガード：既に実行中または error状態なら即座に return
     const { initStatus: currentStatus } = get();
     if (currentStatus === "running") {
