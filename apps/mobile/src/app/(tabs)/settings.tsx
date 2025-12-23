@@ -548,10 +548,9 @@ export default function SettingsScreen() {
   };
 
   // G-3-4: Case 3 テスト（INTEGRITY 分類をトリガー）
-  // preview限定：初期化エラーを直接トリガー
+  // preview限定：完全性チェック失敗を直接シミュレート
   const handleSimulateIntegrityFailure = async () => {
     try {
-      // 初期化エラー状態を直接セット（integritityキーワード）
       const appStore = useAppStore.getState();
 
       Alert.alert(
@@ -561,20 +560,23 @@ export default function SettingsScreen() {
           {
             text: "実行",
             onPress: () => {
-              // アプリの初期化エラーを直接セット（integrity fail message）
+              // アプリの状態をリセット
               appStore.resetApplication();
 
-              // 状態を直接エラーに設定
+              // 初期化処理をスタート
               setTimeout(() => {
                 appStore.setLoading(false);
-                // エラーメッセージに "integrity" を含める
-                appStore.startInitialization().then(() => {
-                  // NOTE: startInitialization が完了したら、すぐに error 状態に遷移
-                  // これはテスト目的なので、直接状態を操作
-                }).catch(() => {
-                  // integrity check failure を simulation
-                  console.error("[G-3-4] Simulating integrity failure...");
+
+                // INTEGRITY エラーを直接セット
+                // classifyInitError() で "integrity" キーワードを検出させる
+                appStore.setError({
+                  message: "Integrity check failed: Package signature mismatch",
+                  hasRetry: false,
                 });
+
+                console.error(
+                  "[G-3-4] Simulating integrity failure: Integrity check failed"
+                );
               }, 100);
             },
           },
