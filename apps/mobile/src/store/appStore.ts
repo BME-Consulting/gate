@@ -410,13 +410,15 @@ function classifyInitError(error: unknown): {
     const message = error.message.toLowerCase();
     const code = (error as any).code as string | undefined;
 
-    // NETWORK系
+    // NETWORK系（AUTH より前にチェック - 優先度UP）
     if (
       message.includes("timeout") ||
-      message.includes("network") ||
       message.includes("econnrefused") ||
+      message.includes("enotfound") ||
+      message.includes("no such host") ||
       code === "ETIMEDOUT" ||
-      code === "ECONNREFUSED"
+      code === "ECONNREFUSED" ||
+      code === "ENOTFOUND"
     ) {
       return {
         code: "NETWORK",
