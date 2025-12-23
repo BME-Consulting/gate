@@ -416,7 +416,6 @@ function classifyInitError(error: unknown): {
       message.includes("econnrefused") ||
       message.includes("enotfound") ||
       message.includes("no such host") ||
-      message.includes("session restoration failed") ||
       code === "ETIMEDOUT" ||
       code === "ECONNREFUSED" ||
       code === "ENOTFOUND"
@@ -430,6 +429,7 @@ function classifyInitError(error: unknown): {
 
     // AUTH系
     if (
+      message.includes("session restoration failed") ||
       message.includes("401") ||
       message.includes("403") ||
       message.includes("unauthorized") ||
