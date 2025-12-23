@@ -2,7 +2,7 @@
 // ルートレイアウト
 // ==========================================
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { View, ActivityIndicator, Text } from "react-native";
 import { Stack, useRouter, usePathname } from "expo-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -52,6 +52,9 @@ export default function RootLayout() {
   // P2-6-2: Workers フックを取得（整合性チェック用）
   const workersHook = useWorkers();
 
+  // 🔒 初期化ガード: useEffect の無限ループを防止
+  const didInitRef = useRef(false);
+
   // QueryClient を useMemo で安全に初期化（New Architecture 対応）
   const queryClient = useMemo(() => new QueryClient({
     defaultOptions: {
@@ -69,6 +72,10 @@ export default function RootLayout() {
 
   // OAuth ガード: アプリ起動時に1回だけセッション復元
   useEffect(() => {
+    // 🔒 ガード: 既に実行済みなら skip（無限ループ防止）
+    if (didInitRef.current) return;
+    didInitRef.current = true;
+
     (async () => {
       try {
         console.log("[_layout.tsx] Starting initialization...");
@@ -119,7 +126,7 @@ export default function RootLayout() {
         }
       }
     })();
-  }, [workersHook.isReady, workersHook.syncFromServer, workersHook.getAllWorkers, workersHook.getWorkerById]);
+  }, []);
 
   // OAuth ガード: 認証済みなら /(tabs)/home へリダイレクト
   useEffect(() => {
