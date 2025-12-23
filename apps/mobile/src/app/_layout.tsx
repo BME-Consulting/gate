@@ -62,12 +62,19 @@ export default function RootLayout() {
     },
   }), []);
 
+  // G-3-4: 初期化エラー分類ロジック
+  const { startInitialization } = useAppStore((s) => ({
+    startInitialization: s.startInitialization,
+  }));
+
   // OAuth ガード: アプリ起動時に1回だけセッション復元
   useEffect(() => {
     (async () => {
       try {
-        console.log("[_layout.tsx] Restoring session...");
-        await restoreSession();
+        console.log("[_layout.tsx] Starting initialization...");
+
+        // G-3-4: エラー分類ロジックを使用して初期化（restoreSession + error classification）
+        await startInitialization();
 
         // P2-6-2: 必須関数存在チェック（起動時）
         console.log("[P2-6-2] Performing integrity check...");
@@ -104,10 +111,10 @@ export default function RootLayout() {
 
         console.log("[P2-6-2] Integrity check PASSED");
       } catch (error) {
-        console.error("[_layout.tsx] Session restore error:", error);
+        console.error("[_layout.tsx] Initialization error:", error);
       } finally {
-        // 整合性チェックが失敗した場合はbootingを解除しない
-        if (integrityValid !== false) {
+        // 整合性チェックが失敗した場合、またはG-3-4エラーが発生した場合はbootingを解除しない
+        if (integrityValid !== false && initStatus !== "error") {
           setBooting(false);
         }
       }
