@@ -1,0 +1,13 @@
+{
+  "name": "eslint-plugin-zustand-local",
+  "version": "1.0.0",
+  "description": "Local ESLint plugin for Zustand best practices",
+  "main": "index.js",
+  "keywords": ["eslint", "eslint-plugin", "zustand", "stores"],
+  "author": "mc-gate team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/mc-gate"
+  }
+}
