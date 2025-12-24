@@ -73,9 +73,10 @@ export default function RootLayout() {
   }), []);
 
   // G-3-4: 初期化エラー分類ロジック
-  const { startInitialization } = useAppStore((s) => ({
-    startInitialization: s.startInitialization,
-  }));
+  // 🔧 FIX: オブジェクトリテラルを毎回返さず、個別の selector に分解
+  // ❌ NG: useAppStore((s) => ({ startInitialization: s.startInitialization }))
+  //        毎回新しいオブジェクト参照 → selector変更と判定 → 無限ループ
+  const startInitialization = useAppStore((s) => s.startInitialization);
 
   // OAuth ガード: アプリ起動時に1回だけセッション復元
   useEffect(() => {
