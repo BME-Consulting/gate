@@ -418,11 +418,21 @@ export const useAppStore = create<AppState>((set, get) => ({
       const restoreOk = await get().restoreSession();
 
       if (!restoreOk) {
-        throw new Error("Session restoration failed");
+        // ✅ これは「正常」：未ログイン（初回 or ログアウト後）
+        console.info("[AUTH:SSOT] No session restored (no tokens). Move to login-required state.");
+
+        // エラーではなく、未ログイン状態に遷移
+        set({
+          initStatus: "idle",
+          initError: undefined,
+          isAuthenticated: false,
+        });
+        return;
       }
 
       set({ initStatus: "idle", initError: undefined });
     } catch (error) {
+      // ❌ ここが「本当のAUTHエラー」：refresh失敗/デコード失敗/ネットワーク等
       const { code, message } = classifyInitError(error);
       console.error(`[G-3-4] Init Error: ${code}`, error);
 
