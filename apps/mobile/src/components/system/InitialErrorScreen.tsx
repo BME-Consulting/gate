@@ -8,15 +8,44 @@ import React from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { useAppStore } from "../../store/appStore";
 import Constants from "expo-constants";
+import * as Updates from "expo-updates";
 import { tokens } from "@mc-gate/ui-kit";
+
+// SSOT: EAS Updates から診断情報を取得
+function getDiagnostics() {
+  const extra = (Constants.expoConfig?.extra as any) ?? {};
+
+  // Channel: ✅ SSOT は Updates.channel
+  const channel =
+    ((Updates as any).channel as string | undefined) ||
+    process.env.EAS_BUILD_PROFILE ||
+    extra?.channel ||
+    "unknown";
+
+  // Runtime: ✅ SSOT は Updates.runtimeVersion
+  const runtimeVersion =
+    ((Updates as any).runtimeVersion as string | undefined) ||
+    (Constants.expoConfig?.runtimeVersion as string | undefined) ||
+    ((Constants as any).expoRuntimeVersion as string | undefined) ||
+    extra?.runtimeVersion ||
+    "unknown";
+
+  // Update ID: デバッグ用（EAS Update の追跡）
+  const updateId =
+    ((Updates as any).updateId as string | undefined) || "unknown";
+
+  // Embedded Launch: デバッグ用（EAS Updateが適用されてるか判別）
+  const isEmbeddedLaunch = (Updates as any).isEmbeddedLaunch ?? "unknown";
+
+  // Commit Hash: ビルド時埋め込み
+  const commitHash = extra?.commitHash ?? "unknown";
+
+  return { channel, runtimeVersion, updateId, isEmbeddedLaunch, commitHash };
+}
 
 export const InitialErrorScreen: React.FC = () => {
   const { initError, retryInitialization, resetApplication } = useAppStore();
-
-  const extra = Constants.expoConfig?.extra ?? {};
-  const commitHash = extra.commitHash ?? "unknown";
-  const channel = extra.channel ?? "unknown";
-  const runtimeVersion = Constants.runtimeVersion ?? "unknown";
+  const diag = getDiagnostics();
 
   return (
     <View style={styles.container}>
@@ -49,9 +78,11 @@ export const InitialErrorScreen: React.FC = () => {
       {/* 診断情報（P2-6と一貫） */}
       <View style={styles.diagnostics}>
         <Text style={styles.diagnosticsTitle}>診断情報</Text>
-        <Text style={styles.diagnosticsText}>Commit: {commitHash}</Text>
-        <Text style={styles.diagnosticsText}>Channel: {channel}</Text>
-        <Text style={styles.diagnosticsText}>Runtime: {runtimeVersion}</Text>
+        <Text style={styles.diagnosticsText}>Commit: {diag.commitHash}</Text>
+        <Text style={styles.diagnosticsText}>Channel: {diag.channel}</Text>
+        <Text style={styles.diagnosticsText}>Runtime: {diag.runtimeVersion}</Text>
+        <Text style={styles.diagnosticsText}>UpdateId: {diag.updateId}</Text>
+        <Text style={styles.diagnosticsText}>Embedded: {String(diag.isEmbeddedLaunch)}</Text>
       </View>
     </View>
   );
