@@ -112,10 +112,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   // OAuthログイン
   loginWithOAuth: async () => {
     try {
+      console.log("[AUTH:SSOT] loginWithOAuth started");
       const tokenResult = await loginWithKeycloak();
+      console.log("[AUTH:SSOT] Keycloak login succeeded");
 
       // トークンからユーザー情報を抽出
+      console.log("[AUTH:SSOT] Extracting user from token...");
       const userInfo = decodeUserFromToken(tokenResult.accessToken);
+      console.log("[AUTH:SSOT] User extracted:", { id: userInfo.id, name: userInfo.name });
 
       const user: User = {
         id: userInfo.id,
@@ -126,9 +130,16 @@ export const useAppStore = create<AppState>((set, get) => ({
         idToken: tokenResult.idToken,
       };
 
+      console.log("[AUTH:SSOT] Calling login()...");
       await get().login(user);
+      console.log("[AUTH:SSOT] loginWithOAuth completed successfully");
     } catch (error) {
-      console.error("OAuth login failed:", error);
+      console.error("[AUTH:SSOT] OAuth login failed:", {
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorCode: (error as any)?.code,
+        errorType: error instanceof Error ? error.constructor.name : typeof error,
+        fullError: error,
+      });
       throw error;
     }
   },
@@ -185,18 +196,33 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   // セッション復元（アプリ起動時）
   restoreSession: async () => {
+    console.log("[AUTH:SSOT] restoreSession started");
+
     const tokens = await getTokens();
-    if (!tokens) return false;
+    console.log("[AUTH:SSOT] SecureStore tokens:", {
+      hasAccessToken: !!tokens?.accessToken,
+      hasRefreshToken: !!tokens?.refreshToken,
+      hasIdToken: !!tokens?.idToken,
+    });
+
+    if (!tokens) {
+      console.warn("[AUTH:SSOT] No tokens in SecureStore - login required");
+      return false;
+    }
 
     try {
       // トークンをリフレッシュ（必要に応じて）
+      console.log("[AUTH:SSOT] Calling refreshTokenIfNeeded...");
       const newAccessToken = await refreshTokenIfNeeded(
         tokens.accessToken,
         tokens.refreshToken
       );
+      console.log("[AUTH:SSOT] Token refresh success");
 
       // ユーザー情報を復元
+      console.log("[AUTH:SSOT] Decoding user from token...");
       const userInfo = decodeUserFromToken(newAccessToken);
+      console.log("[AUTH:SSOT] User decoded:", { id: userInfo.id, name: userInfo.name });
 
       const user: User = {
         id: userInfo.id,
@@ -213,23 +239,33 @@ export const useAppStore = create<AppState>((set, get) => ({
       });
 
       // プロジェクト一覧をキャッシュから復元
+      console.log("[AUTH:SSOT] Loading projects from cache...");
       await get().loadProjectsFromCache();
 
       // 現在のプロジェクトを復元
       const cachedProject = await getCurrentProject();
       if (cachedProject) {
         set({ currentProject: cachedProject });
+        console.log("[AUTH:SSOT] Restored current project from cache");
       } else if (get().availableProjects.length > 0) {
         // キャッシュがない場合は最初のプロジェクトを自動選択
         const firstProject = get().availableProjects[0];
         set({ currentProject: firstProject });
         await saveCurrentProject(firstProject);
+        console.log("[AUTH:SSOT] Set first available project as current");
       }
 
+      console.log("[AUTH:SSOT] restoreSession completed successfully");
       return true;
     } catch (error) {
-      console.error("Session restore failed:", error);
+      console.error("[AUTH:SSOT] Session restore failed:", {
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorCode: (error as any)?.code,
+        errorType: error instanceof Error ? error.constructor.name : typeof error,
+        fullError: error,
+      });
       await clearTokens();
+      console.log("[AUTH:SSOT] Tokens cleared due to restore failure");
       return false;
     }
   },
@@ -432,6 +468,7 @@ function classifyInitError(error: unknown): {
       code === "ECONNREFUSED" ||
       code === "ENOTFOUND"
     ) {
+      console.log("[AUTH:SSOT] Error classified as NETWORK");
       return {
         code: "NETWORK",
         message:
@@ -447,6 +484,15 @@ function classifyInitError(error: unknown): {
       message.includes("unauthorized") ||
       message.includes("forbidden")
     ) {
+      console.log("[AUTH:SSOT] Error classified as AUTH", {
+        matchedPatterns: {
+          "session restoration failed": message.includes("session restoration failed"),
+          "401": message.includes("401"),
+          "403": message.includes("403"),
+          unauthorized: message.includes("unauthorized"),
+          forbidden: message.includes("forbidden"),
+        },
+      });
       return {
         code: "AUTH",
         message:
@@ -456,6 +502,7 @@ function classifyInitError(error: unknown): {
 
     // INTEGRITY系（P2-6）
     if (message.includes("integrity") || message.includes("missing")) {
+      console.log("[AUTH:SSOT] Error classified as INTEGRITY");
       return {
         code: "INTEGRITY",
         message:
@@ -464,12 +511,14 @@ function classifyInitError(error: unknown): {
     }
 
     // UNKNOWN（その他）
+    console.log("[AUTH:SSOT] Error classified as UNKNOWN:", { message, code });
     return {
       code: "UNKNOWN",
       message: `予期しないエラー: ${error.message}`,
     };
   }
 
+  console.log("[AUTH:SSOT] Error is not an Error instance:", error);
   return {
     code: "UNKNOWN",
     message: "初期化中に予期しないエラーが発生しました。",
