@@ -2,6 +2,8 @@
 // ルートレイアウト
 // ==========================================
 
+console.log("[BOOT:FILE] app/_layout.tsx loaded");
+
 import { useEffect, useMemo, useState, useRef } from "react";
 import { View, ActivityIndicator, Text } from "react-native";
 import { Stack, useRouter, usePathname } from "expo-router";
@@ -38,6 +40,8 @@ if (sentryDsn) {
 }
 
 export default function RootLayout() {
+  console.log("[BOOT:RENDER] RootLayout render");
+
   const router = useRouter();
   const pathname = usePathname();
 
@@ -54,6 +58,9 @@ export default function RootLayout() {
 
   // 🔒 初期化ガード: useEffect の無限ループを防止
   const didInitRef = useRef(false);
+
+  // 🔒 ナビゲーションガード: リダイレクトを一回だけにする
+  const didNavRef = useRef(false);
 
   // QueryClient を useMemo で安全に初期化（New Architecture 対応）
   const queryClient = useMemo(() => new QueryClient({
@@ -130,10 +137,15 @@ export default function RootLayout() {
     })();
   }, []);
 
-  // OAuth ガード: 認証済みなら /(tabs)/home へリダイレクト
+  // OAuth ガード: 認証済みなら /(tabs)/home へリダイレクト（一回だけ）
   useEffect(() => {
-    if (!booting && isAuthenticated) {
-      console.log("[_layout.tsx] Authenticated - redirecting to home");
+    // 初期化完了まで待機
+    if (booting || didNavRef.current) return;
+
+    // ナビゲーションは一回だけ
+    if (isAuthenticated) {
+      didNavRef.current = true;
+      console.log("[BOOT:NAV] Authenticated - redirecting to home");
       router.replace("/(tabs)/home");
     }
   }, [booting, isAuthenticated]);
