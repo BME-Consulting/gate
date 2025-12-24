@@ -88,6 +88,12 @@ export default function FaceRegistrationScreen() {
     }
   }, [isReady, getAllWorkers]);
 
+  // 🎯 SSOT診断: MOUNT/UNMOUNTログ
+  useEffect(() => {
+    console.info("[FaceReg:SSOT] MOUNT");
+    return () => console.info("[FaceReg:SSOT] UNMOUNT");
+  }, []);
+
   // タブフォーカス時にカメラリソースをリセット
   useFocusEffect(
     useCallback(() => {
@@ -106,6 +112,14 @@ export default function FaceRegistrationScreen() {
       };
     }, [])
   );
+
+  // 🎯 SSOT診断: RENDERログ（毎レンダリング時に状態を記録）
+  console.info("[FaceReg:SSOT] RENDER", {
+    hasDevice: !!cameraDevice,
+    isActive: isCameraActive,
+    hasPerm: hasPermission,
+    ready: isCameraReady,
+  });
 
   // 🎯 シンプルなステータスメッセージ（サーバー側Face API専用）
   const detectionStatus = useMemo(() => {
@@ -623,12 +637,13 @@ export default function FaceRegistrationScreen() {
   // 選択された作業員情報を取得
   const selectedWorker = workers?.find(w => w.personId === selectedPersonId);
 
-  // 🚨 フォールバックUI: cameraDevice未取得時
+  // 🚨 SSOT診断: cameraDevice未取得時
   if (!cameraDevice) {
     return (
       <View style={styles.container}>
         <View style={styles.centerContent}>
           <ActivityIndicator size="large" color={tokens.color.primary} />
+          <Text style={styles.message}>[FaceReg:SSOT] cameraDevice is null</Text>
           <Text style={styles.message}>カメラを初期化中...</Text>
         </View>
       </View>
