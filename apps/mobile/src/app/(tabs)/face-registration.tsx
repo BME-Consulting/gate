@@ -129,6 +129,8 @@ export default function FaceRegistrationScreen() {
   // 🎯 SSOT診断: RENDERログ（毎レンダリング時に状態を記録）
   console.info("[FaceReg:SSOT] RENDER", {
     hasDevice: !!cameraDevice,
+    isFocused,
+    appState,
     isActive: isCameraActive,
     hasPerm: hasPermission,
     ready: isCameraReady,
