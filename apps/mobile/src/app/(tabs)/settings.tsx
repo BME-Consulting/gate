@@ -600,6 +600,86 @@ export default function SettingsScreen() {
     }
   };
 
+  // Force Face API Ping（プレビュー限定デバッグ機能）
+  const onPressForceFaceApiPing = async () => {
+    const baseUrl = Constants.expoConfig?.extra?.apiFaceApi;
+    const faceApiKey = Constants.expoConfig?.extra?.apiFaceApiKey;
+
+    if (!baseUrl) {
+      Alert.alert("設定エラー", "Face API URLが設定されていません");
+      return;
+    }
+
+    const urlCandidates = [
+      `${baseUrl}/health`,
+      `${baseUrl}/api/health`,
+      `${baseUrl}/api/workers`,
+    ];
+
+    const headers: Record<string, string> = {
+      ...(faceApiKey ? { "x-api-key": faceApiKey } : {}),
+    };
+
+    console.info("[FaceAPI:SSOT] FORCE_PING pressed");
+    console.info("[FaceAPI:SSOT] config", {
+      baseUrl,
+      apiKeyPresent: Boolean(faceApiKey),
+      headersKeys: Object.keys(headers),
+      urlCandidates,
+    });
+
+    let lastErr: any = null;
+    let successUrl: string | null = null;
+
+    for (const url of urlCandidates) {
+      try {
+        console.info("[FaceAPI:SSOT] trying", { url });
+        const res = await fetchWithTimeout(url, { method: "GET", headers }, 10000);
+
+        const contentType = res.headers?.get?.("content-type") ?? null;
+        let bodyPreview: string | null = null;
+        try {
+          const txt = await res.text();
+          bodyPreview = txt.slice(0, 200);
+        } catch {}
+
+        console.info("[FaceAPI:SSOT] response", {
+          url,
+          status: res.status,
+          ok: res.ok,
+          contentType,
+          bodyPreview,
+        });
+
+        successUrl = url;
+        Alert.alert(
+          "Face API Ping 成功",
+          `URL: ${url}\nStatus: ${res.status}\nOK: ${res.ok}\nContent-Type: ${contentType}\n\nBody:\n${bodyPreview || "(empty)"}`
+        );
+
+        // 成功/失敗に関わらず、観測できた時点で終了
+        return;
+      } catch (e: any) {
+        lastErr = e;
+        console.error("[FaceAPI:SSOT] request failed", {
+          url,
+          name: e?.name,
+          message: e?.message,
+        });
+      }
+    }
+
+    console.error("[FaceAPI:SSOT] all candidates failed", {
+      baseUrl,
+      message: lastErr?.message,
+    });
+
+    Alert.alert(
+      "Face API Ping 失敗",
+      `すべてのエンドポイントが失敗しました\n\nBase URL: ${baseUrl}\nError: ${lastErr?.message || "不明"}\n\nlogcat を確認してください`
+    );
+  };
+
   return (
     <>
       <PasscodeModal
@@ -664,6 +744,41 @@ export default function SettingsScreen() {
 
     <ScrollView style={styles.container}>
       <View style={styles.content}>
+        {/* Force Face API Ping デバッグセクション（preview限定） */}
+        {(Constants.expoConfig?.extra?.appEnv || "development") !== "production" && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>デバッグ - Face API 診断</Text>
+            <View style={styles.card}>
+              <Text style={styles.note}>
+                ⚠️ このセクションはプレビュービルドでのみ表示されます。
+                Face API への接続をテストし、ネットワーク層の [NET:SSOT] ログを強制的に出力します。
+              </Text>
+
+              <View style={styles.buttonRow}>
+                <Button
+                  title="Force Face API Ping"
+                  variant="danger"
+                  onPress={onPressForceFaceApiPing}
+                  fullWidth
+                />
+              </View>
+
+              <Text style={[styles.note, { marginTop: -8 }]}>
+                このボタンを押すと、ワーカー同期やトークンのチェックをスキップして、
+                Face API に直接 HTTP リクエストを送信します。
+                {"\n\n"}
+                logcat で以下を確認してください：
+                {"\n"}
+                - [FaceAPI:SSOT] FORCE_PING pressed
+                {"\n"}
+                - [FaceAPI:SSOT] config
+                {"\n"}
+                - [NET:SSOT] または [FaceAPI:SSOT] response
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* ユーザー情報 */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>ユーザー情報</Text>
