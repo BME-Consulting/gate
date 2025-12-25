@@ -138,7 +138,7 @@ export function useWorkers() {
     const allWorkers = await repositoryInstance.findAll();
     setWorkers(allWorkers);
     return allWorkers;
-  }, []); // repositoryInstanceは一度初期化されたら変わらないため空配列
+  }, [repositoryInstance]); // repositoryInstanceが null → 非null に変わる1回だけ再生成
 
   /**
    * IDで作業員を検索
