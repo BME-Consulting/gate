@@ -27,7 +27,9 @@ module.exports = ({ config }) => {
   // ハードコード削除: 全環境で環境変数から取得
   // IMPORTANT: Filter out empty objects (EAS Update may pass {} instead of undefined)
   const apiGsApiKey = (process.env.API_GS_API_KEY && typeof process.env.API_GS_API_KEY === 'string') ? process.env.API_GS_API_KEY : null;
-  const apiFaceApiKey = (process.env.API_FACE_API_KEY && typeof process.env.API_FACE_API_KEY === 'string') ? process.env.API_FACE_API_KEY : null;
+  const apiFaceApiKey = (process.env.API_FACE_API_KEY && typeof process.env.API_FACE_API_KEY === 'string') ?
+    process.env.API_FACE_API_KEY :
+    (appEnv === "development" ? "preview-3048a965-fa7c" : null);  // development環境のみデフォルトキーを使用
 
   // Sentry DSN - Error tracking and monitoring
   const sentryDsn = process.env.SENTRY_DSN || "";
