@@ -602,81 +602,162 @@ export default function SettingsScreen() {
 
   // Force Face API Ping（プレビュー限定デバッグ機能）
   const onPressForceFaceApiPing = async () => {
-    const baseUrl = Constants.expoConfig?.extra?.apiFaceApi;
+    const faceApiUrl = Constants.expoConfig?.extra?.apiFaceApi;
     const faceApiKey = Constants.expoConfig?.extra?.apiFaceApiKey;
-
-    if (!baseUrl) {
-      Alert.alert("設定エラー", "Face API URLが設定されていません");
-      return;
-    }
-
-    const urlCandidates = [
-      `${baseUrl}/health`,
-      `${baseUrl}/api/health`,
-      `${baseUrl}/api/workers`,
-    ];
-
-    const headers: Record<string, string> = {
-      ...(faceApiKey ? { "x-api-key": faceApiKey } : {}),
-    };
+    const gsApiUrl = Constants.expoConfig?.extra?.apiBaseGs;
+    const gsApiKey = Constants.expoConfig?.extra?.apiGsApiKey;
+    const hasUserToken = Boolean(user?.token);
 
     console.info("[FaceAPI:SSOT] FORCE_PING pressed");
     console.info("[FaceAPI:SSOT] config", {
-      baseUrl,
-      apiKeyPresent: Boolean(faceApiKey),
-      headersKeys: Object.keys(headers),
-      urlCandidates,
+      faceApiUrl,
+      faceApiKeyPresent: Boolean(faceApiKey),
+      gsApiUrl,
+      gsApiKeyPresent: Boolean(gsApiKey),
+      hasUserToken,
     });
 
-    let lastErr: any = null;
-    let successUrl: string | null = null;
+    const results: Array<{ url: string; method: string; status: number | string; body?: string; error?: string }> = [];
 
-    for (const url of urlCandidates) {
+    // Phase 1: Face API /health テスト
+    if (faceApiUrl) {
+      const faceHeaders: Record<string, string> = {
+        ...(faceApiKey ? { "x-api-key": faceApiKey } : {}),
+      };
+
+      const faceUrl = `${faceApiUrl}/health`;
       try {
-        console.info("[FaceAPI:SSOT] trying", { url });
-        const res = await fetchWithTimeout(url, { method: "GET", headers }, 10000);
-
-        const contentType = res.headers?.get?.("content-type") ?? null;
-        let bodyPreview: string | null = null;
-        try {
-          const txt = await res.text();
-          bodyPreview = txt.slice(0, 200);
-        } catch {}
+        console.info("[FaceAPI:SSOT] trying", { url: faceUrl, method: "GET" });
+        const res = await fetchWithTimeout(faceUrl, { method: "GET", headers: faceHeaders }, 10000);
+        const body = await res.text();
 
         console.info("[FaceAPI:SSOT] response", {
-          url,
+          url: faceUrl,
           status: res.status,
           ok: res.ok,
-          contentType,
-          bodyPreview,
+          bodyPreview: body.slice(0, 200),
         });
 
-        successUrl = url;
-        Alert.alert(
-          "Face API Ping 成功",
-          `URL: ${url}\nStatus: ${res.status}\nOK: ${res.ok}\nContent-Type: ${contentType}\n\nBody:\n${bodyPreview || "(empty)"}`
-        );
-
-        // 成功/失敗に関わらず、観測できた時点で終了
-        return;
+        results.push({
+          url: faceUrl,
+          method: "GET",
+          status: res.status,
+          body: body.slice(0, 100),
+        });
       } catch (e: any) {
-        lastErr = e;
         console.error("[FaceAPI:SSOT] request failed", {
-          url,
-          name: e?.name,
-          message: e?.message,
+          url: faceUrl,
+          error: e?.message,
+        });
+        results.push({
+          url: faceUrl,
+          method: "GET",
+          status: "ERROR",
+          error: e?.message || "不明",
         });
       }
     }
 
-    console.error("[FaceAPI:SSOT] all candidates failed", {
-      baseUrl,
-      message: lastErr?.message,
-    });
+    // Phase 2: GS API /api/workers テスト（GET）
+    if (gsApiUrl) {
+      const gsHeaders: Record<string, string> = {
+        ...(gsApiKey ? { "x-api-key": gsApiKey } : {}),
+        ...(user?.token ? { "Authorization": `Bearer ${user.token}` } : {}),
+      };
+
+      const workersUrl = `${gsApiUrl}/api/workers`;
+      try {
+        console.info("[FaceAPI:SSOT] trying", { url: workersUrl, method: "GET", hasBearer: Boolean(user?.token) });
+        const res = await fetchWithTimeout(workersUrl, { method: "GET", headers: gsHeaders }, 10000);
+        const body = await res.text();
+
+        console.info("[FaceAPI:SSOT] response", {
+          url: workersUrl,
+          status: res.status,
+          ok: res.ok,
+          bodyPreview: body.slice(0, 200),
+        });
+
+        results.push({
+          url: workersUrl,
+          method: "GET",
+          status: res.status,
+          body: body.slice(0, 100),
+        });
+      } catch (e: any) {
+        console.error("[FaceAPI:SSOT] request failed", {
+          url: workersUrl,
+          error: e?.message,
+        });
+        results.push({
+          url: workersUrl,
+          method: "GET",
+          status: "ERROR",
+          error: e?.message || "不明",
+        });
+      }
+    }
+
+    // Phase 3: GS API /api/workers/sync テスト（POST、ボディなし）
+    if (gsApiUrl) {
+      const gsHeaders: Record<string, string> = {
+        "Content-Type": "application/json",
+        ...(gsApiKey ? { "x-api-key": gsApiKey } : {}),
+        ...(user?.token ? { "Authorization": `Bearer ${user.token}` } : {}),
+      };
+
+      const syncUrl = `${gsApiUrl}/api/workers/sync`;
+      try {
+        console.info("[FaceAPI:SSOT] trying", { url: syncUrl, method: "POST", hasBearer: Boolean(user?.token) });
+        const res = await fetchWithTimeout(
+          syncUrl,
+          {
+            method: "POST",
+            headers: gsHeaders,
+            body: JSON.stringify({}), // 空ボディ
+          },
+          10000
+        );
+        const body = await res.text();
+
+        console.info("[FaceAPI:SSOT] response", {
+          url: syncUrl,
+          status: res.status,
+          ok: res.ok,
+          bodyPreview: body.slice(0, 200),
+        });
+
+        results.push({
+          url: syncUrl,
+          method: "POST",
+          status: res.status,
+          body: body.slice(0, 100),
+        });
+      } catch (e: any) {
+        console.error("[FaceAPI:SSOT] request failed", {
+          url: syncUrl,
+          error: e?.message,
+        });
+        results.push({
+          url: syncUrl,
+          method: "POST",
+          status: "ERROR",
+          error: e?.message || "不明",
+        });
+      }
+    }
+
+    // 結果サマリー表示
+    const summary = results
+      .map((r, i) => `${i + 1}. ${r.method} ${r.url}\n   Status: ${r.status}\n   ${r.error ? `Error: ${r.error}` : `Body: ${r.body}`}`)
+      .join("\n\n");
+
+    console.info("[FaceAPI:SSOT] FORCE_PING summary", { results });
 
     Alert.alert(
-      "Face API Ping 失敗",
-      `すべてのエンドポイントが失敗しました\n\nBase URL: ${baseUrl}\nError: ${lastErr?.message || "不明"}\n\nlogcat を確認してください`
+      "Force API Ping 結果",
+      `ユーザートークン: ${hasUserToken ? "あり" : "なし"}\n\n${summary}\n\nlogcat で [FaceAPI:SSOT] を確認してください`,
+      [{ text: "OK" }]
     );
   };
 
