@@ -2,7 +2,7 @@
 // 作業員マスタ管理フック
 // ==========================================
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Platform } from "react-native";
 import type { Worker, SQLiteDatabase } from "@mc-gate/core";
 import { DB_NAME as IMPORTED_DB_NAME, TIMEOUT, fetchWithTimeout } from "@mc-gate/core";
@@ -131,14 +131,14 @@ export function useWorkers() {
   /**
    * 全作業員を取得
    */
-  const getAllWorkers = async (): Promise<Worker[]> => {
+  const getAllWorkers = useCallback(async (): Promise<Worker[]> => {
     if (!repositoryInstance) {
       throw new Error("WorkerRepository is not initialized");
     }
     const allWorkers = await repositoryInstance.findAll();
     setWorkers(allWorkers);
     return allWorkers;
-  };
+  }, []); // repositoryInstanceは一度初期化されたら変わらないため空配列
 
   /**
    * IDで作業員を検索
