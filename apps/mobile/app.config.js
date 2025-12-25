@@ -1,27 +1,90 @@
 module.exports = ({ config }) => {
-  // Environment detection
-  // APP_ENVを統一的に使用（ENVとの二重管理を避ける）
-  // フォールバック: EAS_BUILD_PROFILE または Updates.channel から推測
-  const buildProfile = process.env.EAS_BUILD_PROFILE || "";
-  const appEnv = process.env.APP_ENV ||
-    process.env.ENV ||
-    (buildProfile === "production" ? "production" :
-     buildProfile === "preview" ? "preview" :
-     buildProfile === "production-apk" ? "production" :
-     "development");
+  // ========================================
+  // SSOT Environment Detection (2025-12-25)
+  // ========================================
+  // EAS Update（OTA配信）では EAS_BUILD_PROFILE が存在しない問題に対処
+  // Branch/Channel優先で環境を確定し、preview/prodでのLAN URL fallbackを根絶
+
+  const buildProfile = process.env.EAS_BUILD_PROFILE;              // build時
+  const updateBranch = process.env.EAS_UPDATE_BRANCH;              // update時
+  const updateChannel = process.env.EAS_UPDATE_CHANNEL;            // あるなら
+  const branchLike = updateBranch || updateChannel || buildProfile || "";
+
+  // 明示指定（ただし preview/prod では branchLike を優先）
+  const explicitEnv = process.env.EXPO_PUBLIC_APP_ENV || process.env.APP_ENV || process.env.ENV || "";
+
+  // branch/channel/profile から確定（最優先）
+  function envFromBranch(branch) {
+    const b = String(branch).toLowerCase();
+    if (b === "production" || b === "prod" || b === "main") return "production";
+    if (b === "preview" || b === "staging") return "preview";
+    if (b === "production-apk") return "production";
+    return null;
+  }
+
+  const inferred = envFromBranch(branchLike);
+
+  // ✅ 最終 appEnv
+  // - preview/prod が推定できるならそれを採用（explicitを無視）
+  // - それ以外は explicit → development
+  const appEnv = inferred || (explicitEnv ? String(explicitEnv).toLowerCase() : "development");
   const isProduction = appEnv === "production";
 
-  // API URLs - IMPORTANT: Use environment variables for production/preview
-  // development環境のみLAN IPをフォールバック許可、それ以外はnull（ビルドエラーで検出）
-  // ⚠️ Face APIポート: 8101（Cloudflare Dashboard設定に統一）
-  const apiBaseGs = process.env.API_BASE_GS ||
-    (appEnv === "development" ? "http://192.168.1.4:7070" : null);
-  const apiBaseCcus = process.env.API_BASE_CCUS ||
-    (appEnv === "development" ? "http://192.168.1.4:7071" : null);
-  const apiFaceApi = process.env.API_FACE_API ||
-    (appEnv === "development" ? "http://192.168.1.4:8101" : null);  // ✅ Cloudflare Dashboard（8101）に統一
-  const authIssuer = process.env.AUTH_ISSUER ||
-    (appEnv === "development" ? "http://192.168.1.4:8081/realms/mcd3" : null);
+  // ========================================
+  // SSOT URL Selection with LAN Ban (2025-12-25)
+  // ========================================
+  // Cloudflare Tunnel domains (SSOT)
+  const API_GATE = "https://api-gate.bme-service.monster";
+  const FACE_GATE = "https://face-gate.bme-service.monster";
+  const AUTH_GATE = "https://auth-gate.bme-service.monster";
+
+  // URL決定関数（appEnv優先、LAN禁止ガード付き）
+  function pickBaseUrls(appEnv) {
+    if (appEnv === "production" || appEnv === "preview") {
+      return {
+        apiBaseGs: API_GATE,
+        apiBaseCcus: API_GATE,
+        apiFaceApi: FACE_GATE,
+        authIssuer: `${AUTH_GATE}/realms/mcd3`,
+      };
+    }
+    // developmentだけLAN許可
+    return {
+      apiBaseGs: "http://192.168.1.4:7070",
+      apiBaseCcus: "http://192.168.1.4:7071",
+      apiFaceApi: "http://192.168.1.4:8101",
+      authIssuer: "http://192.168.1.4:8081/realms/mcd3",
+    };
+  }
+
+  const urls = pickBaseUrls(appEnv);
+
+  // 🔒 SSOT: preview/prod でLANが出たら絶対に強制上書き
+  const isLan = (u) => /^http:\/\/192\.168\./.test(u) || /^http:\/\/10\./.test(u) || /^http:\/\/172\.(1[6-9]|2[0-9]|3[01])\./.test(u);
+  if ((appEnv === "preview" || appEnv === "production") &&
+      (isLan(urls.apiBaseGs) || isLan(urls.apiFaceApi) || isLan(urls.authIssuer))) {
+    console.error(`🚨 [SSOT] LAN URL detected in ${appEnv} environment! Force overriding to Cloudflare domains.`);
+    urls.apiBaseGs = API_GATE;
+    urls.apiBaseCcus = API_GATE;
+    urls.apiFaceApi = FACE_GATE;
+    urls.authIssuer = `${AUTH_GATE}/realms/mcd3`;
+  }
+
+  // 最終的なURL（環境変数での上書きも許可、ただしLANガードは通す）
+  let apiBaseGs = process.env.API_BASE_GS || urls.apiBaseGs;
+  let apiBaseCcus = process.env.API_BASE_CCUS || urls.apiBaseCcus;
+  let apiFaceApi = process.env.API_FACE_API || urls.apiFaceApi;
+  let authIssuer = process.env.AUTH_ISSUER || urls.authIssuer;
+
+  // 最終LAN禁止ガード（環境変数経由でもLANを弾く）
+  if ((appEnv === "preview" || appEnv === "production") &&
+      (isLan(apiBaseGs) || isLan(apiFaceApi) || isLan(authIssuer))) {
+    console.error(`🚨 [SSOT] LAN URL in env vars for ${appEnv}! Forcing Cloudflare domains.`);
+    apiBaseGs = API_GATE;
+    apiBaseCcus = API_GATE;
+    apiFaceApi = FACE_GATE;
+    authIssuer = `${AUTH_GATE}/realms/mcd3`;
+  }
 
   // API Keys - MUST be set via environment variables
   // ハードコード削除: 全環境で環境変数から取得
@@ -97,17 +160,25 @@ Please set these environment variables before building.
   // Expo から渡される config.extra をベースにする（なければ {}）
   const baseExtra = (config && config.extra) || {};
 
-  // デバッグ出力（ビルドログで確認用）
-  console.log("🔍 app.config.js Debug (before merge):");
-  console.log("  incoming config.extra:", JSON.stringify(baseExtra, null, 2));
-  console.log("  APP_ENV (process.env):", process.env.APP_ENV);
-  console.log("  EAS_BUILD_PROFILE (process.env):", process.env.EAS_BUILD_PROFILE);
-  console.log("  appEnv (computed):", appEnv);
-  console.log("  isProduction:", isProduction);
-  console.log("  apiBaseGs:", apiBaseGs);
-  console.log("  apiBaseCcus:", apiBaseCcus);
-  console.log("  apiFaceApi:", apiFaceApi);
-  console.log("  authIssuer:", authIssuer);
+  // SSOT Diagnostic Logging
+  console.log("========================================");
+  console.log("🔍 SSOT app.config.js Diagnostic (2025-12-25)");
+  console.log("========================================");
+  console.log("  Environment Detection:");
+  console.log("    buildProfile:", buildProfile || "(none)");
+  console.log("    updateBranch:", updateBranch || "(none)");
+  console.log("    updateChannel:", updateChannel || "(none)");
+  console.log("    branchLike:", branchLike || "(none)");
+  console.log("    explicitEnv (APP_ENV/ENV):", explicitEnv || "(none)");
+  console.log("    inferred (from branch):", inferred || "(none)");
+  console.log("    ➡️ FINAL appEnv:", appEnv);
+  console.log("  ");
+  console.log("  API URLs (SSOT):");
+  console.log("    apiBaseGs:", apiBaseGs);
+  console.log("    apiBaseCcus:", apiBaseCcus);
+  console.log("    apiFaceApi:", apiFaceApi);
+  console.log("    authIssuer:", authIssuer);
+  console.log("========================================");
 
   return {
     ...config,
@@ -191,6 +262,17 @@ Please set these environment variables before building.
         : (process.env.USE_MOCK_WORKERS === "true" ? true : false),
 
       appEnv,  // アプリ内で環境判定に使用
+
+      // SSOT環境判定診断情報（2025-12-25）
+      ssotEnvDiagnostic: {
+        buildProfile: buildProfile || null,
+        updateBranch: updateBranch || null,
+        updateChannel: updateChannel || null,
+        branchLike: branchLike || null,
+        explicitEnv: explicitEnv || null,
+        inferred: inferred || null,
+        finalAppEnv: appEnv,
+      },
 
       // Git commit hash for runtime verification (P2-6 integrity check)
       // EAS Updateの不整合を検知するため、ビルド時のコミットハッシュを埋め込む
