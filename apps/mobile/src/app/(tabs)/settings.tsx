@@ -392,21 +392,27 @@ export default function SettingsScreen() {
 
 
   const handleWorkerSync = async () => {
+    console.log("[FaceAPI:SSOT] SYNC button pressed");
+
     if (Platform.OS === "web") {
+      console.log("[FaceAPI:SSOT] SYNC blocked - web platform");
       Alert.alert("エラー", "Web環境では作業員同期機能は利用できません");
       return;
     }
 
     if (!workersReady) {
+      console.log("[FaceAPI:SSOT] SYNC blocked - workers not ready");
       Alert.alert("エラー", "作業員データベースの初期化中です。しばらくお待ちください。");
       return;
     }
 
     if (!user?.token) {
+      console.log("[FaceAPI:SSOT] SYNC blocked - no token");
       Alert.alert("エラー", "認証情報が見つかりません。再度ログインしてください。");
       return;
     }
 
+    console.log("[FaceAPI:SSOT] SYNC proceeding - all checks passed");
     setIsSyncing(true);
 
     try {

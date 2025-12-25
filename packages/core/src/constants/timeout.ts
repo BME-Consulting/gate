@@ -34,6 +34,15 @@ export async function fetchWithTimeout(
 ): Promise<Response> {
   const { timeoutMs = TIMEOUT.DEFAULT, ...fetchOptions } = options;
 
+  // [NET:SSOT] ログ - HTTPリクエストの詳細を記録
+  console.log(`[NET:SSOT] Request starting:`, {
+    url,
+    method: fetchOptions.method || 'GET',
+    headers: fetchOptions.headers,
+    timeoutMs,
+    hasBody: !!fetchOptions.body,
+  });
+
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -44,11 +53,29 @@ export async function fetchWithTimeout(
       signal: controller.signal as any,
     });
     clearTimeout(timeoutId);
+
+    // [NET:SSOT] ログ - レスポンスの詳細を記録
+    console.log(`[NET:SSOT] Response received:`, {
+      url,
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok,
+      headers: Object.fromEntries(response.headers.entries()),
+    });
+
     return response;
   } catch (error) {
     clearTimeout(timeoutId);
 
     if (error instanceof Error) {
+      // [NET:SSOT] ログ - エラーの詳細を記録
+      console.log(`[NET:SSOT] Request failed:`, {
+        url,
+        errorName: error.name,
+        errorMessage: error.message,
+        timeoutMs,
+      });
+
       // タイムアウトエラー
       if (error.name === 'AbortError') {
         const timeoutError = new Error(`Request timeout after ${timeoutMs / 1000}s`);
