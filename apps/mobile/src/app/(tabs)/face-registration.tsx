@@ -86,7 +86,7 @@ export default function FaceRegistrationScreen() {
         console.error("Failed to load workers:", error);
       });
     }
-  }, [isReady, getAllWorkers]);
+  }, [isReady]); // getAllWorkersを削除 - isReadyの変化時のみ実行
 
   // 🎯 SSOT診断: MOUNT/UNMOUNTログ
   useEffect(() => {
