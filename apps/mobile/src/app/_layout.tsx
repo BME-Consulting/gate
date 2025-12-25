@@ -4,13 +4,24 @@
 
 console.log("[BOOT:FILE] app/_layout.tsx loaded");
 
+// 🔍 UPD:SSOT - Single Source of Truth for Update Status
+import * as Updates from "expo-updates";
+import Constants from "expo-constants";
+
+console.log("[UPD:SSOT]", {
+  runtimeVersion: Updates.runtimeVersion,
+  channel: Updates.channel,
+  updateId: Updates.updateId,
+  isEmbeddedLaunch: Updates.isEmbeddedLaunch,
+  extraAppEnv: Constants.expoConfig?.extra?.appEnv,
+});
+
 import { useEffect, useMemo, useState, useRef } from "react";
 import { View, ActivityIndicator, Text } from "react-native";
 import { Stack, useRouter, usePathname } from "expo-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import * as Linking from "expo-linking";
 import * as Sentry from "@sentry/react-native";
-import Constants from "expo-constants";
 import { useAppStore } from "../store/appStore";
 import { InitialErrorScreen } from "../components/system/InitialErrorScreen";
 import { tokens } from "@mc-gate/ui-kit";

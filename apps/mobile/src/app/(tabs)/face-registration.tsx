@@ -3,7 +3,7 @@
 // ==========================================
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { View, Text, StyleSheet, Alert, TouchableOpacity, ActivityIndicator, Modal, FlatList, AppState, Pressable } from "react-native";
+import { View, Text, StyleSheet, Alert, TouchableOpacity, ActivityIndicator, Modal, FlatList, AppState, Pressable, Linking } from "react-native";
 import { Camera, useCameraDevice, useCameraPermission } from "react-native-vision-camera";
 import { useFocusEffect } from "@react-navigation/native";
 import Constants from "expo-constants";
@@ -94,6 +94,19 @@ export default function FaceRegistrationScreen() {
     return () => console.info("[FaceReg:SSOT] UNMOUNT");
   }, []);
 
+  // 🎯 SSOT診断: Permission request flow
+  useEffect(() => {
+    console.info("[FaceReg:SSOT] PERM status", { hasPermission });
+
+    if (!hasPermission) {
+      (async () => {
+        console.info("[FaceReg:SSOT] PERM requesting...");
+        const ok = await requestPermission();
+        console.info("[FaceReg:SSOT] PERM request result", { ok });
+      })();
+    }
+  }, [hasPermission, requestPermission]);
+
   // タブフォーカス時にカメラリソースをリセット
   useFocusEffect(
     useCallback(() => {
@@ -136,16 +149,32 @@ export default function FaceRegistrationScreen() {
     return `顔をフレーム内に合わせて、${action}ボタンをタップしてください`;
   }, [isProcessing, selectedPersonId, mode]);
 
-  // カメラ権限のチェック
+  // 🎯 Permission gate: hasPermission=false の時は Camera を描画しない
   if (!hasPermission) {
     return (
       <View style={styles.container}>
         <View style={styles.centerContent}>
           <Ionicons name="camera-outline" size={64} color={tokens.color.text.secondary} />
-          <Text style={styles.message}>
-            顔登録を使用するにはカメラへのアクセスが必要です
+          <Text style={styles.message}>カメラ権限が必要です</Text>
+
+          <TouchableOpacity
+            style={styles.permissionButton}
+            onPress={async () => {
+              console.info("[FaceReg:SSOT] PERM button pressed");
+              const ok = await requestPermission();
+              console.info("[FaceReg:SSOT] PERM request result (button)", { ok });
+              if (!ok) {
+                // 拒否済み or 今後表示しない → 設定画面に誘導
+                Linking.openSettings();
+              }
+            }}
+          >
+            <Text style={styles.permissionButtonText}>カメラを許可する</Text>
+          </TouchableOpacity>
+
+          <Text style={{ color: tokens.color.text.secondary, marginTop: 10, fontSize: 14 }}>
+            許可できない場合は設定画面で「カメラ」をONにしてください
           </Text>
-          <Button title="カメラを許可" onPress={requestPermission} />
         </View>
       </View>
     );
