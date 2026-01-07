@@ -439,7 +439,8 @@ export default function SettingsScreen() {
       console.log("==================== WORKER SYNC DEBUG ====================");
       console.log(`[DEBUG] GS API URL: ${apiBaseGs}`);
       console.log(`[DEBUG] Workers API URL: ${workersApiUrl}`);
-      console.log(`[DEBUG] API Key: ${apiGsApiKey.substring(0, 20)}...`);
+      console.log(`[DEBUG] API Key type: ${typeof apiGsApiKey}`);
+      console.log(`[DEBUG] API Key: ${typeof apiGsApiKey === 'string' ? apiGsApiKey.substring(0, 20) + '...' : JSON.stringify(apiGsApiKey)}`);
       console.log("===========================================================");
 
       console.log("[DEBUG] Starting worker sync...");
