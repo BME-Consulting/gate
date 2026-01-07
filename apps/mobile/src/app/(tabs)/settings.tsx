@@ -393,6 +393,15 @@ export default function SettingsScreen() {
 
   const handleWorkerSync = async () => {
     console.log("[FaceAPI:SSOT] SYNC button pressed");
+    console.log("[P2][WorkerSync] entered handleWorkerSync");
+
+    // typeof診断（全関数を確認）
+    console.log("[P2][WorkerSync] typeof syncFromServer =", typeof syncFromServer);
+    console.log("[P2][WorkerSync] typeof getAllWorkers =", typeof getAllWorkers);
+    console.log("[P2][WorkerSync] typeof setWorkerCount =", typeof setWorkerCount);
+    console.log("[P2][WorkerSync] typeof setIsSyncing =", typeof setIsSyncing);
+    console.log("[P2][WorkerSync] typeof Alert.alert =", typeof Alert?.alert);
+    console.log("[P2][WorkerSync] workersHook keys =", workersHook ? Object.keys(workersHook) : null);
 
     if (Platform.OS === "web") {
       console.log("[FaceAPI:SSOT] SYNC blocked - web platform");
