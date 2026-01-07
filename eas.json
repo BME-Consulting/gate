@@ -27,8 +27,8 @@
         "AUTH_ISSUER": "https://auth-gate.bme-service.monster/realms/mcd3",
         "AUTH_AUDIENCE": "mc-gate",
         "AUTH_CLIENT_ID": "mc-gate-mobile",
-        "API_FACE_API_KEY": "development-api-key-12345",
-        "API_GS_API_KEY": "development-api-key-12345",
+        "API_FACE_API_KEY": "preview-3048a965-fa7c",
+        "API_GS_API_KEY": "preview-3048a965-fa7c",
         "SENTRY_DSN": "https://a78f6b7457e0eff34f464bc83a1a0885@o4509755717648384.ingest.us.sentry.io/4510471361265664"
       },
       "ios": {
