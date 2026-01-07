@@ -108,9 +108,8 @@ app.get('/health', async (req, res) => {
 
 // OAuth認証が必要なエンドポイント（JWT トークンからプロジェクトロールを抽出）
 // NOTE: 開発環境では MOCK_AUTH=true で動作（JWT検証スキップ）
-// IMPORTANT: authMiddleware より先に登録（API Key チェックをスキップ）
 import { oauthMiddleware } from './middleware/oauth';
-app.use('/api', oauthMiddleware, projectsRoutes);
+app.use('/api/me', oauthMiddleware, projectsRoutes);
 
 // API Key 認証が必要なエンドポイント
 app.use('/api', authMiddleware, workersRoutes);

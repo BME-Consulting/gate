@@ -251,6 +251,20 @@ export function useWorkers() {
    * サーバーから作業員マスタを同期
    */
   const syncFromServer = async (apiUrl: string, apiKey: string, bearerToken: string): Promise<void> => {
+    console.log("[P2][WorkerSync] entered syncFromServer");
+    console.log("[P2][WorkerSync] typeof fetchWithTimeout =", typeof fetchWithTimeout);
+    console.log("[P2][WorkerSync] typeof repositoryInstance =", typeof repositoryInstance);
+
+    if (repositoryInstance) {
+      const proto = Object.getPrototypeOf(repositoryInstance);
+      console.log("[P2][WorkerSync] repo proto methods =",
+        Object.getOwnPropertyNames(proto).filter((k) => typeof (repositoryInstance as any)[k] === "function")
+      );
+      console.log("[P2][WorkerSync] typeof repo.upsertBatch =", typeof (repositoryInstance as any).upsertBatch);
+      console.log("[P2][WorkerSync] typeof repo.upsertMany  =", typeof (repositoryInstance as any).upsertMany);
+      console.log("[P2][WorkerSync] typeof repo.upsert      =", typeof (repositoryInstance as any).upsert);
+    }
+
     if (!repositoryInstance) {
       throw new Error("WorkerRepository is not initialized");
     }
@@ -275,8 +289,24 @@ export function useWorkers() {
         serverWorkers = await fetchWorkersFromServer(apiUrl, apiKey, bearerToken);
       }
 
-      // バッチでUPSERT
-      await repositoryInstance.upsertBatch(serverWorkers);
+      // バッチでUPSERT（名前ズレ吸収）
+      const repo: any = repositoryInstance;
+      console.log("[P2][WorkerSync] About to upsert, serverWorkers.length =", serverWorkers.length);
+
+      if (typeof repo.upsertBatch === "function") {
+        console.log("[P2][WorkerSync] Using upsertBatch");
+        await repo.upsertBatch(serverWorkers);
+      } else if (typeof repo.upsertMany === "function") {
+        console.log("[P2][WorkerSync] Using upsertMany");
+        await repo.upsertMany(serverWorkers);
+      } else if (typeof repo.upsert === "function") {
+        console.log("[P2][WorkerSync] Using upsert (1 by 1)");
+        for (const w of serverWorkers) await repo.upsert(w);
+      } else {
+        throw new Error("No upsert method found on WorkerRepository");
+      }
+
+      console.log("[P2][WorkerSync] Upsert completed, calling getAllWorkers");
       await getAllWorkers(); // リストを更新
 
       console.log(`✅ Synced ${serverWorkers.length} workers from server`);
