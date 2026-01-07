@@ -251,18 +251,19 @@ export function useWorkers() {
    * サーバーから作業員マスタを同期
    */
   const syncFromServer = async (apiUrl: string, apiKey: string, bearerToken: string): Promise<void> => {
-    console.log("[P2][WorkerSync] entered syncFromServer");
-    console.log("[P2][WorkerSync] typeof fetchWithTimeout =", typeof fetchWithTimeout);
-    console.log("[P2][WorkerSync] typeof repositoryInstance =", typeof repositoryInstance);
+    console.log("[P2][syncFromServer] === ENTRY ===");
+    console.log("[P2][syncFromServer] typeof generateMockWorkers =", typeof generateMockWorkers);
+    console.log("[P2][syncFromServer] typeof fetchWorkersFromServer =", typeof fetchWorkersFromServer);
+    console.log("[P2][syncFromServer] typeof repositoryInstance =", typeof repositoryInstance);
 
     if (repositoryInstance) {
       const proto = Object.getPrototypeOf(repositoryInstance);
-      console.log("[P2][WorkerSync] repo proto methods =",
+      console.log("[P2][syncFromServer] repo proto methods =",
         Object.getOwnPropertyNames(proto).filter((k) => typeof (repositoryInstance as any)[k] === "function")
       );
-      console.log("[P2][WorkerSync] typeof repo.upsertBatch =", typeof (repositoryInstance as any).upsertBatch);
-      console.log("[P2][WorkerSync] typeof repo.upsertMany  =", typeof (repositoryInstance as any).upsertMany);
-      console.log("[P2][WorkerSync] typeof repo.upsert      =", typeof (repositoryInstance as any).upsert);
+      console.log("[P2][syncFromServer] typeof repo.upsertBatch =", typeof (repositoryInstance as any).upsertBatch);
+      console.log("[P2][syncFromServer] typeof repo.upsertMany  =", typeof (repositoryInstance as any).upsertMany);
+      console.log("[P2][syncFromServer] typeof repo.upsert      =", typeof (repositoryInstance as any).upsert);
     }
 
     if (!repositoryInstance) {
@@ -271,47 +272,58 @@ export function useWorkers() {
 
     try {
       // モック使用フラグの判定（Constants経由）
+      console.log("[P2][syncFromServer] About to require expo-constants");
       const Constants = require("expo-constants").default;
+      console.log("[P2][syncFromServer] Constants loaded, typeof =", typeof Constants);
+
       const useMockWorkers = Constants.expoConfig?.extra?.useMockWorkers ?? false;
+      console.log("[P2][syncFromServer] useMockWorkers =", useMockWorkers);
 
       let serverWorkers: Worker[];
 
       if (useMockWorkers) {
         // モック実装: ダミー作業員データを生成（明示的にONにした場合のみ）
-        console.log("🔄 Using mock worker sync (useMockWorkers = true)");
+        console.log("[P2][syncFromServer] Using mock, calling generateMockWorkers");
         serverWorkers = generateMockWorkers(30); // 30人のダミーデータ
+        console.log("[P2][syncFromServer] Mock workers generated, count =", serverWorkers.length);
 
         // モック同期の遅延（サーバー接続を模擬）
+        console.log("[P2][syncFromServer] Simulating delay with setTimeout");
         await new Promise(resolve => setTimeout(resolve, 1000));
+        console.log("[P2][syncFromServer] Delay completed");
       } else {
         // 本番実装: 実際のサーバーから取得（デフォルト）
-        console.log("🔄 Fetching workers from server (useMockWorkers = false)");
+        console.log("[P2][syncFromServer] Calling fetchWorkersFromServer");
+        console.log("[P2][syncFromServer] apiUrl =", apiUrl);
         serverWorkers = await fetchWorkersFromServer(apiUrl, apiKey, bearerToken);
+        console.log("[P2][syncFromServer] fetchWorkersFromServer returned, count =", serverWorkers?.length);
       }
 
       // バッチでUPSERT（名前ズレ吸収）
       const repo: any = repositoryInstance;
-      console.log("[P2][WorkerSync] About to upsert, serverWorkers.length =", serverWorkers.length);
+      console.log("[P2][syncFromServer] About to upsert, serverWorkers.length =", serverWorkers.length);
 
       if (typeof repo.upsertBatch === "function") {
-        console.log("[P2][WorkerSync] Using upsertBatch");
+        console.log("[P2][syncFromServer] Using upsertBatch");
         await repo.upsertBatch(serverWorkers);
       } else if (typeof repo.upsertMany === "function") {
-        console.log("[P2][WorkerSync] Using upsertMany");
+        console.log("[P2][syncFromServer] Using upsertMany");
         await repo.upsertMany(serverWorkers);
       } else if (typeof repo.upsert === "function") {
-        console.log("[P2][WorkerSync] Using upsert (1 by 1)");
+        console.log("[P2][syncFromServer] Using upsert (1 by 1)");
         for (const w of serverWorkers) await repo.upsert(w);
       } else {
         throw new Error("No upsert method found on WorkerRepository");
       }
 
-      console.log("[P2][WorkerSync] Upsert completed, calling getAllWorkers");
+      console.log("[P2][syncFromServer] Upsert completed, calling getAllWorkers");
       await getAllWorkers(); // リストを更新
 
-      console.log(`✅ Synced ${serverWorkers.length} workers from server`);
+      console.log(`[P2][syncFromServer] ✅ Synced ${serverWorkers.length} workers from server`);
     } catch (error: any) {
-      console.error("Failed to sync workers from server:", error);
+      console.error("[P2][syncFromServer] ==================== ERROR ====================");
+      console.error("[P2][syncFromServer] Error message:", error?.message);
+      console.error("[P2][syncFromServer] Error stack:", error?.stack);
       throw error;
     }
   };
