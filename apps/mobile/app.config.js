@@ -112,7 +112,11 @@ module.exports = ({ config }) => {
   // ハードコード削除: 全環境で環境変数から取得
   // IMPORTANT: Filter out empty objects (EAS Update may pass {} instead of undefined)
   // ✅ 空文字fallbackに変更（null は {} に変換されるため）
-  const apiGsApiKey = safeString(process.env.API_GS_API_KEY, "");
+  // ✅ development環境では preview API key をデフォルトとして使用
+  const apiGsApiKey = safeString(
+    process.env.API_GS_API_KEY,
+    appEnv === "development" ? "preview-3048a965-fa7c" : ""
+  );
   const apiFaceApiKey = safeString(
     process.env.API_FACE_API_KEY,
     appEnv === "development" ? "preview-3048a965-fa7c" : ""  // development環境のみデフォルトキーを使用
