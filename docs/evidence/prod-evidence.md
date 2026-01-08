@@ -1,6 +1,6 @@
 # Production Evidence Pack
 
-**Generated**: 2026-01-08 08:22:10 UTC
+**Generated**: 2026-01-08 08:58:03 UTC
 
 **Purpose**: Automated production health verification without screenshots or manual input.
 
@@ -11,21 +11,21 @@
 ## Git Commit Hash
 
 ```
-292e493 ops: 事故防止3点セットを「効かせる」 - Actions修正/main保護/CODEOWNERS
+92fe7a8 docs: 401のみログアウト実装完了を記録
 ```
 
 ## Mobile JS Integrity Evidence
 
 **P2-6 Runtime Integrity Check**
 
-**Timestamp**: 2026-01-08T08:22:10.000Z
+**Timestamp**: 2026-01-08T08:58:03.000Z
 **Status**: ⏳ PENDING (Requires runtime execution)
 
 ### Runtime Information
 - **Runtime Version**: `exposdk:54.0.0`
 - **Update ID**: _To be determined at runtime_
 - **Commit Hash (Runtime)**: _To be determined at runtime_
-- **Expected Commit Hash**: `292e493` (current HEAD)
+- **Expected Commit Hash**: `92fe7a8` (current HEAD)
 - **Launch Mode**: _To be determined at runtime_
 - **Channel**: _To be determined at runtime_
 
