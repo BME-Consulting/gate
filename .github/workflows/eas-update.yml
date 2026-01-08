@@ -41,14 +41,17 @@ jobs:
       - name: Determine channel
         id: channel
         run: |
+          # Extract only the first line of commit message to avoid multiline issues
+          COMMIT_TITLE=$(echo "${{ github.event.head_commit.message }}" | head -n 1)
+
           if [ "${{ github.ref }}" == "refs/heads/main" ]; then
             echo "channel=production" >> $GITHUB_OUTPUT
             echo "branch=production" >> $GITHUB_OUTPUT
-            echo "message=Production release: ${{ github.event.head_commit.message }}" >> $GITHUB_OUTPUT
+            echo "message=Production release: ${COMMIT_TITLE}" >> $GITHUB_OUTPUT
           else
             echo "channel=preview" >> $GITHUB_OUTPUT
             echo "branch=preview" >> $GITHUB_OUTPUT
-            echo "message=Preview: ${{ github.event.head_commit.message }}" >> $GITHUB_OUTPUT
+            echo "message=Preview: ${COMMIT_TITLE}" >> $GITHUB_OUTPUT
           fi
 
       - name: Publish EAS Update
