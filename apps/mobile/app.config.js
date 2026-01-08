@@ -111,10 +111,11 @@ module.exports = ({ config }) => {
   // API Keys - MUST be set via environment variables
   // ハードコード削除: 全環境で環境変数から取得
   // IMPORTANT: Filter out empty objects (EAS Update may pass {} instead of undefined)
-  const apiGsApiKey = safeString(process.env.API_GS_API_KEY, null);
+  // ✅ 空文字fallbackに変更（null は {} に変換されるため）
+  const apiGsApiKey = safeString(process.env.API_GS_API_KEY, "");
   const apiFaceApiKey = safeString(
     process.env.API_FACE_API_KEY,
-    appEnv === "development" ? "preview-3048a965-fa7c" : null  // development環境のみデフォルトキーを使用
+    appEnv === "development" ? "preview-3048a965-fa7c" : ""  // development環境のみデフォルトキーを使用
   );
 
   // Sentry DSN - Error tracking and monitoring
@@ -251,8 +252,8 @@ Please set these environment variables before building.
       ...baseExtra,
 
       // その上で「絶対こうであってほしい値」で上書き
+      // ✅ || {} を削除（{} fallback が事故を引き起こすため）
       eas: {
-        ...(baseExtra.eas || {}),
         projectId: "0f0feec5-4f4b-4252-ad34-c1594238b4b8",
       },
 
@@ -265,11 +266,11 @@ Please set these environment variables before building.
       authIssuer,  // フラットキーとしても保存
 
       // ネストされた auth（実際にアプリが参照する想定）
+      // ✅ || {} を削除、空文字fallbackに変更
       auth: {
-        ...(baseExtra.auth || {}),
         issuer: authIssuer,
-        audience: safeString(process.env.AUTH_AUDIENCE) || baseExtra.auth?.audience || "mc-gate",
-        clientId: safeString(process.env.AUTH_CLIENT_ID) || baseExtra.auth?.clientId || "mc-gate-mobile",
+        audience: safeString(process.env.AUTH_AUDIENCE, "mc-gate"),
+        clientId: safeString(process.env.AUTH_CLIENT_ID, "mc-gate-mobile"),
       },
       // モック認証の使用（APP_ENVで強制制御）
       // 本番環境（APP_ENV=production）では絶対にfalse
@@ -287,13 +288,14 @@ Please set these environment variables before building.
       appEnv,  // アプリ内で環境判定に使用
 
       // SSOT環境判定診断情報（2025-12-25）
+      // ✅ || null を削除（null は {} に変換されるため、空文字のままにする）
       ssotEnvDiagnostic: {
-        buildProfile: buildProfile || null,
-        updateBranch: updateBranch || null,
-        updateChannel: updateChannel || null,
-        branchLike: branchLike || null,
-        explicitEnv: explicitEnv || null,
-        inferred: inferred || null,
+        buildProfile: buildProfile,
+        updateBranch: updateBranch,
+        updateChannel: updateChannel,
+        branchLike: branchLike,
+        explicitEnv: explicitEnv,
+        inferred: inferred || "",
         finalAppEnv: appEnv,
       },
 
