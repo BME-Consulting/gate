@@ -1,17 +1,39 @@
 module.exports = ({ config }) => {
   // ========================================
+  // SSOT Safe String Helper (2025-01-08)
+  // ========================================
+  // EAS Update may pass {} objects instead of strings
+  // This function ensures we only accept valid string values
+  function safeString(value, defaultValue = "") {
+    // Reject null, undefined, empty string
+    if (value === undefined || value === null || value === "") {
+      return defaultValue;
+    }
+    // Reject objects (including {})
+    if (typeof value === 'object') {
+      console.warn(`[app.config] Rejected object value:`, value);
+      return defaultValue;
+    }
+    // Convert to string
+    return String(value);
+  }
+
+  // ========================================
   // SSOT Environment Detection (2025-12-25)
   // ========================================
   // EAS Update（OTA配信）では EAS_BUILD_PROFILE が存在しない問題に対処
   // Branch/Channel優先で環境を確定し、preview/prodでのLAN URL fallbackを根絶
 
-  const buildProfile = process.env.EAS_BUILD_PROFILE;              // build時
-  const updateBranch = process.env.EAS_UPDATE_BRANCH;              // update時
-  const updateChannel = process.env.EAS_UPDATE_CHANNEL;            // あるなら
+  const buildProfile = safeString(process.env.EAS_BUILD_PROFILE);              // build時
+  const updateBranch = safeString(process.env.EAS_UPDATE_BRANCH);              // update時
+  const updateChannel = safeString(process.env.EAS_UPDATE_CHANNEL);            // あるなら
   const branchLike = updateBranch || updateChannel || buildProfile || "";
 
   // 明示指定（ただし preview/prod では branchLike を優先）
-  const explicitEnv = process.env.EXPO_PUBLIC_APP_ENV || process.env.APP_ENV || process.env.ENV || "";
+  const explicitEnv = safeString(process.env.EXPO_PUBLIC_APP_ENV) ||
+                      safeString(process.env.APP_ENV) ||
+                      safeString(process.env.ENV) ||
+                      "";
 
   // branch/channel/profile から確定（最優先）
   function envFromBranch(branch) {
@@ -71,10 +93,10 @@ module.exports = ({ config }) => {
   }
 
   // 最終的なURL（環境変数での上書きも許可、ただしLANガードは通す）
-  let apiBaseGs = process.env.API_BASE_GS || urls.apiBaseGs;
-  let apiBaseCcus = process.env.API_BASE_CCUS || urls.apiBaseCcus;
-  let apiFaceApi = process.env.API_FACE_API || urls.apiFaceApi;
-  let authIssuer = process.env.AUTH_ISSUER || urls.authIssuer;
+  let apiBaseGs = safeString(process.env.API_BASE_GS) || urls.apiBaseGs;
+  let apiBaseCcus = safeString(process.env.API_BASE_CCUS) || urls.apiBaseCcus;
+  let apiFaceApi = safeString(process.env.API_FACE_API) || urls.apiFaceApi;
+  let authIssuer = safeString(process.env.AUTH_ISSUER) || urls.authIssuer;
 
   // 最終LAN禁止ガード（環境変数経由でもLANを弾く）
   if ((appEnv === "preview" || appEnv === "production") &&
@@ -89,13 +111,14 @@ module.exports = ({ config }) => {
   // API Keys - MUST be set via environment variables
   // ハードコード削除: 全環境で環境変数から取得
   // IMPORTANT: Filter out empty objects (EAS Update may pass {} instead of undefined)
-  const apiGsApiKey = (process.env.API_GS_API_KEY && typeof process.env.API_GS_API_KEY === 'string') ? process.env.API_GS_API_KEY : null;
-  const apiFaceApiKey = (process.env.API_FACE_API_KEY && typeof process.env.API_FACE_API_KEY === 'string') ?
-    process.env.API_FACE_API_KEY :
-    (appEnv === "development" ? "preview-3048a965-fa7c" : null);  // development環境のみデフォルトキーを使用
+  const apiGsApiKey = safeString(process.env.API_GS_API_KEY, null);
+  const apiFaceApiKey = safeString(
+    process.env.API_FACE_API_KEY,
+    appEnv === "development" ? "preview-3048a965-fa7c" : null  // development環境のみデフォルトキーを使用
+  );
 
   // Sentry DSN - Error tracking and monitoring
-  const sentryDsn = process.env.SENTRY_DSN || "";
+  const sentryDsn = safeString(process.env.SENTRY_DSN);
 
   // Validation for non-development environments (preview/production)
   if (appEnv !== "development") {
@@ -245,8 +268,8 @@ Please set these environment variables before building.
       auth: {
         ...(baseExtra.auth || {}),
         issuer: authIssuer,
-        audience: process.env.AUTH_AUDIENCE || baseExtra.auth?.audience || "mc-gate",
-        clientId: process.env.AUTH_CLIENT_ID || baseExtra.auth?.clientId || "mc-gate-mobile",
+        audience: safeString(process.env.AUTH_AUDIENCE) || baseExtra.auth?.audience || "mc-gate",
+        clientId: safeString(process.env.AUTH_CLIENT_ID) || baseExtra.auth?.clientId || "mc-gate-mobile",
       },
       // モック認証の使用（APP_ENVで強制制御）
       // 本番環境（APP_ENV=production）では絶対にfalse
@@ -286,7 +309,7 @@ Please set these environment variables before building.
       })(),
 
       // アプリケーション定数（本番運用向け）
-      defaultProjectId: process.env.DEFAULT_PROJECT_ID || "PRJ001",
+      defaultProjectId: safeString(process.env.DEFAULT_PROJECT_ID) || "PRJ001",
       dbName: "mc-gate.db",
 
       // Sentry configuration
