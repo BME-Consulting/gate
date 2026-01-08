@@ -14,6 +14,10 @@ on:
       - 'PREVIEW_TO_PRODUCTION_DIFF.md'
       - 'DEVELOPMENT_RULES.md'
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   ssot-change-detection:
     runs-on: ubuntu-latest
@@ -23,7 +27,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0  # Full history for proper diff
 
       - name: Check SSOT changes
         id: check-ssot
@@ -34,25 +38,44 @@ jobs:
           DIFF_CHANGED=false
           RULES_CHANGED=false
 
-          if git diff HEAD^ HEAD --name-only | grep -q "SSOT_WORKER_SYNC_FACE_AUTH_E2E.md"; then
+          # Determine base commit for comparison
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_REF="origin/${{ github.base_ref }}"
+            echo "Comparing PR against base: $BASE_REF"
+          else
+            BASE_REF="HEAD^"
+            echo "Comparing push against: $BASE_REF"
+          fi
+
+          # Check which SSOT documents changed
+          CHANGED_FILES=$(git diff --name-only $BASE_REF HEAD)
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+
+          if echo "$CHANGED_FILES" | grep -q "SSOT_WORKER_SYNC_FACE_AUTH_E2E.md"; then
             SSOT_CHANGED=true
+            echo "✓ SSOT E2E Results changed"
           fi
 
-          if git diff HEAD^ HEAD --name-only | grep -q "PREVIEW_TO_PRODUCTION_DIFF.md"; then
+          if echo "$CHANGED_FILES" | grep -q "PREVIEW_TO_PRODUCTION_DIFF.md"; then
             DIFF_CHANGED=true
+            echo "✓ Production Diff changed"
           fi
 
-          if git diff HEAD^ HEAD --name-only | grep -q "DEVELOPMENT_RULES.md"; then
+          if echo "$CHANGED_FILES" | grep -q "DEVELOPMENT_RULES.md"; then
             RULES_CHANGED=true
+            echo "✓ Development Rules changed"
           fi
 
           echo "ssot_changed=$SSOT_CHANGED" >> $GITHUB_OUTPUT
           echo "diff_changed=$DIFF_CHANGED" >> $GITHUB_OUTPUT
           echo "rules_changed=$RULES_CHANGED" >> $GITHUB_OUTPUT
+          echo "base_ref=$BASE_REF" >> $GITHUB_OUTPUT
 
       - name: Analyze SSOT changes
         if: steps.check-ssot.outputs.ssot_changed == 'true'
         run: |
+          BASE_REF="${{ steps.check-ssot.outputs.base_ref }}"
           echo "⚠️  SSOT_WORKER_SYNC_FACE_AUTH_E2E.md が変更されました"
           echo ""
           echo "📋 SSOTの変更は以下の場合のみ許可されます："
@@ -66,13 +89,14 @@ jobs:
           echo "  🚫 「古くなった」という理由で削除する"
           echo ""
           echo "📝 変更内容を確認してください："
-          git diff HEAD^ HEAD -- SSOT_WORKER_SYNC_FACE_AUTH_E2E.md | head -50
+          git diff $BASE_REF HEAD -- SSOT_WORKER_SYNC_FACE_AUTH_E2E.md | head -50
           echo ""
           echo "🔗 SSOTルール: https://github.com/BME-Consulting/gate/blob/main/SSOT_WORKER_SYNC_FACE_AUTH_E2E.md#-ssot-declaration-このドキュメントの扱い方"
 
       - name: Analyze Production Diff changes
         if: steps.check-ssot.outputs.diff_changed == 'true'
         run: |
+          BASE_REF="${{ steps.check-ssot.outputs.base_ref }}"
           echo "⚠️  PREVIEW_TO_PRODUCTION_DIFF.md が変更されました"
           echo ""
           echo "📋 この変更は本番移行に影響します"
@@ -80,11 +104,12 @@ jobs:
           echo "  ✅ 変更後も、差分表と実環境が一致していることを確認してください"
           echo ""
           echo "📝 変更内容を確認してください："
-          git diff HEAD^ HEAD -- PREVIEW_TO_PRODUCTION_DIFF.md | head -50
+          git diff $BASE_REF HEAD -- PREVIEW_TO_PRODUCTION_DIFF.md | head -50
 
       - name: Analyze Development Rules changes
         if: steps.check-ssot.outputs.rules_changed == 'true'
         run: |
+          BASE_REF="${{ steps.check-ssot.outputs.base_ref }}"
           echo "⚠️  DEVELOPMENT_RULES.md が変更されました"
           echo ""
           echo "📋 開発ルールの変更は慎重に行ってください"
@@ -92,17 +117,18 @@ jobs:
           echo "  ✅ 既存ルールの削除は禁止（非推奨マークのみ許可）"
           echo ""
           echo "📝 変更内容を確認してください："
-          git diff HEAD^ HEAD -- DEVELOPMENT_RULES.md | head -50
+          git diff $BASE_REF HEAD -- DEVELOPMENT_RULES.md | head -50
 
       - name: Check for deletions
         run: |
+          BASE_REF="${{ steps.check-ssot.outputs.base_ref }}"
           echo "🔍 Checking for deletions in SSOT documents..."
 
-          if git diff HEAD^ HEAD -- SSOT_WORKER_SYNC_FACE_AUTH_E2E.md PREVIEW_TO_PRODUCTION_DIFF.md DEVELOPMENT_RULES.md | grep -q "^-"; then
+          if git diff $BASE_REF HEAD -- SSOT_WORKER_SYNC_FACE_AUTH_E2E.md PREVIEW_TO_PRODUCTION_DIFF.md DEVELOPMENT_RULES.md | grep -q "^-"; then
             echo "⚠️  削除された行が検出されました"
             echo ""
             echo "削除内容："
-            git diff HEAD^ HEAD -- SSOT_WORKER_SYNC_FACE_AUTH_E2E.md PREVIEW_TO_PRODUCTION_DIFF.md DEVELOPMENT_RULES.md | grep "^-" | head -20
+            git diff $BASE_REF HEAD -- SSOT_WORKER_SYNC_FACE_AUTH_E2E.md PREVIEW_TO_PRODUCTION_DIFF.md DEVELOPMENT_RULES.md | grep "^-" | head -20
             echo ""
             echo "❌ SSOTドキュメントからの削除は原則禁止です"
             echo "   - 過去の記録は歴史的事実として保存する必要があります"

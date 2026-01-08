@@ -1,0 +1,41 @@
+# CODEOWNERS - レビュー相手を自動召喚
+#
+# このファイルは、特定のファイルが変更された際に
+# 自動的にレビュアーを割り当てます。
+
+# SSOT Documents - 最重要（変更に慎重な承認が必要）
+/SSOT_WORKER_SYNC_FACE_AUTH_E2E.md    @BME-Consulting/gate-maintainers
+/PREVIEW_TO_PRODUCTION_DIFF.md         @BME-Consulting/gate-maintainers
+/DEVELOPMENT_RULES.md                  @BME-Consulting/gate-maintainers
+/PRODUCTION_FIRST_3_DECISIONS.md       @BME-Consulting/gate-maintainers
+
+# Mobile App - Core
+/apps/mobile/                          @BME-Consulting/mobile-team
+
+# Backend APIs
+/apps/gs-api/                          @BME-Consulting/backend-team
+/apps/ccus-api/                        @BME-Consulting/backend-team
+/apps/face-api/                        @BME-Consulting/backend-team
+
+# Core Packages
+/packages/core/                        @BME-Consulting/core-team
+/packages/api-client/                  @BME-Consulting/core-team
+
+# Infrastructure
+/.github/workflows/                    @BME-Consulting/devops-team
+/cloudflare-tunnel/                    @BME-Consulting/devops-team
+/docker-compose*.yml                   @BME-Consulting/devops-team
+
+# EAS & Expo Configuration
+/eas.json                              @BME-Consulting/mobile-team
+/apps/mobile/app.config.ts             @BME-Consulting/mobile-team
+
+# Security-sensitive files
+/apps/mobile/src/app/index.tsx         @BME-Consulting/security-team
+/apps/mobile/src/hooks/useAuth.ts      @BME-Consulting/security-team
+
+# Documentation
+/*.md                                  @BME-Consulting/docs-team
+
+# Note: GitHub will automatically request reviews from the specified teams.
+# If teams don't exist yet, you can use individual usernames like @username
