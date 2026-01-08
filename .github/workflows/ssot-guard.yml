@@ -1,0 +1,137 @@
+name: SSOT Guard
+
+on:
+  pull_request:
+    paths:
+      - 'SSOT_WORKER_SYNC_FACE_AUTH_E2E.md'
+      - 'PREVIEW_TO_PRODUCTION_DIFF.md'
+      - 'DEVELOPMENT_RULES.md'
+  push:
+    branches:
+      - main
+    paths:
+      - 'SSOT_WORKER_SYNC_FACE_AUTH_E2E.md'
+      - 'PREVIEW_TO_PRODUCTION_DIFF.md'
+      - 'DEVELOPMENT_RULES.md'
+
+jobs:
+  ssot-change-detection:
+    runs-on: ubuntu-latest
+    name: SSOT Change Detection
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check SSOT changes
+        id: check-ssot
+        run: |
+          echo "🔍 Checking SSOT document changes..."
+
+          SSOT_CHANGED=false
+          DIFF_CHANGED=false
+          RULES_CHANGED=false
+
+          if git diff HEAD^ HEAD --name-only | grep -q "SSOT_WORKER_SYNC_FACE_AUTH_E2E.md"; then
+            SSOT_CHANGED=true
+          fi
+
+          if git diff HEAD^ HEAD --name-only | grep -q "PREVIEW_TO_PRODUCTION_DIFF.md"; then
+            DIFF_CHANGED=true
+          fi
+
+          if git diff HEAD^ HEAD --name-only | grep -q "DEVELOPMENT_RULES.md"; then
+            RULES_CHANGED=true
+          fi
+
+          echo "ssot_changed=$SSOT_CHANGED" >> $GITHUB_OUTPUT
+          echo "diff_changed=$DIFF_CHANGED" >> $GITHUB_OUTPUT
+          echo "rules_changed=$RULES_CHANGED" >> $GITHUB_OUTPUT
+
+      - name: Analyze SSOT changes
+        if: steps.check-ssot.outputs.ssot_changed == 'true'
+        run: |
+          echo "⚠️  SSOT_WORKER_SYNC_FACE_AUTH_E2E.md が変更されました"
+          echo ""
+          echo "📋 SSOTの変更は以下の場合のみ許可されます："
+          echo "  ✅ 新しいE2Eテスト結果を追記する"
+          echo "  ✅ 重大なバグを発見・修正した記録を追加する"
+          echo "  ✅ APIエンドポイントが変更された事実を記録する"
+          echo ""
+          echo "❌ 以下の変更は禁止されています："
+          echo "  🚫 既存のテスト結果を削除する"
+          echo "  🚫 過去の記録を改変する"
+          echo "  🚫 「古くなった」という理由で削除する"
+          echo ""
+          echo "📝 変更内容を確認してください："
+          git diff HEAD^ HEAD -- SSOT_WORKER_SYNC_FACE_AUTH_E2E.md | head -50
+          echo ""
+          echo "🔗 SSOTルール: https://github.com/BME-Consulting/gate/blob/main/SSOT_WORKER_SYNC_FACE_AUTH_E2E.md#-ssot-declaration-このドキュメントの扱い方"
+
+      - name: Analyze Production Diff changes
+        if: steps.check-ssot.outputs.diff_changed == 'true'
+        run: |
+          echo "⚠️  PREVIEW_TO_PRODUCTION_DIFF.md が変更されました"
+          echo ""
+          echo "📋 この変更は本番移行に影響します"
+          echo "  ✅ 差分表の更新は、実際の環境差分を反映している必要があります"
+          echo "  ✅ 変更後も、差分表と実環境が一致していることを確認してください"
+          echo ""
+          echo "📝 変更内容を確認してください："
+          git diff HEAD^ HEAD -- PREVIEW_TO_PRODUCTION_DIFF.md | head -50
+
+      - name: Analyze Development Rules changes
+        if: steps.check-ssot.outputs.rules_changed == 'true'
+        run: |
+          echo "⚠️  DEVELOPMENT_RULES.md が変更されました"
+          echo ""
+          echo "📋 開発ルールの変更は慎重に行ってください"
+          echo "  ✅ 新しいルールは実際に発生した問題に基づいている必要があります"
+          echo "  ✅ 既存ルールの削除は禁止（非推奨マークのみ許可）"
+          echo ""
+          echo "📝 変更内容を確認してください："
+          git diff HEAD^ HEAD -- DEVELOPMENT_RULES.md | head -50
+
+      - name: Check for deletions
+        run: |
+          echo "🔍 Checking for deletions in SSOT documents..."
+
+          if git diff HEAD^ HEAD -- SSOT_WORKER_SYNC_FACE_AUTH_E2E.md PREVIEW_TO_PRODUCTION_DIFF.md DEVELOPMENT_RULES.md | grep -q "^-"; then
+            echo "⚠️  削除された行が検出されました"
+            echo ""
+            echo "削除内容："
+            git diff HEAD^ HEAD -- SSOT_WORKER_SYNC_FACE_AUTH_E2E.md PREVIEW_TO_PRODUCTION_DIFF.md DEVELOPMENT_RULES.md | grep "^-" | head -20
+            echo ""
+            echo "❌ SSOTドキュメントからの削除は原則禁止です"
+            echo "   - 過去の記録は歴史的事実として保存する必要があります"
+            echo "   - 「古くなった」「不要になった」は削除理由になりません"
+            echo "   - 新しい情報は追記してください（上書きしない）"
+            echo ""
+            echo "✅ 許可される削除："
+            echo "   - タイポ修正"
+            echo "   - フォーマット調整"
+            echo "   - 明らかに誤った情報の訂正（訂正履歴を残す）"
+            echo ""
+            echo "⚠️  このチェックは警告のみです（ブロックしません）"
+            echo "   本当に削除が必要な場合は、PRコメントで理由を説明してください"
+          else
+            echo "✅ 削除された行はありません"
+          fi
+
+      - name: Summary
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "📊 SSOT Guard Summary"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "このワークフローは、SSOTドキュメントの変更を検出し、警告を表示します。"
+          echo "強制ブロックはしませんが、変更理由を明確にしてください。"
+          echo ""
+          echo "🔗 関連ドキュメント："
+          echo "  - SSOT E2E Results: https://github.com/BME-Consulting/gate/blob/main/SSOT_WORKER_SYNC_FACE_AUTH_E2E.md"
+          echo "  - Production Diff: https://github.com/BME-Consulting/gate/blob/main/PREVIEW_TO_PRODUCTION_DIFF.md"
+          echo "  - Development Rules: https://github.com/BME-Consulting/gate/blob/main/DEVELOPMENT_RULES.md"
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
