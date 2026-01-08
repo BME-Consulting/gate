@@ -758,7 +758,7 @@ export default function FaceRegistrationScreen() {
 
                 {/* シンプルなガイドメッセージ */}
                 {!isProcessing && !registrationResult && !recognizeResult && (
-                  <View style={styles.guideMessageCard}>
+                  <View style={styles.guideMessageCard} pointerEvents="none">
                     <Text style={styles.guideMessageSimple}>
                       正面を向いて、顔全体をフレーム内に入れてください
                     </Text>
@@ -768,7 +768,7 @@ export default function FaceRegistrationScreen() {
 
               {/* 結果表示エリア（シンプル版） */}
               {registrationResult && (
-                <View style={styles.resultCard}>
+                <View style={styles.resultCard} pointerEvents="none">
                   {registrationResult.success ? (
                     <View>
                       <View style={styles.resultHeader}>
@@ -802,6 +802,7 @@ export default function FaceRegistrationScreen() {
                     styles.resultCard,
                     recognizeResult.matched ? styles.resultCardMatched : styles.resultCardNotMatched,
                   ]}
+                  pointerEvents="none"
                 >
                   <View>
                     <View style={styles.resultHeader}>
