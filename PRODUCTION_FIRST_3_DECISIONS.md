@@ -167,7 +167,9 @@ if (error.response?.status === 403) {
 
 **理由**: HTTPセマンティクスに準拠し、UX改善につながる
 **実装者**: Claude Code
-**実装予定日**: 2026-01-09
+**実装日**: 2026-01-08
+**実装コミット**: 5501916
+**実装ファイル**: apps/mobile/src/store/appStore.ts:309-345
 
 ---
 
