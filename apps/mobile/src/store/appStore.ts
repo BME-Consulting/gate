@@ -306,10 +306,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     } catch (error) {
       console.error("[AppStore] Failed to fetch projects:", error);
 
-      // 401/403エラーの場合は認証が無効 → 強制ログアウト
-      if (error instanceof ApiError &&
-          (error.kind === "UNAUTHORIZED" || error.kind === "FORBIDDEN")) {
-        console.warn("[AppStore] Authentication failed - forcing logout");
+      // 401エラーの場合は認証が無効 → 強制ログアウト
+      if (error instanceof ApiError && error.kind === "UNAUTHORIZED") {
+        console.warn("[AppStore] 401 Unauthorized - forcing logout");
 
         // セッション期限切れをユーザーに説明してからlogout
         if (!sessionExpiredAlertShown) {
@@ -331,6 +330,17 @@ export const useAppStore = create<AppState>((set, get) => ({
           await get().logout();
         }
 
+        return; // エラーを再throw せずに終了
+      }
+
+      // 403エラーの場合は権限不足 → ログアウトしない
+      if (error instanceof ApiError && error.kind === "FORBIDDEN") {
+        console.warn("[AppStore] 403 Forbidden - access denied (no logout)");
+        Alert.alert(
+          "権限不足",
+          "この操作を実行する権限がありません。",
+          [{ text: "閉じる" }]
+        );
         return; // エラーを再throw せずに終了
       }
 
