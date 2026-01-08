@@ -1,6 +1,6 @@
 # Production Evidence Pack
 
-**Generated**: 2025-12-22 06:47:27 UTC
+**Generated**: 2026-01-08 08:22:10 UTC
 
 **Purpose**: Automated production health verification without screenshots or manual input.
 
@@ -11,21 +11,21 @@
 ## Git Commit Hash
 
 ```
-d0c6d85 docs(P2-6-4): document operational rules for EAS Update reliability
+292e493 ops: 事故防止3点セットを「効かせる」 - Actions修正/main保護/CODEOWNERS
 ```
 
 ## Mobile JS Integrity Evidence
 
 **P2-6 Runtime Integrity Check**
 
-**Timestamp**: 2025-12-22T06:47:27.000Z
+**Timestamp**: 2026-01-08T08:22:10.000Z
 **Status**: ⏳ PENDING (Requires runtime execution)
 
 ### Runtime Information
 - **Runtime Version**: `exposdk:54.0.0`
 - **Update ID**: _To be determined at runtime_
 - **Commit Hash (Runtime)**: _To be determined at runtime_
-- **Expected Commit Hash**: `d0c6d85` (current HEAD)
+- **Expected Commit Hash**: `292e493` (current HEAD)
 - **Launch Mode**: _To be determined at runtime_
 - **Channel**: _To be determined at runtime_
 
@@ -57,56 +57,46 @@ Checking for debug/vision-test/camera-test tabs in _layout.tsx...
 
 ## EAS Update Status
 
-**Status**: SKIPPED (SKIP_EAS_CHECK=1)
+**Status**: SKIPPED (EXPO_TOKEN not set)
 
 ## API Health Checks
 
-**Status**: SKIPPED (SKIP_API_CHECK=1)
+### GS API Health (`http://192.168.1.4:7070/health`)
+
+**Status**: ❌ FAIL - Timeout or connection error
+
+Error details (masked):
+```
+
+```
 
 ## Keycloak Issuer Check
 
-**Status**: SKIPPED (SKIP_API_CHECK=1)
+### Issuer URL: `http://192.168.1.4:8081/realms/mcd3`
+
+**Status**: ❌ FAIL - Timeout or connection error
+
+### JWKS URL: `http://192.168.1.4:8081/realms/mcd3/protocol/openid-connect/certs`
+
+**Status**: ❌ FAIL - Timeout or connection error
 
 ## Authorization Smoke Test
 
-**Status**: SKIPPED (SKIP_API_CHECK=1)
+Running `apps/gs-api/scripts/smoke-authz.sh`...
 
-## Pattern 2 UX Fix - Human Verified Evidence
+```
+==========================================
+Authorization Smoke Test
+==========================================
+API Base URL: http://192.168.1.4:7070
+Projects Endpoint: http://192.168.1.4:7070/api/me/projects
 
-**Test Date**: 2025-12-22 16:02 JST
-**Status**: ✅ RESOLVED (Human-verified)
-**Commit Hash**: d0c6d85 (verified via logcat)
-**Update ID**: 4ee271e2-3dd6-4c34-b20c-8a1ea04cd8f7
 
-### Verification Results
+Test 1: No Authorization header → 401
+--------------------------------------
+```
 
-1. **P2-6 Implementation**: ✅ CONFIRMED
-   - Commit hash embedded in runtime
-   - Integrity check at app startup
-   - Required functions validated
-
-2. **Timeout Reduction**: ✅ IMPLEMENTED
-   - BULK_FETCH_TIMEOUT: 90s → 10s
-   - Location: apps/mobile/src/hooks/useWorkers.tsx:234
-   - Evidence: Code change in commit b64b040
-
-3. **Error UX**: ✅ VERIFIED
-   - User-friendly error messages
-   - Two-button pattern (閉じる / 再試行)
-   - Responsive error handling
-
-4. **Runtime Evidence**:
-   ```
-   [P2-6] Integrity check passed
-   commitHash: d0c6d85
-   updateId: 4ee271e2-3dd6...
-   runtimeVersion: exposdk:54.0.0
-   ```
-
-### Human Verification Statement
-Based on code inspection, logcat analysis, and implementation verification,
-the 10-second timeout is correctly implemented and operational.
-The fix successfully addresses the original 90-second freeze issue.
+**Status**: ⚠️  SOME CHECKS FAILED (see above)
 
 ---
 
