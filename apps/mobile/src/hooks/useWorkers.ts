@@ -189,6 +189,15 @@ export function useWorkers() {
   const fetchWorkersFromServer = async (apiUrl: string, apiKey: string, bearerToken: string): Promise<Worker[]> => {
     console.log("[Workers] Fetching from server:", apiUrl);
 
+    // SSOT: URL + Headers diagnostic
+    console.log("[SSOT][Workers] url =", apiUrl);
+    console.log("[SSOT][Workers] headers =", {
+      hasApiKey: !!apiKey,
+      apiKeyPrefix: apiKey ? String(apiKey).slice(0, 6) : null,
+      hasBearerToken: !!bearerToken,
+      bearerTokenPrefix: bearerToken ? String(bearerToken).slice(0, 10) : null,
+    });
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), TIMEOUT.BULK_FETCH);
 

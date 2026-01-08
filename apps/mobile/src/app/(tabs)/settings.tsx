@@ -491,13 +491,24 @@ export default function SettingsScreen() {
       console.error("[P2][WorkerSync] [ERROR] Error stack:", error?.stack);
       console.error("===========================================================");
 
-      // 401/403エラーの場合は認証が無効 → 強制ログアウト
-      if (error?.status === 401 || error?.status === 403) {
-        console.warn("[Settings] Authentication failed during worker sync - forcing logout");
+      // 401エラー: トークンが無効 → 強制ログアウト
+      if (error?.status === 401) {
+        console.warn("[Settings] 401 Unauthorized - forcing logout");
         Alert.alert(
           "認証エラー",
-          "認証情報が無効です。再度ログインしてください。",
+          "認証トークンが無効です。再度ログインしてください。",
           [{ text: "OK", onPress: () => logout() }]
+        );
+        return;
+      }
+
+      // 403エラー: 権限/APIキー問題 → ログアウトしない
+      if (error?.status === 403) {
+        console.error("[Settings] 403 Forbidden - API key or permission issue");
+        Alert.alert(
+          "権限エラー",
+          "サーバーへのアクセスが拒否されました。\n\nAPI設定または権限を確認してください。",
+          [{ text: "閉じる" }]
         );
         return;
       }
