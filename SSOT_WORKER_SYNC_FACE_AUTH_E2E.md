@@ -9,6 +9,134 @@
 
 ---
 
+## 🔒 SSOT Declaration: このドキュメントの扱い方
+
+### ⚠️ このドキュメントは "Single Source of Truth (SSOT)" です
+
+**SSOT とは**:
+- プロジェクト全体で**唯一の信頼できる真実の記録**
+- 仕様変更・API変更・UI変更の**設計判断の基準点**
+- 過去の成功・失敗の**事実ベースの記録**
+
+### 🚨 絶対禁止事項
+
+❌ **このドキュメントの内容を削除・改変してはいけない**
+- テスト結果は**歴史的事実**として保存
+- 「古くなった」「不要になった」は削除理由にならない
+- 新しいテスト結果は**追記**する（上書きしない）
+
+❌ **このドキュメントと矛盾する実装を作ってはいけない**
+- 新機能を作る前に、このSSOTに影響するかを確認
+- SSOTと矛盾する設計は**必ず失敗する**
+- 「こっちの方が簡単」は変更理由にならない
+
+❌ **"動いたから"でSSOTを無視してはいけない**
+- ローカル環境で動いても、SSOTの記録と異なる場合は失敗
+- テスト環境で動いても、本番で失敗する可能性がある
+- SSOTに記録された失敗パターンを繰り返すのは時間の無駄
+
+### ✅ 正しい使い方
+
+**1. 仕様変更の前に確認**
+```
+質問: 「Worker Sync APIのレスポンス形式を変更したい」
+
+確認すべきSSOT箇所:
+- Test Phase 1: Worker Sync → Results
+- API Endpoints (Preview Environment)
+- Code Changes Made → apiGsApiKey Fix
+
+判断:
+- SSOTに記録された5 workersの形式と互換性があるか？
+- apiGsApiKeyの扱いは変わるか？
+- 変更後もテストが通るか？
+```
+
+**2. バグ修正の前に確認**
+```
+質問: 「ボタンが押せないバグが出た」
+
+確認すべきSSOT箇所:
+- Critical Bug Fixed During Testing
+- Bug: Transparent Overlay Blocking Buttons
+- Fix Applied: pointerEvents="none"
+
+判断:
+- 同じ原因（overlayのpointerEvents）か？
+- 既知の解決方法が使えるか？
+- 新しいパターンなら、SSOT更新が必要
+```
+
+**3. 新機能追加の前に確認**
+```
+質問: 「顔認証の閾値を変更したい」
+
+確認すべきSSOT箇所:
+- Test Phase 3: Identity Verification
+- Test Phase 4: Face Authentication
+- Performance Metrics: Face Detection Latency
+
+判断:
+- 現在の閾値でmatched: trueになる条件は？
+- 変更後も同じテストケースが通るか？
+- パフォーマンスへの影響は？
+```
+
+### 📝 SSOT更新のルール
+
+**更新が必要な場合**:
+- 新しいE2Eテストを実施した
+- 重大なバグを発見・修正した
+- APIエンドポイントが変更された
+- ビルドプロセスが変更された
+
+**更新方法**:
+1. **追記する**（既存部分を削除しない）
+2. **日付を明記する**（いつの記録か分かるように）
+3. **差分を明示する**（何が変わったか分かるように）
+
+**更新例**:
+```markdown
+## Test Phase 1: Worker Sync (Updated 2026-01-15)
+
+### 変更点
+- API Endpoint changed: `api-gate` → `api-gate-v2`
+- Worker count increased: 5 → 10 workers
+
+### Previous Test (2026-01-08)
+- Workers Synced: 5
+- API Key Prefix: previe
+
+### Current Test (2026-01-15)
+- Workers Synced: 10
+- API Key Prefix: produc
+```
+
+### 🎯 このSSOTが守るもの
+
+1. **開発速度の維持**
+   - 同じ失敗を繰り返さない
+   - 既知の解決方法を再利用できる
+   - デバッグ時間を削減
+
+2. **設計の一貫性**
+   - 矛盾する実装を防ぐ
+   - API設計のブレを防ぐ
+   - チーム内の認識齟齬を防ぐ
+
+3. **本番品質の担保**
+   - テスト済みの実装パターンのみを使う
+   - 未検証の変更を防ぐ
+   - リリース前の最終チェックポイント
+
+### 🔗 関連SSOT候補（今後作成予定）
+
+- `SSOT_API_ENDPOINTS.md`: APIエンドポイント設計の真実
+- `SSOT_AUTH_FLOW.md`: 認証フローの真実
+- `SSOT_BUILD_PROCESS.md`: ビルド・デプロイプロセスの真実
+
+---
+
 ## Executive Summary
 
 ✅ **All E2E tests PASSED**
