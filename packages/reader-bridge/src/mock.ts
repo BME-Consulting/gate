@@ -21,7 +21,7 @@ export interface ReaderDeviceInfo {
  */
 export class MockCardReader {
   private connected = false;
-  private listeners: Array<(card: CardData) => void> = [];
+  private listeners: ((card: CardData) => void)[] = [];
   private simulationTimer: NodeJS.Timeout | null = null;
 
   /**

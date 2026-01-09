@@ -22,9 +22,9 @@ const CCUS_DEVICE_INFO_CHARACTERISTIC_UUID = "0000fff2-0000-1000-8000-00805f9b34
 export class BLECardReader {
   private manager: BleManager;
   private device: Device | null = null;
-  private listeners: Array<(card: CardData) => void> = [];
-  private scanSubscription: any = null;
-  private notificationSubscription: any = null;
+  private listeners: ((card: CardData) => void)[] = [];
+  private scanSubscription: { remove: () => void } | null = null;
+  private notificationSubscription: { remove: () => void } | null = null;
 
   constructor() {
     this.manager = new BleManager();

@@ -8,6 +8,7 @@ declare global {
   /**
    * React Nativeのdevelopment mode判定
    */
+  // eslint-disable-next-line no-var
   var __DEV__: boolean;
 
   /**
