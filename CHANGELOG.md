@@ -1,3 +1,9 @@
+## [1.0.3](https://github.com/BME-Consulting/gate/compare/v1.0.2...v1.0.3) (2026-01-09)
+
+### Bug Fixes
+
+* **ci:** Prisma generate とOAuth E2E の workflow 修正 ([2e29990](https://github.com/BME-Consulting/gate/commit/2e299901f01a4a0efe522f1efcf1a7a7779bfb96))
+
 ## [1.0.2](https://github.com/BME-Consulting/gate/compare/v1.0.1...v1.0.2) (2026-01-09)
 
 ### Bug Fixes
