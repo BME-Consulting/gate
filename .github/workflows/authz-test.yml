@@ -96,7 +96,7 @@ jobs:
           curl -s http://localhost:7070/health || (echo "Server failed to start" && exit 1)
 
       - name: Run OAuth Authorization Tests
-        if: ${{ vars.AUTHZ_E2E_ENABLED == 'true' && secrets.KC_USERNAME != '' && secrets.KC_PASSWORD != '' }}
+        if: ${{ vars.AUTHZ_E2E_ENABLED == 'true' && env.KC_USERNAME != '' && env.KC_PASSWORD != '' }}
         working-directory: apps/gs-api
         env:
           API_URL: http://localhost:7070/api/me/projects
