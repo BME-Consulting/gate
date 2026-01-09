@@ -1,3 +1,9 @@
+## [1.0.4](https://github.com/BME-Consulting/gate/compare/v1.0.3...v1.0.4) (2026-01-09)
+
+### Bug Fixes
+
+* **ci:** Prisma生成とOAuth E2E secrets参照を確実に修正 ([ef13f3d](https://github.com/BME-Consulting/gate/commit/ef13f3d79e27d2095e6189deed8231d0110e8c30))
+
 ## [1.0.3](https://github.com/BME-Consulting/gate/compare/v1.0.2...v1.0.3) (2026-01-09)
 
 ### Bug Fixes
