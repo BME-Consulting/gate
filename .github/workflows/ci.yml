@@ -233,14 +233,29 @@ jobs:
 
           if ! git diff --exit-code docs/evidence/prod-evidence.md; then
             echo ""
-            echo "❌ FAIL: Evidence Pack has changes!"
+            echo "❌ Evidence Pack Drift Detected"
             echo ""
-            echo "The generated evidence pack differs from the committed version."
-            echo "This means the evidence pack is out of date."
+
+            # Calculate expected values from generator script
+            GEN_SHA="$(git log -1 --format=%h -- scripts/gen-prod-evidence.sh)"
+            GEN_EPOCH="$(git log -1 --format=%ct -- scripts/gen-prod-evidence.sh)"
+            GEN_TIME="$(date -u -d "@$GEN_EPOCH" '+%Y-%m-%d %H:%M:%S UTC' 2>/dev/null || date -u -r "$GEN_EPOCH" '+%Y-%m-%d %H:%M:%S UTC')"
+
+            echo "Expected Generator Version: ${GEN_SHA}"
+            echo "Expected Generator Time   : ${GEN_TIME}"
             echo ""
-            echo "To fix this, run the following locally and commit the changes:"
+
+            echo "Current committed evidence (first 40 lines):"
+            sed -n '1,40p' docs/evidence/prod-evidence.md || true
+            echo ""
+
+            echo "This indicates either:"
+            echo "  1. scripts/gen-prod-evidence.sh was modified (expected drift)"
+            echo "  2. Evidence pack is out of sync (requires regeneration)"
+            echo ""
+            echo "To fix, run locally and commit:"
             echo "  bash scripts/gen-prod-evidence.sh"
-            echo "  git add docs/evidence/prod-evidence.md"
+            echo "  git add docs/evidence/prod-evidence.md scripts/gen-prod-evidence.sh"
             echo "  git commit -m \"docs: update production evidence pack\""
             echo ""
             exit 1
