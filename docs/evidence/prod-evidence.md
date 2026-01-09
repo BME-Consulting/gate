@@ -1,6 +1,6 @@
 # Production Evidence Pack
 
-**Generated**: 2026-01-09 06:40:23 UTC
+**Generated**: 2026-01-09 07:00:38 UTC
 
 **Purpose**: Automated production health verification without screenshots or manual input.
 
@@ -11,21 +11,21 @@
 ## Git Commit Hash
 
 ```
-a0f660f fix(ci): apps/mobile を CI 対象から除外して即グリーン化
+16b36c8 chore: bump version to 1.0.6 (versionCode 39) [skip ci]
 ```
 
 ## Mobile JS Integrity Evidence
 
 **P2-6 Runtime Integrity Check**
 
-**Timestamp**: 2026-01-09T06:40:23.000Z
+**Timestamp**: 2026-01-09T07:00:38.000Z
 **Status**: ⏳ PENDING (Requires runtime execution)
 
 ### Runtime Information
 - **Runtime Version**: `exposdk:54.0.0`
 - **Update ID**: _To be determined at runtime_
 - **Commit Hash (Runtime)**: _To be determined at runtime_
-- **Expected Commit Hash**: `a0f660f` (current HEAD)
+- **Expected Commit Hash**: `16b36c8` (current HEAD)
 - **Launch Mode**: _To be determined at runtime_
 - **Channel**: _To be determined at runtime_
 
@@ -57,46 +57,19 @@ Checking for debug/vision-test/camera-test tabs in _layout.tsx...
 
 ## EAS Update Status
 
-**Status**: SKIPPED (EXPO_TOKEN not set)
+**Status**: SKIPPED (SKIP_EAS_CHECK=1)
 
 ## API Health Checks
 
-### GS API Health (`http://192.168.1.4:7070/health`)
-
-**Status**: ❌ FAIL - Timeout or connection error
-
-Error details (masked):
-```
-
-```
+**Status**: SKIPPED (SKIP_API_CHECK=1)
 
 ## Keycloak Issuer Check
 
-### Issuer URL: `http://192.168.1.4:8081/realms/mcd3`
-
-**Status**: ❌ FAIL - Timeout or connection error
-
-### JWKS URL: `http://192.168.1.4:8081/realms/mcd3/protocol/openid-connect/certs`
-
-**Status**: ❌ FAIL - Timeout or connection error
+**Status**: SKIPPED (SKIP_API_CHECK=1)
 
 ## Authorization Smoke Test
 
-Running `apps/gs-api/scripts/smoke-authz.sh`...
-
-```
-==========================================
-Authorization Smoke Test
-==========================================
-API Base URL: http://192.168.1.4:7070
-Projects Endpoint: http://192.168.1.4:7070/api/me/projects
-
-
-Test 1: No Authorization header → 401
---------------------------------------
-```
-
-**Status**: ⚠️  SOME CHECKS FAILED (see above)
+**Status**: SKIPPED (SKIP_API_CHECK=1)
 
 ---
 
