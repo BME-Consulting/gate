@@ -235,7 +235,7 @@ Please set these environment variables before building.
     },
     android: {
       package: "com.bmeconsulting.mcgate",
-      versionCode: 42,
+      versionCode: 43,
       adaptiveIcon: {
         foregroundImage: "./assets/adaptive-icon.png",
         backgroundColor: "#ffffff",
