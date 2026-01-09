@@ -22,18 +22,36 @@ get_jwt_for_user() {
     return 1
   fi
 
-  local jwt
-  jwt=$(curl -s -X POST \
+  # CIでsecretが無い / 環境変数が無い場合はスキップ（失敗扱いにしない）
+  if [ -z "${KC_TOKEN_URL:-}" ] || [ -z "${KC_CLIENT_ID:-}" ]; then
+    echo "SKIP: KC_TOKEN_URL or KC_CLIENT_ID not set" >&2
+    echo ""
+    return 0
+  fi
+
+  local resp
+  resp=$(curl -sS -X POST \
     "$KC_TOKEN_URL" \
     -H "Content-Type: application/x-www-form-urlencoded" \
     -d "grant_type=password" \
     -d "client_id=$KC_CLIENT_ID" \
     -d "username=$username" \
-    -d "password=$password" \
-    | jq -r '.access_token')
+    -d "password=$password")
 
-  if [ "$jwt" = "null" ] || [ -z "$jwt" ]; then
-    echo "Error: Failed to get JWT" >&2
+  # JSONか確認（jqが死ぬ前に）
+  if ! echo "$resp" | jq -e . >/dev/null 2>&1; then
+    echo "Error: Token endpoint did not return JSON" >&2
+    echo "Response: $resp" >&2
+    return 1
+  fi
+
+  local jwt
+  jwt=$(echo "$resp" | jq -r '.access_token // empty')
+
+  # 空なら失敗（ここはちゃんと落とす）
+  if [ -z "$jwt" ]; then
+    echo "Error: access_token missing in response" >&2
+    echo "$resp" | jq . >&2
     return 1
   fi
 
@@ -46,18 +64,28 @@ get_admin_token() {
   local admin_username="${KC_ADMIN_USERNAME:-admin}"
   local admin_password="${KC_ADMIN_PASSWORD:-admin}"
 
-  local token
-  token=$(curl -s -X POST \
+  local resp
+  resp=$(curl -sS -X POST \
     "https://auth-gate-prod.bme-service.monster/realms/master/protocol/openid-connect/token" \
     -H "Content-Type: application/x-www-form-urlencoded" \
     -d "grant_type=password" \
     -d "client_id=admin-cli" \
     -d "username=$admin_username" \
-    -d "password=$admin_password" \
-    | jq -r '.access_token')
+    -d "password=$admin_password")
 
-  if [ "$token" = "null" ] || [ -z "$token" ]; then
-    echo "Error: Failed to get admin token" >&2
+  # JSON検証
+  if ! echo "$resp" | jq -e . >/dev/null 2>&1; then
+    echo "Error: Admin token endpoint did not return JSON" >&2
+    echo "Response: $resp" >&2
+    return 1
+  fi
+
+  local token
+  token=$(echo "$resp" | jq -r '.access_token // empty')
+
+  if [ -z "$token" ]; then
+    echo "Error: access_token missing in admin token response" >&2
+    echo "$resp" | jq . >&2
     return 1
   fi
 

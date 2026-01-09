@@ -57,20 +57,34 @@ jobs:
       - name: Update app.config.ts version
         if: success()
         run: |
+          set -euo pipefail
+
+          # app.config.ts/js を探索（先に見つかった1つを使う）
+          TARGET="$(git ls-files '**/app.config.ts' '**/app.config.js' | head -n 1)"
+
+          if [ -z "$TARGET" ]; then
+            echo "❌ app.config.ts/js not found"
+            echo "Available config files:"
+            git ls-files | grep -E 'app\.config\.(ts|js)' || echo "None found"
+            exit 1
+          fi
+
+          echo "✅ Target file: $TARGET"
+
           # 最新のバージョンタグを取得
           NEW_VERSION=$(git describe --tags --abbrev=0 | sed 's/^v//')
 
-          # app.config.ts を更新
-          sed -i "s/version: \".*\"/version: \"$NEW_VERSION\"/" apps/mobile/app.config.ts
+          # バージョンを更新
+          sed -i "s/version: \".*\"/version: \"$NEW_VERSION\"/" "$TARGET"
 
           # versionCode を自動インクリメント
-          CURRENT_VERSION_CODE=$(grep -oP 'versionCode: \K\d+' apps/mobile/app.config.ts)
+          CURRENT_VERSION_CODE=$(grep -oP 'versionCode: \K\d+' "$TARGET" || echo "0")
           NEW_VERSION_CODE=$((CURRENT_VERSION_CODE + 1))
-          sed -i "s/versionCode: $CURRENT_VERSION_CODE/versionCode: $NEW_VERSION_CODE/" apps/mobile/app.config.ts
+          sed -i "s/versionCode: $CURRENT_VERSION_CODE/versionCode: $NEW_VERSION_CODE/" "$TARGET"
 
           # コミット
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add apps/mobile/app.config.ts
+          git add "$TARGET"
           git commit -m "chore: bump version to $NEW_VERSION (versionCode $NEW_VERSION_CODE) [skip ci]"
           git push
