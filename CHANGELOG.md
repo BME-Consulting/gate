@@ -1,3 +1,9 @@
+## [1.0.1](https://github.com/BME-Consulting/gate/compare/v1.0.0...v1.0.1) (2026-01-09)
+
+### Bug Fixes
+
+* CI最終修正 - Prisma生成 + JWT検証 + release探索式 ([b5145e9](https://github.com/BME-Consulting/gate/commit/b5145e9281a834b1cf8349f361657ac6671a5c65))
+
 ## 1.0.0 (2026-01-09)
 
 ### Features
