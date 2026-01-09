@@ -1,3 +1,9 @@
+## [1.0.9](https://github.com/BME-Consulting/gate/compare/v1.0.8...v1.0.9) (2026-01-09)
+
+### Bug Fixes
+
+* **ci:** let generator script use its own commit timestamp ([cddee29](https://github.com/BME-Consulting/gate/commit/cddee296cd1ec6d3d8281e676675573a089dbf31))
+
 ## [1.0.8](https://github.com/BME-Consulting/gate/compare/v1.0.7...v1.0.8) (2026-01-09)
 
 ### Bug Fixes
