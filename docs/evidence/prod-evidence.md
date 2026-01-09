@@ -1,6 +1,6 @@
 # Production Evidence Pack
 
-**Generated**: 2026-01-09 06:49:09 UTC
+**Generated**: 2026-01-09 07:20:29 UTC
 
 **Purpose**: Automated production health verification without screenshots or manual input.
 
@@ -11,21 +11,21 @@
 ## Evidence Generator Version
 
 ```
-daa4dcd fix(ci): Production Evidence Pack を決定的（deterministic）に修正
+3416f44 fix(ci): make evidence pack stable across commits
 ```
 
 ## Mobile JS Integrity Evidence
 
 **P2-6 Runtime Integrity Check**
 
-**Timestamp**: 2026-01-09T06:49:09.000Z
+**Timestamp**: 2026-01-09T07:20:29.000Z
 **Status**: ⏳ PENDING (Requires runtime execution)
 
 ### Runtime Information
 - **Runtime Version**: `exposdk:54.0.0`
 - **Update ID**: _To be determined at runtime_
 - **Commit Hash (Runtime)**: _To be determined at runtime_
-- **Expected Generator Version**: `daa4dcd` (evidence generator)
+- **Expected Generator Version**: `3416f44` (evidence generator)
 - **Launch Mode**: _To be determined at runtime_
 - **Channel**: _To be determined at runtime_
 
