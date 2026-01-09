@@ -1,3 +1,9 @@
+## [1.0.2](https://github.com/BME-Consulting/gate/compare/v1.0.1...v1.0.2) (2026-01-09)
+
+### Bug Fixes
+
+* **ci:** 完全復旧 - Unit tests, Semantic Release, OAuth E2E skip ([89707fe](https://github.com/BME-Consulting/gate/commit/89707feccf15cfff49b2f725f4d8341f2bbb9a53))
+
 ## [1.0.1](https://github.com/BME-Consulting/gate/compare/v1.0.0...v1.0.1) (2026-01-09)
 
 ### Bug Fixes
