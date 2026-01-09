@@ -56,8 +56,13 @@ jobs:
 
       - name: Update app.config.ts version
         if: success()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
+
+          # push 用に origin を GITHUB_TOKEN 付きにする（非対話で確実に通す）
+          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
 
           # app.config.ts/js を探索（先に見つかった1つを使う）
           TARGET="$(git ls-files '**/app.config.ts' '**/app.config.js' | head -n 1)"
