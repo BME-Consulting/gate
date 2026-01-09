@@ -1,3 +1,9 @@
+## [1.0.6](https://github.com/BME-Consulting/gate/compare/v1.0.5...v1.0.6) (2026-01-09)
+
+### Bug Fixes
+
+* **ci:** Production Evidence Pack を決定的（deterministic）に修正 ([daa4dcd](https://github.com/BME-Consulting/gate/commit/daa4dcdb9dc6d7de4c307a2975a4291a3ef63eb4))
+
 ## [1.0.5](https://github.com/BME-Consulting/gate/compare/v1.0.4...v1.0.5) (2026-01-09)
 
 ### Bug Fixes
