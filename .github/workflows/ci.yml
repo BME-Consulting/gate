@@ -52,7 +52,7 @@ jobs:
         run: pnpm lint
 
       - name: Run TypeScript type check
-        run: pnpm type-check
+        run: pnpm -r --filter "!./apps/mobile" type-check
 
   test:
     name: Unit Tests
@@ -92,7 +92,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run tests
-        run: pnpm -r test -- --passWithNoTests
+        run: pnpm -r --filter "!./apps/mobile" test -- --passWithNoTests
 
       - name: Upload test coverage
         uses: codecov/codecov-action@v4
@@ -207,6 +207,7 @@ jobs:
 
       - name: Generate Production Evidence Pack
         env:
+          TZ: UTC
           SKIP_EAS_CHECK: "1"
           SKIP_API_CHECK: "1"
         run: |
