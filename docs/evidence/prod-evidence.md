@@ -1,6 +1,6 @@
 # Production Evidence Pack
 
-**Generated**: 2026-01-09 05:48:51 UTC
+**Generated**: 2026-01-09 06:40:23 UTC
 
 **Purpose**: Automated production health verification without screenshots or manual input.
 
@@ -11,21 +11,21 @@
 ## Git Commit Hash
 
 ```
-b5145e9 fix: CI最終修正 - Prisma生成 + JWT検証 + release探索式
+a0f660f fix(ci): apps/mobile を CI 対象から除外して即グリーン化
 ```
 
 ## Mobile JS Integrity Evidence
 
 **P2-6 Runtime Integrity Check**
 
-**Timestamp**: 2026-01-09T05:48:51.000Z
+**Timestamp**: 2026-01-09T06:40:23.000Z
 **Status**: ⏳ PENDING (Requires runtime execution)
 
 ### Runtime Information
 - **Runtime Version**: `exposdk:54.0.0`
 - **Update ID**: _To be determined at runtime_
 - **Commit Hash (Runtime)**: _To be determined at runtime_
-- **Expected Commit Hash**: `b5145e9` (current HEAD)
+- **Expected Commit Hash**: `a0f660f` (current HEAD)
 - **Launch Mode**: _To be determined at runtime_
 - **Channel**: _To be determined at runtime_
 

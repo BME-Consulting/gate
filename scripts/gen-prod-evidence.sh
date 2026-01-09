@@ -22,7 +22,16 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
 OUTPUT_FILE="docs/evidence/prod-evidence.md"
-TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+
+# Deterministic timestamps (same commit => same evidence)
+EPOCH="${SOURCE_DATE_EPOCH:-$(git show -s --format=%ct HEAD)}"
+NOW_UTC="$(date -u -d "@$EPOCH" '+%Y-%m-%d %H:%M:%S UTC' 2>/dev/null || date -u -r "$EPOCH" '+%Y-%m-%d %H:%M:%S UTC')"
+NOW_ISO="$(date -u -d "@$EPOCH" '+%Y-%m-%dT%H:%M:%S.000Z' 2>/dev/null || date -u -r "$EPOCH" '+%Y-%m-%dT%H:%M:%S.000Z')"
+
+COMMIT_SHA="${GITHUB_SHA:-$(git rev-parse HEAD)}"
+COMMIT_SHORT="${COMMIT_SHA:0:7}"
+
+TIMESTAMP="$NOW_UTC"
 
 # ==========================================
 # Helper: Mask secrets in output
@@ -84,8 +93,8 @@ check_js_integrity() {
   echo "**P2-6 Runtime Integrity Check**"
   echo ""
 
-  local expected_commit=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-  local timestamp=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
+  local expected_commit="$COMMIT_SHORT"
+  local timestamp="$NOW_ISO"
 
   echo "**Timestamp**: $timestamp"
   echo "**Status**: ⏳ PENDING (Requires runtime execution)"
@@ -179,7 +188,7 @@ check_api_health() {
   fi
 
   # Check if API is accessible
-  local api_url="http://192.168.1.4:7070"
+  local api_url="${API_BASE_URL:-http://192.168.1.4:7070}"
 
   echo "### GS API Health (\`$api_url/health\`)"
   echo ""
@@ -221,7 +230,7 @@ check_keycloak_issuer() {
     return
   fi
 
-  local issuer_url="http://192.168.1.4:8081/realms/mcd3"
+  local issuer_url="${AUTH_ISSUER_URL:-http://192.168.1.4:8081/realms/mcd3}"
 
   echo "### Issuer URL: \`$issuer_url\`"
   echo ""

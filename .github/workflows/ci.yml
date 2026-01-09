@@ -211,6 +211,7 @@ jobs:
           SKIP_EAS_CHECK: "1"
           SKIP_API_CHECK: "1"
         run: |
+          export SOURCE_DATE_EPOCH="$(git show -s --format=%ct $GITHUB_SHA)"
           echo "📦 Generating Production Evidence Pack..."
           bash scripts/gen-prod-evidence.sh
 
