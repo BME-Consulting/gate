@@ -1,3 +1,9 @@
+## [1.0.5](https://github.com/BME-Consulting/gate/compare/v1.0.4...v1.0.5) (2026-01-09)
+
+### Bug Fixes
+
+* **ci:** apps/mobile を CI 対象から除外して即グリーン化 ([a0f660f](https://github.com/BME-Consulting/gate/commit/a0f660f9ea6c4b5de7b8bf7cdfc8ff769e2c5a26))
+
 ## [1.0.4](https://github.com/BME-Consulting/gate/compare/v1.0.3...v1.0.4) (2026-01-09)
 
 ### Bug Fixes
