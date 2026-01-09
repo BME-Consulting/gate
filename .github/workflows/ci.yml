@@ -215,7 +215,7 @@ jobs:
           LC_ALL: C
           LANG: C
         run: |
-          export SOURCE_DATE_EPOCH="$(git show -s --format=%ct $GITHUB_SHA)"
+          # Don't set SOURCE_DATE_EPOCH - let generator script use its own last commit timestamp
           echo "📦 Generating Production Evidence Pack..."
           bash scripts/gen-prod-evidence.sh
 
