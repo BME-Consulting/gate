@@ -210,10 +210,22 @@ jobs:
           TZ: UTC
           SKIP_EAS_CHECK: "1"
           SKIP_API_CHECK: "1"
+          API_BASE_URL: "http://192.168.1.4:7070"
+          AUTH_ISSUER_URL: "http://192.168.1.4:8081/realms/mcd3"
+          LC_ALL: C
+          LANG: C
         run: |
           export SOURCE_DATE_EPOCH="$(git show -s --format=%ct $GITHUB_SHA)"
           echo "📦 Generating Production Evidence Pack..."
           bash scripts/gen-prod-evidence.sh
+
+      - name: Show evidence diff (if any)
+        if: always()
+        run: |
+          echo "=== git status ==="
+          git status --porcelain || true
+          echo "=== diff (docs/evidence/prod-evidence.md) ==="
+          git diff -- docs/evidence/prod-evidence.md || true
 
       - name: Check for Evidence Pack changes
         run: |
@@ -243,6 +255,14 @@ jobs:
           name: production-evidence-pack
           path: docs/evidence/prod-evidence.md
           retention-days: 30
+
+      - name: Upload generated evidence (debug)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prod-evidence-generated
+          path: docs/evidence/prod-evidence.md
+          retention-days: 7
 
       - name: Drift Detection - Production Freeze Guard
         run: |
