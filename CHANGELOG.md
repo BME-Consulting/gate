@@ -1,3 +1,9 @@
+## [1.0.8](https://github.com/BME-Consulting/gate/compare/v1.0.7...v1.0.8) (2026-01-09)
+
+### Bug Fixes
+
+* **ci:** make evidence pack stable across commits ([d545903](https://github.com/BME-Consulting/gate/commit/d545903c9fc8ee047c9cf75a859f2ac164708298))
+
 ## [1.0.7](https://github.com/BME-Consulting/gate/compare/v1.0.6...v1.0.7) (2026-01-09)
 
 ## [1.0.6](https://github.com/BME-Consulting/gate/compare/v1.0.5...v1.0.6) (2026-01-09)
