@@ -23,7 +23,6 @@ export class BLECardReader {
   private manager: BleManager;
   private device: Device | null = null;
   private listeners: ((card: CardData) => void)[] = [];
-  private scanSubscription: { remove: () => void } | null = null;
   private notificationSubscription: { remove: () => void } | null = null;
 
   constructor() {
@@ -49,8 +48,8 @@ export class BLECardReader {
     }
 
     return new Promise((resolve, reject) => {
-      // スキャン開始
-      this.scanSubscription = this.manager.startDeviceScan(
+      // スキャン開始（戻り値なし）
+      this.manager.startDeviceScan(
         [CCUS_SERVICE_UUID], // TODO: CCUSカードリーダーのService UUIDでフィルタリング
         { allowDuplicates: false },
         (error, device) => {

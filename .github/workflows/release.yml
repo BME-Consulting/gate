@@ -9,6 +9,10 @@ jobs:
     name: Semantic Release
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: write        # タグpush/コミットに必要
+      issues: write          # semantic-release用
+      pull-requests: write   # semantic-release用
 
     steps:
       - name: Checkout code

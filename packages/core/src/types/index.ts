@@ -2,6 +2,9 @@
 // MCD3 通門管理 コア型定義
 // ==========================================
 
+// eslint-disable-next-line @typescript-eslint/triple-slash-reference
+/// <reference path="./global.d.ts" />
+
 export type PersonId = string;
 export type ProjectId = string;
 export type UUID = string;
