@@ -95,8 +95,17 @@ jobs:
           sleep 5
           curl -s http://localhost:7070/health || (echo "Server failed to start" && exit 1)
 
+      - name: Check Keycloak secrets exist
+        id: kc
+        run: |
+          if [ -n "${{ secrets.KC_USERNAME }}" ] && [ -n "${{ secrets.KC_PASSWORD }}" ]; then
+            echo "has_kc=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_kc=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Run OAuth Authorization Tests
-        if: ${{ vars.AUTHZ_E2E_ENABLED == 'true' && env.KC_USERNAME != '' && env.KC_PASSWORD != '' }}
+        if: ${{ vars.AUTHZ_E2E_ENABLED == 'true' && steps.kc.outputs.has_kc == 'true' }}
         working-directory: apps/gs-api
         env:
           API_URL: http://localhost:7070/api/me/projects

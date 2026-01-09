@@ -45,7 +45,8 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Generate Prisma Client (gs-api)
-        run: pnpm --filter ./apps/gs-api prisma generate
+        working-directory: apps/gs-api
+        run: pnpm run prisma:generate
 
       - name: Run ESLint
         run: pnpm lint
