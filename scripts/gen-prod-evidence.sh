@@ -23,13 +23,15 @@ cd "$REPO_ROOT"
 
 OUTPUT_FILE="docs/evidence/prod-evidence.md"
 
-# Deterministic timestamps (same commit => same evidence)
-EPOCH="${SOURCE_DATE_EPOCH:-$(git show -s --format=%ct HEAD)}"
-NOW_UTC="$(date -u -d "@$EPOCH" '+%Y-%m-%d %H:%M:%S UTC' 2>/dev/null || date -u -r "$EPOCH" '+%Y-%m-%d %H:%M:%S UTC')"
-NOW_ISO="$(date -u -d "@$EPOCH" '+%Y-%m-%dT%H:%M:%S.000Z' 2>/dev/null || date -u -r "$EPOCH" '+%Y-%m-%dT%H:%M:%S.000Z')"
+# Deterministic timestamps (change only when generator changes)
+# Use generator script's last commit, not current HEAD
+GEN_EPOCH="${SOURCE_DATE_EPOCH:-$(git log -1 --format=%ct -- scripts/gen-prod-evidence.sh)}"
+NOW_UTC="$(date -u -d "@$GEN_EPOCH" '+%Y-%m-%d %H:%M:%S UTC' 2>/dev/null || date -u -r "$GEN_EPOCH" '+%Y-%m-%d %H:%M:%S UTC')"
+NOW_ISO="$(date -u -d "@$GEN_EPOCH" '+%Y-%m-%dT%H:%M:%S.000Z' 2>/dev/null || date -u -r "$GEN_EPOCH" '+%Y-%m-%dT%H:%M:%S.000Z')"
 
-COMMIT_SHA="${GITHUB_SHA:-$(git rev-parse HEAD)}"
-COMMIT_SHORT="${COMMIT_SHA:0:7}"
+# Generator version (not current HEAD)
+GEN_SHA="$(git log -1 --format=%H -- scripts/gen-prod-evidence.sh)"
+GEN_SHORT="${GEN_SHA:0:7}"
 
 TIMESTAMP="$NOW_UTC"
 
@@ -43,13 +45,13 @@ mask_secret() {
 }
 
 # ==========================================
-# Section 1: Git Commit Hash
+# Section 1: Evidence Generator Version
 # ==========================================
 get_git_commit() {
-  echo "## Git Commit Hash"
+  echo "## Evidence Generator Version"
   echo ""
   echo '```'
-  git log --oneline -1
+  git log --oneline -1 -- scripts/gen-prod-evidence.sh
   echo '```'
   echo ""
 }
@@ -93,7 +95,7 @@ check_js_integrity() {
   echo "**P2-6 Runtime Integrity Check**"
   echo ""
 
-  local expected_commit="$COMMIT_SHORT"
+  local expected_commit="$GEN_SHORT"
   local timestamp="$NOW_ISO"
 
   echo "**Timestamp**: $timestamp"
@@ -104,7 +106,7 @@ check_js_integrity() {
   echo "- **Runtime Version**: \`exposdk:54.0.0\`"
   echo "- **Update ID**: _To be determined at runtime_"
   echo "- **Commit Hash (Runtime)**: _To be determined at runtime_"
-  echo "- **Expected Commit Hash**: \`$expected_commit\` (current HEAD)"
+  echo "- **Expected Generator Version**: \`$expected_commit\` (evidence generator)"
   echo "- **Launch Mode**: _To be determined at runtime_"
   echo "- **Channel**: _To be determined at runtime_"
   echo ""
