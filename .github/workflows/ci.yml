@@ -95,7 +95,7 @@ jobs:
         run: pnpm -r --filter "!./apps/mobile" test -- --passWithNoTests
 
       - name: Upload test coverage
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         if: always()
         with:
           files: ./coverage/lcov.info
