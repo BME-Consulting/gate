@@ -10,7 +10,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "react-native": "0.81.5",
+    "react-native": "0.83.1",
     "react-native-ble-plx": "^3.3.0"
   },
   "devDependencies": {
